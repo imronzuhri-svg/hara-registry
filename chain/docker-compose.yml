@@ -1,0 +1,443 @@
+name: hara-ledger
+
+# Hara-ledger cluster (validators + RPC mesh + LB + app services).
+#
+# Shared infrastructure (Vault, Prometheus, Alertmanager, Loki, Promtail,
+# Grafana, alert-sink) lives in C:/Projects/claude projects/_platform/.
+# Bring up `_platform` FIRST, then this stack. The shared services live on
+# the same `hara-platform` Docker network and are reachable by DNS name
+# (vault, prometheus, alertmanager, loki, grafana, alert-sink).
+
+x-besu-common: &besu-common
+  build:
+    context: ./node
+    dockerfile: Dockerfile
+  image: hara-ledger-node:latest
+  restart: unless-stopped
+  networks:
+    - hara-platform
+  depends_on:
+    init:
+      condition: service_completed_successfully
+
+services:
+  # ─────────────────────────────────────────────────────────────────────────
+  # Init — generates validator keys, loads Vault, writes genesis. Runs once.
+  # Vault must already be healthy (provided by _platform).
+  # ─────────────────────────────────────────────────────────────────────────
+  init:
+    build:
+      context: ./init
+      dockerfile: Dockerfile
+    container_name: hara-init
+    environment:
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN:-haraledger-dev-root}
+      VALIDATOR_COUNT: ${HARA_VALIDATOR_COUNT:-4}
+      CHAIN_ID: ${HARA_CHAIN_ID:-131216}
+      BLOCK_PERIOD_SECONDS: ${HARA_BLOCK_PERIOD_SECONDS:-2}
+    volumes:
+      - ./qbft-config.json:/work/qbft-config.json:ro
+      - ./genesis:/work/genesis
+      - ./generated:/work/generated
+      - chain-shared:/shared
+    networks:
+      - hara-platform
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Validators 1–4
+  # ─────────────────────────────────────────────────────────────────────────
+  validator1:
+    <<: *besu-common
+    container_name: hara-validator1
+    environment:
+      VALIDATOR_ID: "1"
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN:-haraledger-dev-root}
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.11
+    volumes:
+      - validator1-data:/opt/besu/data
+      - ./genesis:/opt/besu/genesis:ro
+      - chain-shared:/shared:ro
+      - ./scripts/start-validator.sh:/start-validator.sh:ro
+    entrypoint: ["/bin/bash", "/start-validator.sh"]
+    ports:
+      - "30303:30303/tcp"
+      - "30303:30303/udp"
+
+  validator2:
+    <<: *besu-common
+    container_name: hara-validator2
+    environment:
+      VALIDATOR_ID: "2"
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN:-haraledger-dev-root}
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.12
+    volumes:
+      - validator2-data:/opt/besu/data
+      - ./genesis:/opt/besu/genesis:ro
+      - chain-shared:/shared:ro
+      - ./scripts/start-validator.sh:/start-validator.sh:ro
+    entrypoint: ["/bin/bash", "/start-validator.sh"]
+
+  validator3:
+    <<: *besu-common
+    container_name: hara-validator3
+    environment:
+      VALIDATOR_ID: "3"
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN:-haraledger-dev-root}
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.13
+    volumes:
+      - validator3-data:/opt/besu/data
+      - ./genesis:/opt/besu/genesis:ro
+      - chain-shared:/shared:ro
+      - ./scripts/start-validator.sh:/start-validator.sh:ro
+    entrypoint: ["/bin/bash", "/start-validator.sh"]
+
+  validator4:
+    <<: *besu-common
+    container_name: hara-validator4
+    environment:
+      VALIDATOR_ID: "4"
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN:-haraledger-dev-root}
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.14
+    volumes:
+      - validator4-data:/opt/besu/data
+      - ./genesis:/opt/besu/genesis:ro
+      - chain-shared:/shared:ro
+      - ./scripts/start-validator.sh:/start-validator.sh:ro
+    entrypoint: ["/bin/bash", "/start-validator.sh"]
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # L1 — RPC read/write separation
+  # ─────────────────────────────────────────────────────────────────────────
+  rpc-read-1:
+    <<: *besu-common
+    container_name: hara-rpc-read-1
+    environment:
+      VALIDATOR_ID: "rpc-read-1"
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.21
+    volumes:
+      - rpc-read-1-data:/opt/besu/data
+      - ./genesis:/opt/besu/genesis:ro
+      - chain-shared:/shared:ro
+      - ./scripts/start-rpc.sh:/start-rpc.sh:ro
+    entrypoint: ["/bin/bash", "/start-rpc.sh"]
+
+  rpc-read-2:
+    <<: *besu-common
+    container_name: hara-rpc-read-2
+    environment:
+      VALIDATOR_ID: "rpc-read-2"
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.22
+    volumes:
+      - rpc-read-2-data:/opt/besu/data
+      - ./genesis:/opt/besu/genesis:ro
+      - chain-shared:/shared:ro
+      - ./scripts/start-rpc.sh:/start-rpc.sh:ro
+    entrypoint: ["/bin/bash", "/start-rpc.sh"]
+
+  rpc-write:
+    <<: *besu-common
+    container_name: hara-rpc-write
+    environment:
+      VALIDATOR_ID: "rpc-write"
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.23
+    volumes:
+      - rpc-write-data:/opt/besu/data
+      - ./genesis:/opt/besu/genesis:ro
+      - chain-shared:/shared:ro
+      - ./scripts/start-rpc.sh:/start-rpc.sh:ro
+    entrypoint: ["/bin/bash", "/start-rpc.sh"]
+
+  lb:
+    image: haproxy:2.9-alpine
+    container_name: hara-lb
+    restart: unless-stopped
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.30
+    volumes:
+      - ./lb/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    ports:
+      - "8545:8545"
+      - "8546:8546"
+      - "8404:8404"
+    depends_on:
+      rpc-read-1:
+        condition: service_started
+      rpc-read-2:
+        condition: service_started
+      rpc-write:
+        condition: service_started
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Application data tier (still per-project in Phase 1; Phase 2 will share)
+  # ─────────────────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: hara-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-hara}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hara_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-hara_indexer}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      hara-platform:
+        # Static IP — prevents Postgres from grabbing 10.42.0.2 (reserved for platform Vault)
+        # when the platform stack is briefly down.
+        ipv4_address: 10.42.0.45
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hara} -d ${POSTGRES_DB:-hara_indexer}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 3s
+
+  redis:
+    image: redis:7-alpine
+    container_name: hara-redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.46
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # L2 — application service tier (migrations, signer, broadcaster)
+  # ─────────────────────────────────────────────────────────────────────────
+  migrate:
+    build:
+      context: ../services
+      dockerfile: migrate/Dockerfile
+    image: hara-ledger-migrate:latest
+    container_name: hara-migrate
+    networks:
+      - hara-platform
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-hara}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hara_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-hara_indexer}
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  signer:
+    build:
+      context: ../services
+      dockerfile: signer/Dockerfile
+    image: hara-ledger-signer:latest
+    container_name: hara-signer
+    restart: unless-stopped
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.40
+    environment:
+      SERVICE_NAME: signer
+      SIGNER_PORT: 7000
+      HARA_CHAIN_ID: ${HARA_CHAIN_ID:-131216}
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN:-haraledger-dev-root}
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER:-hara}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hara_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-hara_indexer}
+      REDIS_HOST: redis
+      RPC_READ_URL: http://lb:8545/rpc/read
+      LOG_LEVEL: info
+    ports:
+      - "7000:7000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      lb:
+        condition: service_started
+
+  rpc-cache:
+    build:
+      context: ../services
+      dockerfile: rpc-cache/Dockerfile
+    image: hara-ledger-rpc-cache:latest
+    container_name: hara-rpc-cache
+    restart: unless-stopped
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.47
+    environment:
+      SERVICE_NAME: rpc-cache
+      PORT: 8080
+      UPSTREAM_RPC: http://lb:8545/rpc/read
+      REDIS_HOST: redis
+      REDIS_DB: 5
+      LOG_LEVEL: info
+    ports:
+      - "8088:8080"
+    depends_on:
+      lb:
+        condition: service_started
+      redis:
+        condition: service_started
+
+  indexer:
+    build:
+      context: ../services
+      dockerfile: indexer/Dockerfile
+    image: hara-ledger-indexer:latest
+    container_name: hara-indexer
+    restart: unless-stopped
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.42
+    environment:
+      SERVICE_NAME: indexer
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER:-hara}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hara_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-hara_indexer}
+      RPC_READ_URL: http://lb:8545/rpc/read
+      METRICS_PORT: 9100
+      POLL_INTERVAL_MS: 2000
+      BATCH_SIZE: 200
+      CONFIRMATIONS: 1
+      LOG_LEVEL: info
+    ports:
+      - "9100:9100"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      lb:
+        condition: service_started
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # L5 — Blockscout technical explorer
+  #   blockscout-db-init : one-shot — creates 'blockscout' database in shared postgres
+  #   blockscout         : Erlang/Phoenix backend, indexes chain + exposes REST/GraphQL
+  #   blockscout-fe      : Next.js frontend, host :4010
+  # ─────────────────────────────────────────────────────────────────────────
+  blockscout-db-init:
+    image: postgres:16-alpine
+    container_name: hara-blockscout-db-init
+    networks:
+      - hara-platform
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-hara}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-hara_dev_password}
+    volumes:
+      - ./blockscout/init-db.sh:/init-db.sh:ro
+    entrypoint: ["sh", "/init-db.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  blockscout:
+    image: blockscout/blockscout:6.10.1
+    container_name: hara-blockscout
+    restart: unless-stopped
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.43
+    env_file:
+      - ./blockscout/envs/common-blockscout.env
+    command:
+      - sh
+      - -c
+      - bin/blockscout eval "Elixir.Explorer.ReleaseTasks.create_and_migrate()" && bin/blockscout start
+    ports:
+      - "4000:4000"
+    depends_on:
+      blockscout-db-init:
+        condition: service_completed_successfully
+      lb:
+        condition: service_started
+      redis:
+        condition: service_started
+
+  blockscout-fe:
+    image: ghcr.io/blockscout/frontend:v1.37.1
+    container_name: hara-blockscout-fe
+    restart: unless-stopped
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.44
+    env_file:
+      - ./blockscout/envs/common-frontend.env
+    ports:
+      - "4010:3000"
+    depends_on:
+      - blockscout
+
+  broadcaster:
+    build:
+      context: ../services
+      dockerfile: broadcaster/Dockerfile
+    image: hara-ledger-broadcaster:latest
+    container_name: hara-broadcaster
+    restart: unless-stopped
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.41
+    environment:
+      SERVICE_NAME: broadcaster
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER:-hara}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hara_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-hara_indexer}
+      REDIS_HOST: redis
+      RPC_WRITE_URL: http://lb:8545/rpc/write
+      RPC_READ_URL: http://lb:8545/rpc/read
+      LOG_LEVEL: info
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      signer:
+        condition: service_started
+      lb:
+        condition: service_started
+
+# `hara-platform` is created by _platform/docker-compose.yml.
+# Bring up _platform first.
+networks:
+  hara-platform:
+    name: hara-platform
+    external: true
+
+volumes:
+  validator1-data:
+  validator2-data:
+  validator3-data:
+  validator4-data:
+  rpc-read-1-data:
+  rpc-read-2-data:
+  rpc-write-data:
+  postgres-data:
+  redis-data:
+  chain-shared:

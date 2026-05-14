@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(ls \"C:/Projects/claude projects/hara-did/docs/architecture/\" 2>/dev/null && echo \"---\" && ls \"C:/Projects/claude projects/hara-ledger/\")"
+    ]
+  }
+}

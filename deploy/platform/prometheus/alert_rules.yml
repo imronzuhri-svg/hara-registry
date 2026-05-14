@@ -1,0 +1,149 @@
+groups:
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Chain — block production, validator participation
+  # ─────────────────────────────────────────────────────────────────────────
+  - name: chain.rules
+    interval: 15s
+    rules:
+      - alert: ChainStalled
+        expr: increase(besu_blockchain_chain_head_block_number[1m]) == 0
+        for: 30s
+        labels:
+          severity: critical
+          tier: chain
+        annotations:
+          summary: "Chain has produced no blocks for 1 minute (node {{ $labels.instance }})"
+          description: "Validator {{ $labels.instance }} reports unchanged block height. QBFT may have lost quorum or this node is partitioned."
+          runbook: "ops/runbooks/alerts/ChainStalled.md"
+
+      - alert: ValidatorPeersLow
+        expr: besu_peers_peer_count{role="validator"} < 3
+        for: 1m
+        labels:
+          severity: warning
+          tier: chain
+        annotations:
+          summary: "Validator {{ $labels.instance }} has only {{ $value }} peers"
+          description: "QBFT needs 3+ peer connections to participate in consensus. Investigate networking."
+          runbook: "ops/runbooks/alerts/ValidatorPeersLow.md"
+
+      - alert: ValidatorMetricsMissing
+        expr: up{job="besu-validators"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          tier: chain
+        annotations:
+          summary: "Cannot scrape validator {{ $labels.instance }}"
+          description: "Prometheus has not received metrics from this validator for over a minute. Container may be down."
+          runbook: "ops/runbooks/alerts/ValidatorMetricsMissing.md"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # RPC tier — load balancer + backends
+  # ─────────────────────────────────────────────────────────────────────────
+  - name: rpc.rules
+    interval: 15s
+    rules:
+      - alert: RPCBackendDown
+        expr: haproxy_server_status{backend=~"rpc_.*"} == 0
+        for: 30s
+        labels:
+          severity: warning
+          tier: rpc
+        annotations:
+          summary: "HAProxy backend {{ $labels.backend }}/{{ $labels.server }} is DOWN"
+          description: "Health check failing. Check the underlying RPC node container."
+          runbook: "ops/runbooks/alerts/RPCBackendDown.md"
+
+      - alert: RPCReadPoolAllDown
+        expr: sum by (backend) (haproxy_server_status{backend="rpc_read_pool"}) == 0
+        for: 30s
+        labels:
+          severity: critical
+          tier: rpc
+        annotations:
+          summary: "All read-pool backends DOWN"
+          description: "Every read RPC node is failing health checks. Public read traffic is failing."
+          runbook: "ops/runbooks/alerts/RPCReadPoolAllDown.md"
+
+      - alert: RPCHighErrorRate
+        expr: |
+          sum by (backend) (rate(haproxy_backend_http_responses_total{code=~"5..|4.."}[5m]))
+          /
+          sum by (backend) (rate(haproxy_backend_http_responses_total[5m])) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+          tier: rpc
+        annotations:
+          summary: "{{ $labels.backend }} returning >5% 4xx/5xx for 2m"
+          description: "Indicates clients are hitting bad paths or the backend is degraded."
+          runbook: "ops/runbooks/alerts/RPCHighErrorRate.md"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Services — signer, broadcaster, indexer
+  # ─────────────────────────────────────────────────────────────────────────
+  - name: services.rules
+    interval: 15s
+    rules:
+      - alert: IndexerLagHigh
+        expr: hara_indexer_lag_blocks > 50
+        for: 1m
+        labels:
+          severity: warning
+          tier: services
+        annotations:
+          summary: "Indexer lag is {{ $value }} blocks behind chain head"
+          description: "Indexer is not keeping up with block production. Investigate batch duration or DB write latency."
+          runbook: "ops/runbooks/alerts/IndexerLagHigh.md"
+
+      - alert: IndexerLagCritical
+        expr: hara_indexer_lag_blocks > 500
+        for: 1m
+        labels:
+          severity: critical
+          tier: services
+        annotations:
+          summary: "Indexer is {{ $value }} blocks behind"
+          description: "Indexer falling far behind — likely stuck or crashed and restarting in a loop."
+          runbook: "ops/runbooks/alerts/IndexerLagHigh.md"
+
+      - alert: IndexerErrorsFiring
+        expr: increase(hara_indexer_errors_total[5m]) > 5
+        for: 1m
+        labels:
+          severity: warning
+          tier: services
+        annotations:
+          summary: "Indexer logged {{ $value }} errors in the last 5 min at stage {{ $labels.stage }}"
+          description: "Sustained errors at {{ $labels.stage }} suggest a misconfiguration or upstream failure."
+          runbook: "ops/runbooks/alerts/IndexerErrorsFiring.md"
+
+      - alert: IndexerDown
+        expr: up{job="indexer"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          tier: services
+        annotations:
+          summary: "Indexer is unreachable"
+          description: "Prometheus cannot scrape the indexer's /metrics. Container likely crashed."
+          runbook: "ops/runbooks/alerts/IndexerDown.md"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Infra — scrape health, etc.
+  # ─────────────────────────────────────────────────────────────────────────
+  - name: infra.rules
+    interval: 30s
+    rules:
+      - alert: ScrapeTargetMissing
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: warning
+          tier: infra
+        annotations:
+          summary: "Scrape target {{ $labels.job }}/{{ $labels.instance }} is down"
+          description: "Prometheus cannot reach this target. Check the container and its /metrics endpoint."
+          runbook: "ops/runbooks/alerts/ScrapeTargetMissing.md"

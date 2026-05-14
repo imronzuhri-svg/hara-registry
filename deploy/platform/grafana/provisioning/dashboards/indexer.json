@@ -1,0 +1,80 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Indexer lag (blocks behind head)",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
+      "targets": [{ "expr": "hara_indexer_lag_blocks" }],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 10 },
+              { "color": "red", "value": 50 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Last indexed block",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 0 },
+      "targets": [{ "expr": "hara_indexer_last_indexed_block" }]
+    },
+    {
+      "type": "stat",
+      "title": "Chain head block",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 0 },
+      "targets": [{ "expr": "hara_indexer_chain_head_block" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Events indexed per second (by contract+event)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "targets": [
+        { "expr": "rate(hara_indexer_events_indexed_total[1m])", "legendFormat": "{{contract}}.{{event}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Raw logs / decoded events (sanity check)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "targets": [
+        { "expr": "rate(hara_indexer_events_raw_total[1m])", "legendFormat": "raw {{contract}}" },
+        { "expr": "sum(rate(hara_indexer_events_indexed_total[1m]))", "legendFormat": "decoded total" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Batch duration",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "targets": [{ "expr": "hara_indexer_batch_duration_ms" }],
+      "fieldConfig": { "defaults": { "unit": "ms" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Indexer errors per stage",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "targets": [
+        { "expr": "rate(hara_indexer_errors_total[5m])", "legendFormat": "{{stage}}" }
+      ]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["haraledger", "indexer", "l3"],
+  "templating": { "list": [] },
+  "time": { "from": "now-15m", "to": "now" },
+  "title": "HaraLedger — Indexer (L3)",
+  "uid": "haraledger-indexer",
+  "version": 1
+}

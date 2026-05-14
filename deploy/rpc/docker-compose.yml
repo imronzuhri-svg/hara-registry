@@ -1,0 +1,86 @@
+name: hara-ledger-rpc
+
+# RPC mesh — read replicas, write node, and the HAProxy LB in front of them.
+# In production this can run on its own VPS or co-locate with services/.
+
+x-besu-common: &besu-common
+  image: hara-ledger-node:latest  # Built by deploy/chain/ — must be on the same Docker host or registry
+  restart: unless-stopped
+  networks:
+    - hara-platform
+
+services:
+  rpc-read-1:
+    <<: *besu-common
+    container_name: hara-rpc-read-1
+    environment:
+      VALIDATOR_ID: "rpc-read-1"
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.21
+    volumes:
+      - rpc-read-1-data:/opt/besu/data
+      - ./genesis:/opt/besu/genesis:ro
+      - chain-shared:/shared:ro
+      - ./scripts/start-rpc.sh:/start-rpc.sh:ro
+    entrypoint: ["/bin/bash", "/start-rpc.sh"]
+
+  rpc-read-2:
+    <<: *besu-common
+    container_name: hara-rpc-read-2
+    environment:
+      VALIDATOR_ID: "rpc-read-2"
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.22
+    volumes:
+      - rpc-read-2-data:/opt/besu/data
+      - ./genesis:/opt/besu/genesis:ro
+      - chain-shared:/shared:ro
+      - ./scripts/start-rpc.sh:/start-rpc.sh:ro
+    entrypoint: ["/bin/bash", "/start-rpc.sh"]
+
+  rpc-write:
+    <<: *besu-common
+    container_name: hara-rpc-write
+    environment:
+      VALIDATOR_ID: "rpc-write"
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.23
+    volumes:
+      - rpc-write-data:/opt/besu/data
+      - ./genesis:/opt/besu/genesis:ro
+      - chain-shared:/shared:ro
+      - ./scripts/start-rpc.sh:/start-rpc.sh:ro
+    entrypoint: ["/bin/bash", "/start-rpc.sh"]
+
+  lb:
+    image: haproxy:2.9-alpine
+    container_name: hara-lb
+    restart: unless-stopped
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.30
+    volumes:
+      - ./lb/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    ports:
+      - "${RPC_HTTP_BIND:-0.0.0.0:8545}:8545"
+      - "${RPC_WS_BIND:-0.0.0.0:8546}:8546"
+      - "${HAPROXY_STATS_BIND:-127.0.0.1:8404}:8404"
+    depends_on:
+      rpc-read-1: { condition: service_started }
+      rpc-read-2: { condition: service_started }
+      rpc-write:  { condition: service_started }
+
+networks:
+  hara-platform:
+    name: hara-platform
+    external: true
+
+volumes:
+  rpc-read-1-data:
+  rpc-read-2-data:
+  rpc-write-data:
+  chain-shared:
+    external: true   # Shared with deploy/chain/ — same volume name across stacks

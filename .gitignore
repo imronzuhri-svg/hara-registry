@@ -1,0 +1,55 @@
+# ─── Build artifacts ──────────────────────────────────────────
+node_modules/
+dist/
+*.log
+npm-debug.log*
+*.tsbuildinfo
+
+# ─── Foundry ──────────────────────────────────────────────────
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+contracts/lib/
+
+# ─── Chain data (dev) ─────────────────────────────────────────
+# Never commit chain state — it contains validator keys before Vault load
+chain/data/
+chain/generated/
+chain/genesis/genesis.json
+chain/static-nodes.json
+**/key
+**/key.pub
+
+# ─── Chain data (deploy/) ─────────────────────────────────────
+deploy/chain/generated/
+deploy/chain/genesis/genesis.json
+deploy/**/static-nodes.json
+
+# ─── Secrets ──────────────────────────────────────────────────
+# All .env files (real values per deployment, never in git)
+# .env.example IS committed — that's the template
+.env
+.env.local
+*.env
+!*.env.example
+
+# Vault file backend if ever used (dev mode doesn't write to disk)
+vault/data/
+vault/file/
+
+# Generated secrets directory if any helper writes there
+secrets/
+*.pem
+*.crt
+
+# ─── IDE / OS ─────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ─── Temp / scratch ───────────────────────────────────────────
+tmp/
+.tmp/
+*.tmp

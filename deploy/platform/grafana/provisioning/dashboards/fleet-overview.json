@@ -1,0 +1,119 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Active alerts (firing)",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "targets": [{ "expr": "count(ALERTS{alertstate=\"firing\"})" }],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "options": { "colorMode": "background" }
+    },
+    {
+      "type": "stat",
+      "title": "Chain head block",
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
+      "targets": [{ "expr": "max(besu_blockchain_chain_head_block_number)" }]
+    },
+    {
+      "type": "stat",
+      "title": "Indexer lag",
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 },
+      "targets": [{ "expr": "hara_indexer_lag_blocks" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 10 },
+              { "color": "red", "value": 50 }
+            ]
+          },
+          "color": { "mode": "thresholds" }
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Scrape targets up",
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
+      "targets": [
+        { "expr": "sum(up)", "legendFormat": "up" },
+        { "expr": "count(up)", "legendFormat": "total" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Block production (rate per minute, per validator)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+      "targets": [
+        { "expr": "rate(besu_blockchain_chain_head_block_number[1m]) * 60", "legendFormat": "{{instance}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "RPC backend status",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+      "targets": [
+        { "expr": "haproxy_server_status{backend=~\"rpc_.*\"}", "legendFormat": "{{backend}}/{{server}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Indexed events / sec by contract",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "targets": [
+        { "expr": "sum by (contract) (rate(hara_indexer_events_indexed_total[1m]))", "legendFormat": "{{contract}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "HAProxy request rate (per backend)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+      "targets": [
+        { "expr": "sum by (backend) (rate(haproxy_backend_http_requests_total[1m]))", "legendFormat": "{{backend}}" }
+      ]
+    },
+    {
+      "type": "logs",
+      "title": "Recent indexer + signer + broadcaster logs (Loki)",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 21 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "expr": "{container=~\"hara-(indexer|signer|broadcaster)\"} |~ \"(?i)error|warn|fail\"" }
+      ],
+      "options": {
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      }
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["haraledger", "fleet", "l4"],
+  "templating": { "list": [] },
+  "time": { "from": "now-15m", "to": "now" },
+  "title": "HaraLedger — Fleet overview",
+  "uid": "haraledger-fleet",
+  "version": 1
+}

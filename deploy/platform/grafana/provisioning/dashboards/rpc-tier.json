@@ -1,0 +1,75 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Block height per node (validators vs RPC)",
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "besu_blockchain_chain_head_block_number", "legendFormat": "{{instance}} ({{role}})" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "RPC backend health (HAProxy)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "targets": [
+        { "expr": "haproxy_server_status", "legendFormat": "{{backend}}/{{server}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "RPC requests per second (HAProxy)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "targets": [
+        { "expr": "rate(haproxy_backend_http_requests_total[1m])", "legendFormat": "{{backend}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "HAProxy response codes (per backend)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "targets": [
+        { "expr": "rate(haproxy_backend_http_responses_total[1m])", "legendFormat": "{{backend}} {{code}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "HAProxy queue depth + connections",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "targets": [
+        { "expr": "haproxy_backend_current_queue", "legendFormat": "{{backend}} queue" },
+        { "expr": "haproxy_backend_current_sessions", "legendFormat": "{{backend}} sessions" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Besu transaction-pool size (write-tier)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 22 },
+      "targets": [
+        { "expr": "besu_transaction_pool_transactions{mode=\"write\"}", "legendFormat": "{{instance}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Peer count (all chain nodes)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 22 },
+      "targets": [
+        { "expr": "besu_peers_peer_count", "legendFormat": "{{instance}} ({{role}})" }
+      ]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["haraledger", "rpc", "haproxy", "l1"],
+  "templating": { "list": [] },
+  "time": { "from": "now-15m", "to": "now" },
+  "title": "HaraLedger — RPC tier (L1)",
+  "uid": "haraledger-rpc-tier",
+  "version": 1
+}

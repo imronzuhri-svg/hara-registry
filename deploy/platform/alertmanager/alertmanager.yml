@@ -1,0 +1,38 @@
+# HaraLedger L4 — Alertmanager
+#
+# In local dev, alerts are routed to a webhook that just prints to stdout.
+# Production (P1+) routes to Slack + email + PagerDuty.
+#
+# View alerts:
+#   - Prometheus  http://localhost:9090/alerts
+#   - Alertmanager http://localhost:9093
+#   - Grafana → Alerting → Active alerts (via the alertmanager datasource)
+
+global:
+  resolve_timeout: 1m
+
+route:
+  receiver: default
+  group_by: ["alertname", "tier"]
+  group_wait: 10s
+  group_interval: 30s
+  repeat_interval: 1h
+  routes:
+    - matchers:
+        - severity = "critical"
+      receiver: default
+      repeat_interval: 10m
+
+receivers:
+  - name: default
+    webhook_configs:
+      - url: http://alert-sink:8080/
+        send_resolved: true
+
+inhibit_rules:
+  # If we can't even scrape a target, suppress derivative alerts for the same instance
+  - source_matchers:
+      - alertname = "ScrapeTargetMissing"
+    target_matchers:
+      - severity = "warning"
+    equal: [instance]

@@ -1,0 +1,100 @@
+#cloud-config
+# Nevacloud VPS bootstrap — drop this into the user-data field at provision time.
+# Installs Docker + Compose plugin, the hara user, WireGuard, and clones the repo.
+# Designed for Ubuntu 22.04 / 24.04 LTS.
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - ca-certificates
+  - curl
+  - gnupg
+  - jq
+  - git
+  - wireguard
+  - rclone
+  - prometheus-node-exporter
+  - ufw
+  - fail2ban
+
+users:
+  - name: hara
+    groups: [docker, sudo]
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    ssh_authorized_keys:
+      # REPLACE with your team's SSH keys before booting
+      - ssh-ed25519 AAAA... ops@hara
+
+write_files:
+  - path: /etc/ufw/applications.d/hara
+    content: |
+      [hara-ssh]
+      title=SSH
+      description=SSH access
+      ports=22/tcp
+
+      [hara-rpc]
+      title=Chain RPC
+      description=Public-facing JSON-RPC + WS
+      ports=8545,8546/tcp
+
+      [hara-explorer]
+      title=Blockscout
+      description=Blockscout UI
+      ports=4010/tcp
+
+      [hara-grafana]
+      title=Grafana
+      description=Grafana UI (behind VPN ideally)
+      ports=3200/tcp
+
+      [hara-p2p]
+      title=Chain P2P
+      description=Besu validator P2P
+      ports=30303/tcp,30303/udp
+
+      [hara-wireguard]
+      title=WireGuard
+      description=Mesh overlay
+      ports=51820/udp
+
+runcmd:
+  # Docker engine
+  - install -m 0755 -d /etc/apt/keyrings
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+  - chmod a+r /etc/apt/keyrings/docker.gpg
+  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" > /etc/apt/sources.list.d/docker.list
+  - apt-get update
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+  # UFW basics — DON'T enable until WireGuard mesh is configured (would lock you out)
+  - ufw --force reset
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow hara-ssh
+  - ufw allow hara-wireguard
+  # ROLE-SPECIFIC: uncomment per role
+  # - ufw allow hara-rpc        # rpc + lb host
+  # - ufw allow hara-explorer   # services host
+  # - ufw allow hara-grafana    # platform host
+  # - ufw allow hara-p2p        # any validator host
+  # - ufw --force enable
+
+  # Clone the repo (read-only deploy key — generate per host with `ssh-keygen`)
+  - mkdir -p /opt/hara && chown hara:hara /opt/hara
+  - su - hara -c "git clone https://github.com/YOUR_ORG/hara-ledger.git /opt/hara/hara-ledger"
+
+  # Reload daemon, start docker
+  - systemctl daemon-reload
+  - systemctl enable --now docker
+  - systemctl enable --now prometheus-node-exporter
+  - systemctl enable --now fail2ban
+
+  # SSH hardening
+  - sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
+  - sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
+  - systemctl reload ssh
+
+final_message: "Hara VPS bootstrap complete. Next: configure WireGuard, run deploy/ops/secrets-bootstrap.sh, then bring up the role-specific compose."

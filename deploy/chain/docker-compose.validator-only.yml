@@ -1,0 +1,43 @@
+name: hara-ledger-validator
+
+# Single-validator deploy — for P1a+ where each validator runs on its own VPS.
+#
+# Required env on each host:
+#   VALIDATOR_ID=N           (1, 2, 3, or 4 — must be unique per host)
+#   VAULT_DEV_ROOT_TOKEN     (or eventually Vault AppRole creds)
+#   The genesis file + static-nodes/bootnodes config in /shared (copied from
+#   the host that ran init — or fetched via init container at boot)
+
+services:
+  validator:
+    build:
+      context: ./node
+      dockerfile: Dockerfile
+    image: hara-ledger-node:latest
+    container_name: hara-validator${VALIDATOR_ID:?VALIDATOR_ID required, 1-4}
+    restart: unless-stopped
+    environment:
+      VALIDATOR_ID: ${VALIDATOR_ID}
+      VAULT_ADDR: ${VAULT_ADDR:-http://vault:8200}
+      VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN:?required}
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.1${VALIDATOR_ID}
+    volumes:
+      - validator-data:/opt/besu/data
+      - ./genesis:/opt/besu/genesis:ro
+      - chain-shared:/shared:ro
+      - ./scripts/start-validator.sh:/start-validator.sh:ro
+    entrypoint: ["/bin/bash", "/start-validator.sh"]
+    ports:
+      - "0.0.0.0:30303:30303/tcp"
+      - "0.0.0.0:30303:30303/udp"
+
+networks:
+  hara-platform:
+    name: hara-platform
+    external: true
+
+volumes:
+  validator-data:
+  chain-shared:

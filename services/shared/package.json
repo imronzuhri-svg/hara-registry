@@ -1,0 +1,26 @@
+{
+  "name": "@hara/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./vault": "./src/vault.ts",
+    "./db": "./src/db.ts",
+    "./redis": "./src/redis.ts",
+    "./logger": "./src/logger.ts",
+    "./types": "./src/types.ts"
+  },
+  "dependencies": {
+    "pino": "^9.5.0",
+    "pg": "^8.13.0",
+    "ioredis": "^5.4.1",
+    "viem": "^2.21.40"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.10",
+    "@types/node": "^22.7.5",
+    "typescript": "^5.6.3"
+  }
+}

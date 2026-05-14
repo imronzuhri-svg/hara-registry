@@ -1,0 +1,7 @@
+packages:
+  - "shared"
+  - "signer"
+  - "broadcaster"
+  - "migrate"
+  - "indexer"
+  - "rpc-cache"

@@ -1,0 +1,169 @@
+name: hara-ledger-services
+
+# Application services: signer, broadcaster, indexer, rpc-cache, Blockscout (BE + FE).
+# In production runs on its own VPS, or co-locates with rpc/ on smaller deployments.
+
+services:
+  migrate:
+    build:
+      context: ../../services
+      dockerfile: migrate/Dockerfile
+    image: hara-ledger-migrate:latest
+    container_name: hara-migrate
+    networks: [hara-platform]
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER:?required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      POSTGRES_DB: ${POSTGRES_DB:-hara_indexer}
+      LOG_LEVEL: info
+    restart: "no"
+
+  signer:
+    build:
+      context: ../../services
+      dockerfile: signer/Dockerfile
+    image: hara-ledger-signer:latest
+    container_name: hara-signer
+    restart: unless-stopped
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.40
+    environment:
+      SERVICE_NAME: signer
+      SIGNER_PORT: 7000
+      HARA_CHAIN_ID: ${HARA_CHAIN_ID:-131216}
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN:?required}
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER:?required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      POSTGRES_DB: ${POSTGRES_DB:-hara_indexer}
+      REDIS_HOST: redis
+      RPC_READ_URL: http://lb:8545/rpc/read
+      LOG_LEVEL: info
+    ports:
+      - "${SIGNER_BIND:-127.0.0.1:7000}:7000"
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  broadcaster:
+    build:
+      context: ../../services
+      dockerfile: broadcaster/Dockerfile
+    image: hara-ledger-broadcaster:latest
+    container_name: hara-broadcaster
+    restart: unless-stopped
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.41
+    environment:
+      SERVICE_NAME: broadcaster
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER:?required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      POSTGRES_DB: ${POSTGRES_DB:-hara_indexer}
+      REDIS_HOST: redis
+      RPC_WRITE_URL: http://lb:8545/rpc/write
+      RPC_READ_URL: http://lb:8545/rpc/read
+      LOG_LEVEL: info
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      signer:  { condition: service_started }
+
+  indexer:
+    build:
+      context: ../../services
+      dockerfile: indexer/Dockerfile
+    image: hara-ledger-indexer:latest
+    container_name: hara-indexer
+    restart: unless-stopped
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.42
+    environment:
+      SERVICE_NAME: indexer
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER:?required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      POSTGRES_DB: ${POSTGRES_DB:-hara_indexer}
+      RPC_READ_URL: http://lb:8545/rpc/read
+      METRICS_PORT: 9100
+      POLL_INTERVAL_MS: 1000
+      BATCH_SIZE: 500
+      CONFIRMATIONS: 1
+      LOG_LEVEL: info
+    ports:
+      - "${INDEXER_METRICS_BIND:-127.0.0.1:9100}:9100"
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  rpc-cache:
+    build:
+      context: ../../services
+      dockerfile: rpc-cache/Dockerfile
+    image: hara-ledger-rpc-cache:latest
+    container_name: hara-rpc-cache
+    restart: unless-stopped
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.47
+    environment:
+      SERVICE_NAME: rpc-cache
+      PORT: 8080
+      UPSTREAM_RPC: http://lb:8545/rpc/read
+      REDIS_HOST: redis
+      REDIS_DB: 5
+      WARMUP_ON_START: "true"
+      LOG_LEVEL: info
+    ports:
+      - "${RPC_CACHE_BIND:-0.0.0.0:8088}:8080"
+
+  blockscout-db-init:
+    image: postgres:16-alpine
+    container_name: hara-blockscout-db-init
+    networks: [hara-platform]
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:?required}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?required}
+    volumes:
+      - ./blockscout/init-db.sh:/init-db.sh:ro
+    entrypoint: ["sh", "/init-db.sh"]
+    restart: "no"
+
+  blockscout:
+    image: blockscout/blockscout:6.10.1
+    container_name: hara-blockscout
+    restart: unless-stopped
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.43
+    env_file: [./blockscout/envs/common-blockscout.env]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/blockscout
+    command:
+      - sh
+      - -c
+      - bin/blockscout eval "Elixir.Explorer.ReleaseTasks.create_and_migrate()" && bin/blockscout start
+    ports:
+      - "${BLOCKSCOUT_BE_BIND:-127.0.0.1:4000}:4000"
+    depends_on:
+      blockscout-db-init: { condition: service_completed_successfully }
+
+  blockscout-fe:
+    image: ghcr.io/blockscout/frontend:v1.37.1
+    container_name: hara-blockscout-fe
+    restart: unless-stopped
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.44
+    env_file: [./blockscout/envs/common-frontend.env]
+    ports:
+      - "${BLOCKSCOUT_FE_BIND:-0.0.0.0:4010}:3000"
+    depends_on: [blockscout]
+
+networks:
+  hara-platform:
+    name: hara-platform
+    external: true

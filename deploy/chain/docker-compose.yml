@@ -1,0 +1,127 @@
+name: hara-ledger-chain
+
+# Besu QBFT validator cluster.
+#
+# Deployment modes:
+#   1. All 4 validators on one host (P0 smoke test):
+#        docker compose -f docker-compose.yml up -d
+#   2. One validator per host (P1a+ — recommended for real BFT):
+#        On hara-v1:  VALIDATOR_ID=1 docker compose -f docker-compose.validator-only.yml up -d
+#        On hara-v2:  VALIDATOR_ID=2 docker compose -f docker-compose.validator-only.yml up -d
+#        ... etc
+#
+# The init container MUST run once before the validators (any host can host it).
+# After init, validators fetch their key from Vault by VALIDATOR_ID.
+
+x-besu-common: &besu-common
+  build:
+    context: ./node
+    dockerfile: Dockerfile
+  image: hara-ledger-node:latest
+  restart: unless-stopped
+  depends_on:
+    init:
+      condition: service_completed_successfully
+
+services:
+  init:
+    build:
+      context: ./init
+      dockerfile: Dockerfile
+    container_name: hara-init
+    environment:
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN:?required}
+      VALIDATOR_COUNT: ${HARA_VALIDATOR_COUNT:-4}
+      CHAIN_ID: ${HARA_CHAIN_ID:-131216}
+      BLOCK_PERIOD_SECONDS: ${HARA_BLOCK_PERIOD_SECONDS:-2}
+    volumes:
+      - ./qbft-config.json:/work/qbft-config.json:ro
+      - ./genesis:/work/genesis
+      - ./generated:/work/generated
+      - chain-shared:/shared
+    networks:
+      - hara-platform
+
+  validator1:
+    <<: *besu-common
+    container_name: hara-validator1
+    environment:
+      VALIDATOR_ID: "1"
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN:?required}
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.11
+    volumes:
+      - validator1-data:/opt/besu/data
+      - ./genesis:/opt/besu/genesis:ro
+      - chain-shared:/shared:ro
+      - ./scripts/start-validator.sh:/start-validator.sh:ro
+    entrypoint: ["/bin/bash", "/start-validator.sh"]
+    ports:
+      - "${V1_P2P_BIND:-0.0.0.0:30303}:30303/tcp"
+      - "${V1_P2P_BIND:-0.0.0.0:30303}:30303/udp"
+
+  validator2:
+    <<: *besu-common
+    container_name: hara-validator2
+    environment:
+      VALIDATOR_ID: "2"
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN:?required}
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.12
+    volumes:
+      - validator2-data:/opt/besu/data
+      - ./genesis:/opt/besu/genesis:ro
+      - chain-shared:/shared:ro
+      - ./scripts/start-validator.sh:/start-validator.sh:ro
+    entrypoint: ["/bin/bash", "/start-validator.sh"]
+
+  validator3:
+    <<: *besu-common
+    container_name: hara-validator3
+    environment:
+      VALIDATOR_ID: "3"
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN:?required}
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.13
+    volumes:
+      - validator3-data:/opt/besu/data
+      - ./genesis:/opt/besu/genesis:ro
+      - chain-shared:/shared:ro
+      - ./scripts/start-validator.sh:/start-validator.sh:ro
+    entrypoint: ["/bin/bash", "/start-validator.sh"]
+
+  validator4:
+    <<: *besu-common
+    container_name: hara-validator4
+    environment:
+      VALIDATOR_ID: "4"
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN:?required}
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.14
+    volumes:
+      - validator4-data:/opt/besu/data
+      - ./genesis:/opt/besu/genesis:ro
+      - chain-shared:/shared:ro
+      - ./scripts/start-validator.sh:/start-validator.sh:ro
+    entrypoint: ["/bin/bash", "/start-validator.sh"]
+
+networks:
+  hara-platform:
+    name: hara-platform
+    external: true
+
+volumes:
+  validator1-data:
+  validator2-data:
+  validator3-data:
+  validator4-data:
+  chain-shared:

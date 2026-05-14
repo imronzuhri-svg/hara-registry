@@ -1,0 +1,120 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Cache hit rate (last 5m)",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(hara_rpc_cache_requests_total{outcome=\"hit\"}[5m])) / sum(rate(hara_rpc_cache_requests_total[5m]))",
+          "legendFormat": "hit rate"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0.5 },
+              { "color": "green", "value": 0.8 }
+            ]
+          },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "options": { "colorMode": "background" }
+    },
+    {
+      "type": "stat",
+      "title": "Cache entries (Redis)",
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
+      "targets": [{ "expr": "hara_rpc_cache_keys_total" }]
+    },
+    {
+      "type": "stat",
+      "title": "Requests / sec",
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 },
+      "targets": [{ "expr": "sum(rate(hara_rpc_cache_requests_total[1m]))" }],
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+    {
+      "type": "stat",
+      "title": "Errors (last 5m)",
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
+      "targets": [{ "expr": "sum(increase(hara_rpc_cache_errors_total[5m]))" }],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 10 }
+            ]
+          },
+          "color": { "mode": "thresholds" }
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Hit / miss rate per method",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+      "targets": [
+        {
+          "expr": "sum by (method, outcome) (rate(hara_rpc_cache_requests_total[1m]))",
+          "legendFormat": "{{method}} / {{outcome}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Serve latency p50 / p95 / p99 (by outcome)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum by (outcome, le) (rate(hara_rpc_cache_serve_latency_seconds_bucket[5m])))", "legendFormat": "p50 {{outcome}}" },
+        { "expr": "histogram_quantile(0.95, sum by (outcome, le) (rate(hara_rpc_cache_serve_latency_seconds_bucket[5m])))", "legendFormat": "p95 {{outcome}}" },
+        { "expr": "histogram_quantile(0.99, sum by (outcome, le) (rate(hara_rpc_cache_serve_latency_seconds_bucket[5m])))", "legendFormat": "p99 {{outcome}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Upstream RPC latency p95 (when cache misses)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum by (method, le) (rate(hara_rpc_cache_upstream_latency_seconds_bucket[5m])))", "legendFormat": "{{method}} p95" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "type": "barchart",
+      "title": "Hit rate per method (last 30m)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+      "targets": [
+        {
+          "expr": "sum by (method) (rate(hara_rpc_cache_requests_total{outcome=\"hit\"}[30m])) / sum by (method) (rate(hara_rpc_cache_requests_total[30m]))",
+          "legendFormat": "{{method}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "max": 1, "min": 0 } }
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["haraledger", "rpc-cache", "performance"],
+  "templating": { "list": [] },
+  "time": { "from": "now-30m", "to": "now" },
+  "title": "HaraLedger — RPC Cache",
+  "uid": "haraledger-rpc-cache",
+  "version": 1
+}

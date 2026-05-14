@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HaraLedger — Palm-Oil Traceability</title>
+
+  <!-- Cytoscape -->
+  <script src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
+  <script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
+  <script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+
+  <!-- AntV G6 v4 (more stable + richer layouts than v5 at time of writing) -->
+  <script src="https://unpkg.com/@antv/g6@4.8.24/dist/g6.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 12px 20px;
+      border-bottom: 1px solid #30363d;
+      background: #161b22;
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    header h1 { font-size: 15px; margin: 0; font-weight: 600; color: #58a6ff; }
+    header .meta { color: #8b949e; font-size: 13px; }
+    header label { color: #8b949e; font-size: 12px; }
+    header select, header input[type="text"] {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      color: #e6edf3;
+      padding: 5px 8px;
+      border-radius: 6px;
+      font: inherit;
+      font-size: 12px;
+    }
+    .tabs { display: inline-flex; background: #0d1117; border-radius: 6px; padding: 2px; border: 1px solid #30363d; }
+    .tab {
+      padding: 4px 12px;
+      font-size: 12px;
+      color: #8b949e;
+      cursor: pointer;
+      border-radius: 4px;
+      user-select: none;
+    }
+    .tab.active { background: #238636; color: white; }
+    .toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #8b949e; cursor: pointer; }
+    .toggle input { accent-color: #58a6ff; }
+    button {
+      background: #21262d;
+      border: 1px solid #30363d;
+      color: #e6edf3;
+      padding: 5px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+    }
+    button:hover { background: #30363d; }
+    button.primary { background: #238636; border-color: #2ea043; color: white; }
+    button.primary:hover { background: #2ea043; }
+
+    main { flex: 1; display: flex; min-height: 0; }
+    .canvas {
+      flex: 1;
+      background: #010409;
+      position: relative;
+    }
+    .canvas.hidden { display: none; }
+    #cy, #g6 { width: 100%; height: 100%; }
+
+    .canvas-label {
+      position: absolute;
+      top: 8px;
+      left: 12px;
+      background: #161b22cc;
+      backdrop-filter: blur(4px);
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      color: #8b949e;
+      pointer-events: none;
+      border: 1px solid #30363d;
+    }
+
+    aside {
+      width: 340px;
+      border-left: 1px solid #30363d;
+      background: #161b22;
+      padding: 14px;
+      overflow-y: auto;
+      font-size: 13px;
+    }
+    aside h2 { font-size: 11px; text-transform: uppercase; color: #8b949e; margin: 14px 0 6px; letter-spacing: 0.05em; }
+    aside h2:first-child { margin-top: 0; }
+    aside dl { margin: 0; display: grid; grid-template-columns: 100px 1fr; gap: 3px 10px; font-size: 12px; }
+    aside dt { color: #8b949e; }
+    aside dd { margin: 0; color: #e6edf3; font-family: ui-monospace, monospace; word-break: break-all; }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .pill.first { background: rgba(46, 160, 67, 0.2); color: #3fb950; }
+    .pill.current { background: rgba(88, 166, 255, 0.2); color: #58a6ff; }
+    .pill.hop { background: rgba(166, 124, 255, 0.2); color: #a371f7; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>HaraLedger Traceability</h1>
+
+    <label>Batch:</label>
+    <select id="batchSelect"></select>
+
+    <div class="meta" id="batchMeta">—</div>
+
+    <span style="flex: 1"></span>
+
+    <label>Engine:</label>
+    <div class="tabs" id="engineTabs">
+      <div class="tab active" data-engine="cytoscape">Cytoscape</div>
+      <div class="tab" data-engine="g6">AntV G6</div>
+    </div>
+
+    <label>Layout:</label>
+    <select id="layoutSelect"></select>
+
+    <label class="toggle">
+      <input type="checkbox" id="pinToggle" />
+      Pin source/outputs
+    </label>
+
+    <button id="refreshBtn" class="primary">Re-layout</button>
+  </header>
+
+  <main>
+    <div id="cyContainer" class="canvas">
+      <div class="canvas-label">Cytoscape.js</div>
+      <div id="cy"></div>
+    </div>
+    <div id="g6Container" class="canvas hidden">
+      <div class="canvas-label">AntV G6</div>
+      <div id="g6"></div>
+    </div>
+    <aside>
+      <h2>Batch</h2>
+      <dl id="batchPanel"><dt>Status</dt><dd>Loading…</dd></dl>
+      <h2>Selected</h2>
+      <dl id="selPanel"><dt>Status</dt><dd>Click a node or edge</dd></dl>
+    </aside>
+  </main>
+
+<script type="module">
+  cytoscape.use(cytoscapeDagre);
+
+  const API = window.location.search.match(/api=([^&]+)/)?.[1] ?? "http://localhost:9100";
+
+  const $sel = document.getElementById("batchSelect");
+  const $meta = document.getElementById("batchMeta");
+  const $bp = document.getElementById("batchPanel");
+  const $sp = document.getElementById("selPanel");
+  const $cyContainer = document.getElementById("cyContainer");
+  const $g6Container = document.getElementById("g6Container");
+  const $layout = document.getElementById("layoutSelect");
+  const $pin = document.getElementById("pinToggle");
+  const $tabs = document.querySelectorAll("#engineTabs .tab");
+  const $refresh = document.getElementById("refreshBtn");
+
+  // ───────────────────────────────────────────────────────────────
+  // State
+  // ───────────────────────────────────────────────────────────────
+  let activeEngine = "cytoscape";
+  let currentData = null;
+  let cy = null;
+  let g6Graph = null;
+
+  const LAYOUTS = {
+    cytoscape: [
+      { id: "dagre-lr",   label: "Dagre (left → right)",  opts: { name: "dagre", rankDir: "LR", nodeSep: 30, rankSep: 80 } },
+      { id: "dagre-tb",   label: "Dagre (top ↓ bottom)",  opts: { name: "dagre", rankDir: "TB", nodeSep: 30, rankSep: 60 } },
+      { id: "breadthfirst", label: "Breadth-first (from source)", opts: { name: "breadthfirst", directed: true, spacingFactor: 1.2 } },
+      { id: "concentric", label: "Concentric (by depth)", opts: { name: "concentric", minNodeSpacing: 30, concentric: function(n){ return n.data('hopIndex') ? -n.data('hopIndex') : 100; }, levelWidth: function(){return 1;} } },
+      { id: "circle",     label: "Circle",                opts: { name: "circle" } },
+      { id: "cose",       label: "Cose (force)",          opts: { name: "cose", animate: false, nodeRepulsion: 4000 } },
+      { id: "grid",       label: "Grid",                  opts: { name: "grid" } },
+    ],
+    g6: [
+      { id: "dagre-lr",   label: "Dagre (left → right)",  opts: { type: "dagre", rankdir: "LR", nodesep: 30, ranksep: 80 } },
+      { id: "dagre-tb",   label: "Dagre (top ↓ bottom)",  opts: { type: "dagre", rankdir: "TB", nodesep: 30, ranksep: 60 } },
+      { id: "force",      label: "Force-directed",        opts: { type: "force", linkDistance: 100, nodeStrength: -50, edgeStrength: 0.1 } },
+      { id: "gforce",     label: "gForce (GPU)",          opts: { type: "gForce", linkDistance: 100, nodeStrength: 500, edgeStrength: 200, gpuEnabled: true } },
+      { id: "radial",     label: "Radial (from source)",  opts: { type: "radial", unitRadius: 80, preventOverlap: true, nodeSize: 50 } },
+      { id: "concentric", label: "Concentric",            opts: { type: "concentric", preventOverlap: true, minNodeSpacing: 20 } },
+      { id: "circular",   label: "Circular",              opts: { type: "circular", radius: 250 } },
+      { id: "grid",       label: "Grid",                  opts: { type: "grid", begin: [20, 20] } },
+      { id: "fruchterman", label: "Fruchterman",          opts: { type: "fruchterman", gravity: 5, speed: 5 } },
+    ],
+  };
+
+  function populateLayoutDropdown() {
+    $layout.innerHTML = LAYOUTS[activeEngine].map(l => `<option value="${l.id}">${l.label}</option>`).join("");
+  }
+
+  // ───────────────────────────────────────────────────────────────
+  // Tab switching
+  // ───────────────────────────────────────────────────────────────
+  $tabs.forEach(tab => {
+    tab.addEventListener("click", () => {
+      $tabs.forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      activeEngine = tab.dataset.engine;
+      $cyContainer.classList.toggle("hidden", activeEngine !== "cytoscape");
+      $g6Container.classList.toggle("hidden", activeEngine !== "g6");
+      populateLayoutDropdown();
+      render();
+    });
+  });
+
+  $layout.addEventListener("change", render);
+  $pin.addEventListener("change", render);
+  $refresh.addEventListener("click", render);
+  $sel.addEventListener("change", () => loadBatch($sel.value));
+
+  function shortAddr(a) { return `${a.slice(0,6)}…${a.slice(-4)}`; }
+
+  // ───────────────────────────────────────────────────────────────
+  // Data load
+  // ───────────────────────────────────────────────────────────────
+  async function loadBatchList() {
+    const r = await fetch(`${API}/v1/batches?limit=50`);
+    const { items } = await r.json();
+    $sel.innerHTML = items.map(b =>
+      `<option value="${b.batch_id}">${b.batch_id} — ${b.hop_count} hops, ${b.initial_liters}L</option>`
+    ).join("");
+    if (items.length) await loadBatch(items[0].batch_id);
+  }
+
+  async function loadBatch(batchId) {
+    const r = await fetch(`${API}/v1/batches/${batchId}/graph?aggregate=true`);
+    const data = await r.json();
+    if (!data.batch) { $meta.textContent = "batch not found"; return; }
+    currentData = data;
+    const b = data.batch;
+    $meta.textContent = `${b.initial_liters}L · ${b.hop_count} hops · ${data.nodes.length} wallets · ${data.edges.length} edges`;
+    $bp.innerHTML = `
+      <dt>Batch ID</dt><dd>${b.batch_id}</dd>
+      <dt>Initial</dt><dd>${b.initial_liters} L</dd>
+      <dt>Total hops</dt><dd>${b.hop_count}</dd>
+      <dt>Wallets</dt><dd>${data.nodes.length}</dd>
+      <dt>Unique edges</dt><dd>${data.edges.length}</dd>
+      <dt>First owner</dt><dd>${shortAddr(b.first_owner)}</dd>
+      <dt>RSPO hash</dt><dd>${b.rspo_hash?.slice(0,18)}…</dd>
+      <dt>Minted at</dt><dd>${new Date(b.minted_at).toLocaleString()}</dd>`;
+    render();
+  }
+
+  // ───────────────────────────────────────────────────────────────
+  // Cytoscape renderer
+  // ───────────────────────────────────────────────────────────────
+  function renderCytoscape(data) {
+    if (cy) cy.destroy();
+    const layoutId = $layout.value || LAYOUTS.cytoscape[0].id;
+    const layout = LAYOUTS.cytoscape.find(l => l.id === layoutId).opts;
+
+    cy = cytoscape({
+      container: document.getElementById("cy"),
+      elements: [
+        ...data.nodes.map(n => ({ data: { ...n, isFirst: n.isFirstOwner, isCurrent: n.isCurrentHolder } })),
+        ...data.edges.map(e => ({ data: { ...e } })),
+      ],
+      layout: { ...layout, fit: true, padding: 30 },
+      style: [
+        { selector: "node", style: {
+          "background-color": "#21262d",
+          "border-width": 2,
+          "border-color": "#30363d",
+          "label": "data(label)",
+          "color": "#e6edf3",
+          "font-size": 9,
+          "font-family": "ui-monospace, monospace",
+          "text-valign": "center",
+          "text-halign": "center",
+          "width": 60,
+          "height": 60,
+          "shape": "round-rectangle",
+        }},
+        { selector: "node[?isFirst]",   style: { "background-color": "#1f6f2c", "border-color": "#3fb950", "width": 70, "height": 70 } },
+        { selector: "node[?isCurrent]", style: { "background-color": "#1f3f6f", "border-color": "#58a6ff" } },
+        { selector: "edge", style: {
+          "width": 2,
+          "line-color": "#a371f7",
+          "target-arrow-color": "#a371f7",
+          "target-arrow-shape": "triangle",
+          "curve-style": "bezier",
+          "label": "data(label)",
+          "color": "#c9d1d9",
+          "font-size": 8,
+          "text-background-color": "#0d1117",
+          "text-background-padding": 1,
+          "text-background-opacity": 1,
+          "text-rotation": "autorotate",
+        }},
+        { selector: ":selected", style: { "border-color": "#f0883e", "border-width": 4, "line-color": "#f0883e", "target-arrow-color": "#f0883e" } },
+      ],
+    });
+
+    cy.one("layoutstop", () => { if ($pin.checked) applyPinCytoscape(); });
+
+    cy.on("tap", "node", e => showNode(e.target.data()));
+    cy.on("tap", "edge", e => showEdge(e.target.data()));
+    cy.on("tap", e => { if (e.target === cy) $sp.innerHTML = '<dt>Status</dt><dd>Click a node or edge</dd>'; });
+  }
+
+  function applyPinCytoscape() {
+    if (!cy) return;
+    const bbox = cy.elements().boundingBox();
+    const minX = bbox.x1, maxX = bbox.x2;
+    const minY = bbox.y1, maxY = bbox.y2;
+    const midY = (minY + maxY) / 2;
+    const H = maxY - minY;
+
+    const sources = cy.nodes().filter(n => n.data("isFirst"));
+    sources.forEach(n => n.position({ x: minX - 80, y: midY }));
+
+    const outputs = cy.nodes().filter(n => n.data("isCurrent")).sort((a, b) => a.id().localeCompare(b.id()));
+    const step = (H + 80) / (outputs.length + 1);
+    outputs.forEach((n, i) => n.position({ x: maxX + 80, y: minY - 40 + (i + 1) * step }));
+
+    cy.fit(null, 40);
+  }
+
+  // ───────────────────────────────────────────────────────────────
+  // G6 renderer
+  // ───────────────────────────────────────────────────────────────
+  function renderG6(data) {
+    if (g6Graph) { g6Graph.destroy(); g6Graph = null; }
+    const layoutId = $layout.value || LAYOUTS.g6[0].id;
+    const layout = LAYOUTS.g6.find(l => l.id === layoutId).opts;
+
+    const container = document.getElementById("g6");
+    const width = container.offsetWidth;
+    const height = container.offsetHeight;
+
+    g6Graph = new G6.Graph({
+      container: "g6",
+      width, height,
+      layout,
+      modes: { default: ["drag-canvas", "zoom-canvas", "drag-node"] },
+      animate: false,
+      fitView: true,
+      fitViewPadding: 40,
+      defaultNode: {
+        type: "rect",
+        size: [70, 30],
+        style: { fill: "#21262d", stroke: "#30363d", lineWidth: 2, radius: 6 },
+        labelCfg: { style: { fill: "#e6edf3", fontSize: 9, fontFamily: "ui-monospace, monospace" } },
+      },
+      defaultEdge: {
+        type: "line",
+        style: { stroke: "#a371f7", endArrow: { path: G6.Arrow.triangle(6, 8), fill: "#a371f7" } },
+        labelCfg: { autoRotate: true, style: { fill: "#c9d1d9", fontSize: 8, background: { fill: "#0d1117", padding: [1, 2] } } },
+      },
+      nodeStateStyles: { selected: { stroke: "#f0883e", lineWidth: 4 } },
+      edgeStateStyles: { selected: { stroke: "#f0883e", lineWidth: 3 } },
+    });
+
+    const nodes = data.nodes.map(n => ({
+      id: n.id,
+      label: n.label,
+      style: {
+        fill: n.isFirstOwner ? "#1f6f2c" : n.isCurrentHolder ? "#1f3f6f" : "#21262d",
+        stroke: n.isFirstOwner ? "#3fb950" : n.isCurrentHolder ? "#58a6ff" : "#30363d",
+      },
+      _meta: n,
+    }));
+    const edges = data.edges.map(e => ({
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      label: e.label,
+      _meta: e,
+    }));
+
+    g6Graph.data({ nodes, edges });
+    g6Graph.render();
+
+    if ($pin.checked) applyPinG6();
+
+    g6Graph.on("node:click", evt => {
+      const model = evt.item.getModel();
+      showNode(model._meta);
+      g6Graph.findAllByState("node", "selected").forEach(n => g6Graph.setItemState(n, "selected", false));
+      g6Graph.setItemState(evt.item, "selected", true);
+    });
+    g6Graph.on("edge:click", evt => {
+      const model = evt.item.getModel();
+      showEdge(model._meta);
+      g6Graph.findAllByState("edge", "selected").forEach(n => g6Graph.setItemState(n, "selected", false));
+      g6Graph.setItemState(evt.item, "selected", true);
+    });
+    g6Graph.on("canvas:click", () => { $sp.innerHTML = '<dt>Status</dt><dd>Click a node or edge</dd>'; });
+  }
+
+  function applyPinG6() {
+    if (!g6Graph) return;
+    const allNodes = g6Graph.getNodes();
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    allNodes.forEach(n => {
+      const m = n.getModel();
+      if (m.x < minX) minX = m.x;
+      if (m.x > maxX) maxX = m.x;
+      if (m.y < minY) minY = m.y;
+      if (m.y > maxY) maxY = m.y;
+    });
+    const midY = (minY + maxY) / 2;
+    const H = maxY - minY;
+
+    const sources = allNodes.filter(n => n.getModel()._meta.isFirstOwner);
+    sources.forEach(n => g6Graph.updateItem(n, { x: minX - 80, y: midY }));
+
+    const outputs = allNodes.filter(n => n.getModel()._meta.isCurrentHolder)
+      .sort((a, b) => a.getModel().id.localeCompare(b.getModel().id));
+    const step = (H + 80) / (outputs.length + 1);
+    outputs.forEach((n, i) => g6Graph.updateItem(n, { x: maxX + 80, y: minY - 40 + (i + 1) * step }));
+
+    g6Graph.fitView(40);
+  }
+
+  // ───────────────────────────────────────────────────────────────
+  // Side-panel helpers
+  // ───────────────────────────────────────────────────────────────
+  function showNode(n) {
+    const role = n.isFirstOwner
+      ? '<span class="pill first">Origin</span>'
+      : n.isCurrentHolder
+      ? '<span class="pill current">Final holder</span>'
+      : '<span class="pill hop">Intermediate (tank / process)</span>';
+    $sp.innerHTML = `
+      <dt>Type</dt><dd>${role}</dd>
+      <dt>Address</dt><dd>${n.id}</dd>
+      <dt>Received</dt><dd>${n.receivedLiters ?? 0} L</dd>
+      <dt>Sent on</dt><dd>${n.sentLiters ?? 0} L</dd>
+      <dt>Balance</dt><dd>${n.currentLiters ?? 0} L</dd>`;
+  }
+  function showEdge(e) {
+    if (e.txCount !== undefined) {
+      $sp.innerHTML = `
+        <dt>Type</dt><dd>Tank-to-tank flow (aggregated)</dd>
+        <dt>From</dt><dd>${shortAddr(e.source)}</dd>
+        <dt>To</dt><dd>${shortAddr(e.target)}</dd>
+        <dt>Total volume</dt><dd>${e.liters} L</dd>
+        <dt>Transfers</dt><dd>${e.txCount} on-chain events</dd>
+        <dt>First at</dt><dd>${new Date(e.firstAt).toLocaleString()}</dd>
+        <dt>Last at</dt><dd>${new Date(e.lastAt).toLocaleString()}</dd>
+        <dt>Sample tx</dt><dd>${e.sampleTxHash?.slice(0,18)}…</dd>`;
+    } else {
+      $sp.innerHTML = `
+        <dt>Hop #</dt><dd>${(e.hopOrder ?? 0) + 1}</dd>
+        <dt>Volume</dt><dd>${e.liters} L</dd>
+        <dt>From</dt><dd>${shortAddr(e.source)}</dd>
+        <dt>To</dt><dd>${shortAddr(e.target)}</dd>
+        <dt>Tx</dt><dd>${e.txHash?.slice(0,18)}…</dd>
+        <dt>Block</dt><dd>${e.blockNumber}</dd>`;
+    }
+  }
+
+  // ───────────────────────────────────────────────────────────────
+  // Render dispatch
+  // ───────────────────────────────────────────────────────────────
+  function render() {
+    if (!currentData) return;
+    if (activeEngine === "cytoscape") renderCytoscape(currentData);
+    else renderG6(currentData);
+  }
+
+  // ───────────────────────────────────────────────────────────────
+  // Init
+  // ───────────────────────────────────────────────────────────────
+  populateLayoutDropdown();
+  await loadBatchList();
+</script>
+</body>
+</html>
