@@ -1,0 +1,25 @@
+# Gitleaks config — allowlists public dev fixtures that are intentionally in-repo
+# but would otherwise look like secrets to the scanner.
+
+[allowlist]
+description = "Public test fixtures used in dev only"
+
+paths = [
+  '''.*\.example$''',           # All .env.example templates
+  '''.*\.md$''',                # Docs explaining the dev defaults
+  '''contracts/test/.*''',      # Foundry tests use the well-known anvil key
+  '''ops/load-tests/.*''',      # Load-test scripts use the anvil key
+]
+
+regexes = [
+  # Foundry anvil account #0 private key — publicly documented in every Foundry tutorial.
+  # NOT a real secret; the address is a deterministic fixture for local dev only.
+  '''0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80''',
+
+  # Dev-mode Vault root token. Real value comes from VAULT_DEV_ROOT_TOKEN env at deploy time;
+  # this fallback only fires when no token is set (impossible in production).
+  '''haraledger-dev-root''',
+
+  # Dev Postgres password — same as above. Real value is generated per deployment.
+  '''hara_dev_password''',
+]

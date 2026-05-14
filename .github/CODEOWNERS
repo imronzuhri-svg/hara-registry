@@ -1,0 +1,19 @@
+# CODEOWNERS — auto-assigns reviewers per area.
+# When you have multiple maintainers, replace @imronzuhri-svg with team handles.
+#
+# Lines further down override earlier ones. Format: `<glob> <owner1> <owner2> ...`
+
+# Default — anything not covered below
+*                                @imronzuhri-svg
+
+# Smart contracts — extra-careful; consider 2 reviewers when team grows
+/contracts/                      @imronzuhri-svg
+
+# Production deployment layout — highest blast radius
+/deploy/                         @imronzuhri-svg
+/.github/                        @imronzuhri-svg
+SECURITY.md                      @imronzuhri-svg
+
+# Documentation — lower bar
+/doc/                            @imronzuhri-svg
+README.md                        @imronzuhri-svg

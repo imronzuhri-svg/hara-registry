@@ -1,0 +1,51 @@
+name: slither
+
+on:
+  push:
+    branches: [main]
+    paths: ["contracts/**", ".github/workflows/slither.yml"]
+  pull_request:
+    paths: ["contracts/**", ".github/workflows/slither.yml"]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: Slither static analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install OpenZeppelin contracts
+        working-directory: contracts
+        run: |
+          mkdir -p lib
+          git clone --depth 1 --branch v5.1.0 \
+            https://github.com/OpenZeppelin/openzeppelin-contracts.git \
+            lib/openzeppelin-contracts
+          git clone --depth 1 \
+            https://github.com/foundry-rs/forge-std.git \
+            lib/forge-std
+
+      - name: Run Slither
+        uses: crytic/slither-action@v0.4.0
+        with:
+          target: contracts/
+          fail-on: high  # Fail PR on high/critical findings; medium/low are reports only
+          slither-args: --filter-paths "lib/" --exclude-informational --exclude-low
+          sarif: slither.sarif
+        continue-on-error: true  # Report but don't gate yet — tune after first run
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: slither.sarif

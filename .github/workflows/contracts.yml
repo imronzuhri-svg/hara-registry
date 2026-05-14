@@ -1,0 +1,60 @@
+name: contracts
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "contracts/**"
+      - ".github/workflows/contracts.yml"
+  pull_request:
+    paths:
+      - "contracts/**"
+      - ".github/workflows/contracts.yml"
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: contracts
+
+jobs:
+  forge:
+    name: forge build + test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Install OpenZeppelin contracts
+        run: |
+          mkdir -p lib
+          git clone --depth 1 --branch v5.1.0 \
+            https://github.com/OpenZeppelin/openzeppelin-contracts.git \
+            lib/openzeppelin-contracts
+          git clone --depth 1 \
+            https://github.com/foundry-rs/forge-std.git \
+            lib/forge-std
+
+      - name: Format check
+        run: forge fmt --check
+        continue-on-error: true  # don't gate on style yet; just report
+
+      - name: Build
+        run: forge build --sizes
+
+      - name: Run tests
+        run: forge test -vv
+
+      - name: Coverage summary
+        run: forge coverage --report summary
+        continue-on-error: true  # coverage tool can be flaky on some configs
+
+      - name: Gas snapshot diff
+        run: forge snapshot --diff || true
