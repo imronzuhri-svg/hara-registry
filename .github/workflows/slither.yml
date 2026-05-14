@@ -46,7 +46,12 @@ jobs:
         continue-on-error: true  # Report but don't gate yet — tune after first run
 
       - name: Upload SARIF
+        # SARIF upload requires Code Scanning to be enabled on the repo,
+        # which on private repos needs GitHub Advanced Security (paid).
+        # Skip the upload until the repo is public OR GHAS is on; the
+        # Slither analysis above still runs and gates on `fail-on: high`,
+        # so findings stay visible in the workflow log.
+        if: always() && (github.event.repository.visibility == 'public' || vars.HARA_GHAS_ENABLED == 'true')
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
         with:
           sarif_file: slither.sarif
