@@ -6,20 +6,19 @@
 
 BEGIN;
 
--- Register the palm-oil contracts so the indexer starts capturing events from them.
--- The deterministic addresses below assume a fresh chain with deploys in this order:
---    nonce 0,1,2: Deploy.s.sol (ContractRegistry, Anchor, Governance)
---    nonce 3:    DeployTestToken.s.sol (if used)
---    nonce 4,5:  DeployPalmOil.s.sol (HaraPalmOil, TraceabilityBatchRelay)
--- If your chain has a different nonce sequence, update these manually after deploy
--- and re-INSERT — see ops/runbooks/L5-blockscout.md "Adding a new contract".
-INSERT INTO watched_contracts (contract_address, name) VALUES
-  ('0xa31f4c0ef2935af25370d9ae275169ccd9793da3', 'HaraPalmOil'),
-  ('0xf9c0bf1cfaab883adb95fed4cfd60133bffab18a', 'TraceabilityBatchRelay')
-ON CONFLICT (contract_address) DO NOTHING;
-
--- Clean up the old palm-oil seed if it leaked in from the original 002 run before
--- 003 was authored. Safe to run; no-op if rows aren't there.
+-- NOTE — palm-oil contract addresses are NO LONGER seeded from this migration.
+-- The deterministic-address assumption (Foundry anvil #0 deploy order) was
+-- fragile across chain wipes: addresses depended on the exact nonce sequence
+-- and broke whenever a new contract was inserted into the deploy chain or
+-- redeployed independently (e.g. PQAnchorRegistry on 2026-05-14).
+--
+-- The canonical seeder is now `scripts/register-watched.sh`, invoked from
+-- `make deploy` after each forge script returns with the actual deployed
+-- addresses. It UPSERTs and retires stale rows.
+--
+-- The legacy DELETE below remains in case migration 002's seed leaked the
+-- old placeholder palm-oil addresses on a long-lived dev DB. Idempotent;
+-- no-op on a clean install.
 DELETE FROM watched_contracts
  WHERE contract_address IN (
    '0x5fbdb2315678afecb367f032d93f642f64180aa3',

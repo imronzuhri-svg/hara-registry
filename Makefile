@@ -1,4 +1,4 @@
-.PHONY: help bootstrap up down logs deploy clean test status platform-up platform-down
+.PHONY: help bootstrap up down logs deploy deploy-all register-watched clean test status platform-up platform-down
 
 COMPOSE := docker compose -f chain/docker-compose.yml --env-file chain/.env
 PLATFORM := docker compose -f ../_platform/docker-compose.yml --env-file ../_platform/.env
@@ -54,8 +54,34 @@ logs:
 deploy:
 	cd contracts && forge script script/Deploy.s.sol:Deploy \
 		--rpc-url http://localhost:8545 \
-		--broadcast \
+		--broadcast --legacy --skip-simulation \
 		--private-key $${DEPLOYER_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
+	@./scripts/register-from-broadcast.sh contracts/broadcast/Deploy.s.sol/131216/run-latest.json
+
+# Deploy everything: base contracts + palm-oil + PQAnchor, then register all.
+# CONTRACT_REGISTRY for DeployPQAnchor is read from the freshly-deployed
+# ContractRegistry's broadcast file, so PQAnchor gets registered there too.
+deploy-all: deploy
+	cd contracts && forge script script/DeployPalmOil.s.sol:DeployPalmOil \
+		--rpc-url http://localhost:8545 \
+		--broadcast --legacy --skip-simulation \
+		--private-key $${DEPLOYER_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
+	@./scripts/register-from-broadcast.sh contracts/broadcast/DeployPalmOil.s.sol/131216/run-latest.json
+	@CR=$$(jq -r '.transactions[] | select(.contractName=="ContractRegistry") | .contractAddress' \
+		contracts/broadcast/Deploy.s.sol/131216/run-latest.json); \
+	cd contracts && CONTRACT_REGISTRY=$$CR forge script script/DeployPQAnchor.s.sol:DeployPQAnchor \
+		--rpc-url http://localhost:8545 \
+		--broadcast --legacy --skip-simulation \
+		--private-key $${DEPLOYER_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
+	@./scripts/register-from-broadcast.sh contracts/broadcast/DeployPQAnchor.s.sol/131216/run-latest.json
+
+# Re-register watched_contracts from existing broadcast files without redeploying.
+# Useful after a chain wipe + manual contract redeploys.
+register-watched:
+	@for s in Deploy.s.sol DeployPalmOil.s.sol DeployPQAnchor.s.sol; do \
+	  f=contracts/broadcast/$$s/131216/run-latest.json; \
+	  [ -f $$f ] && ./scripts/register-from-broadcast.sh $$f || echo "(skip $$s — no broadcast)"; \
+	done
 
 test:
 	cd contracts && forge test -vv
