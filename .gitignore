@@ -53,3 +53,6 @@ Thumbs.db
 tmp/
 .tmp/
 *.tmp
+
+# ─── Agent worktrees (Claude Code) ────────────────────────────
+.claude/worktrees/
