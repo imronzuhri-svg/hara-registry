@@ -17,6 +17,12 @@ jobs:
   analyze:
     name: Analyze ${{ matrix.language }}
     runs-on: ubuntu-latest
+    # CodeQL on private repos needs GitHub Advanced Security (paid per
+    # committer). Skip the job until the repo is public OR GHAS is enabled —
+    # otherwise the upload step always fails with "Code scanning is not
+    # enabled for this repository." The workflow stays in tree so it
+    # auto-resumes once visibility flips.
+    if: github.event.repository.visibility == 'public' || vars.HARA_GHAS_ENABLED == 'true'
     strategy:
       fail-fast: false
       matrix:
