@@ -92,7 +92,7 @@ async function processTx(txId: string): Promise<void> {
     );
     // Re-enqueue with delay (simple: sleep then xadd)
     setTimeout(() => {
-      redis.xadd(QUEUE_KEY_OUTBOUND, "*", "txId", txId).catch((e) => {
+      redis.xadd(QUEUE_KEY_OUTBOUND, "*", "txId", txId).catch((e: any) => {
         logger.error({ txId, err: e.message }, "re-enqueue failed");
       });
     }, 2000 * Math.pow(2, retry_count));
@@ -152,7 +152,10 @@ async function markFailed(txId: string, message: string) {
 async function consume() {
   while (true) {
     try {
-      const res = (await redis.xreadgroup(
+      // ioredis's xreadgroup typings have an overly-strict positional shape;
+      // cast through `any` for the call. Result is then narrowed to the actual
+      // wire shape Redis Streams returns for XREADGROUP.
+      const res = (await (redis as any).xreadgroup(
         "GROUP",
         QUEUE_GROUP_BROADCASTER,
         CONSUMER_NAME,

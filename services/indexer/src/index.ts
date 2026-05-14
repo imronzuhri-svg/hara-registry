@@ -278,7 +278,10 @@ metricsServer.addHook("onSend", async (_req, reply) => {
 });
 
 // Traceability REST endpoints
-registerTraceRoutes(metricsServer, db);
+// Cast: registerTraceRoutes was typed against vanilla FastifyInstance, but we
+// pass a Fastify with a custom pino logger generic — types diverge across
+// fastify/pino majors. Functionally identical; cast bridges the generic gap.
+registerTraceRoutes(metricsServer as any, db);
 
 async function main() {
   await metricsServer.listen({ host: "0.0.0.0", port: config.metricsPort });

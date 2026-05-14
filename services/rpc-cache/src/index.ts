@@ -254,8 +254,8 @@ const start = async () => {
   logger.info({ port: PORT, upstream: UPSTREAM, redisDb: REDIS_DB }, "rpc-cache started");
   if (WARMUP_ON_START) {
     // Run warmup asynchronously so server is immediately responsive to /healthz
-    warmup().catch((e) => logger.error({ err: e }, "warmup error"));
+    warmup().catch((e: any) => logger.error({ err: e }, "warmup error"));
   }
 };
 
-start().catch((e) => { logger.error({ err: e }, "rpc-cache crashed"); process.exit(1); });
+start().catch((e: any) => { logger.error({ err: e }, "rpc-cache crashed"); process.exit(1); });
