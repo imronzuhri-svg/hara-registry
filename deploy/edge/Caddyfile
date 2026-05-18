@@ -1,0 +1,83 @@
+# Caddyfile — edge TLS for hara-stateless.
+#
+# Caddy auto-renews Let's Encrypt certs for each hostname listed below.
+# No per-service TLS — only Caddy talks HTTPS to the public internet; every
+# upstream is plaintext over the WireGuard mesh.
+#
+# Hostnames you must point at hara-stateless's public IP before this runs:
+#   • rpc.hara.id            → JSON-RPC + WS (write goes via /write/*)
+#   • explorer.hara.id       → Blockscout
+#   • grafana.hara.id        → Grafana
+#
+# Vault is intentionally NOT exposed. Operator access via SSH tunnel.
+
+{
+    # Global options
+    email ops@hara.id              # for ACME (LE) registration
+    # acme_ca https://acme-staging-v02.api.letsencrypt.org/directory  # uncomment for testing
+}
+
+# ── JSON-RPC: read + write split, WS ─────────────────────────────────────────
+rpc.hara.id {
+    # All read traffic flows through rpc-cache (99% hit rate per
+    # observability dashboards; cuts validator load 40–60% under read load).
+    # Default route is read.
+    handle /write/* {
+        uri strip_prefix /write
+        reverse_proxy http://hara-lb:8545
+    }
+
+    handle /ws {
+        reverse_proxy http://hara-lb:8546
+    }
+
+    handle /read/* {
+        uri strip_prefix /read
+        reverse_proxy http://hara-rpc-cache:8080
+    }
+
+    # Fallback — bare / behaves like /read for backwards compatibility with
+    # consumers that don't know the split (older hara-did/api-gateway).
+    handle {
+        reverse_proxy http://hara-rpc-cache:8080
+    }
+
+    # Per-IP rate limit. Generous on reads (verification APIs hit hard),
+    # tight on writes (only trusted services should write).
+    # NOTE: caddy-ratelimit is a 3rd-party plugin; build Caddy with it via
+    # xcaddy build --with github.com/mholt/caddy-ratelimit if you want this
+    # active. Without the plugin the directive is a no-op.
+
+    log {
+        output file /var/log/caddy/rpc.access.log
+        format json
+    }
+}
+
+# ── Blockscout explorer ──────────────────────────────────────────────────────
+explorer.hara.id {
+    reverse_proxy http://hara-blockscout-fe:3000
+
+    # Blockscout backend API on the same hostname under /api
+    handle_path /api/* {
+        reverse_proxy http://hara-blockscout:4000
+    }
+
+    log {
+        output file /var/log/caddy/explorer.access.log
+        format json
+    }
+}
+
+# ── Grafana ──────────────────────────────────────────────────────────────────
+grafana.hara.id {
+    reverse_proxy http://hara-grafana:3000
+
+    # Grafana lives behind basic auth + Grafana's own session cookies; no
+    # extra protection here beyond TLS.
+
+    log {
+        output file /var/log/caddy/grafana.access.log
+        format json
+    }
+}

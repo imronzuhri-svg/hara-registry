@@ -1,0 +1,50 @@
+name: hara-edge
+
+# TLS edge for hara-stateless. Single Caddy container fronting all
+# public-facing services (RPC, Blockscout, Grafana). Auto-renews
+# Let's Encrypt certs.
+#
+# Pre-reqs:
+#   • DNS records for rpc/explorer/grafana.hara.id pointing at this host
+#   • Ports 80 + 443 reachable from public internet
+#   • The hara-platform network already exists (created by upstream stacks)
+#
+# See deploy/edge/Caddyfile for the routing rules.
+
+services:
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: hara-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"      # ACME HTTP-01 challenges + HTTP→HTTPS redirect
+      - "443:443"
+      - "443:443/udp"  # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data        # Issued certs + ACME account key — KEEP THIS
+      - caddy-config:/config    # Caddy's own runtime state
+      - caddy-logs:/var/log/caddy
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.2   # was Vault's IP in the dev bundle; Vault
+                                  # has moved to 10.42.0.40 on hara-stateful
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:2019/config/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+networks:
+  hara-platform:
+    name: hara-platform
+    external: true   # Created by secrets.yml (single-host) or wg-bootstrap (multi).
+
+volumes:
+  caddy-data:
+    # Critical — contains the ACME account key + issued certs. Losing this
+    # forces re-issuance and may hit Let's Encrypt rate limits. Back up
+    # alongside Postgres / Vault snapshots.
+  caddy-config:
+  caddy-logs:
