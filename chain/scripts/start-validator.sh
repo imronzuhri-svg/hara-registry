@@ -9,13 +9,37 @@ set -euo pipefail
 
 : "${VALIDATOR_ID:?VALIDATOR_ID must be set}"
 : "${VAULT_ADDR:?VAULT_ADDR must be set}"
-: "${VAULT_TOKEN:?VAULT_TOKEN must be set}"
 
 DATA_DIR=/opt/besu/data
 GENESIS=/opt/besu/genesis/genesis.json
 STATIC_NODES=/shared/static-nodes.json
 
 mkdir -p "${DATA_DIR}"
+
+# ── Vault auth: AppRole preferred, root-token fallback ──────────────────────
+# Production (per deploy/ops/vault-approle-bootstrap.sh): VAULT_APPROLE_ID +
+# VAULT_APPROLE_SECRET are set, validator logs in to get a short-TTL token.
+# Local dev: VAULT_TOKEN is set directly (haraledger-dev-root or similar).
+if [ -n "${VAULT_APPROLE_ID:-}" ] && [ -n "${VAULT_APPROLE_SECRET:-}" ]; then
+  echo "▶ Logging in to Vault via AppRole (validator)..."
+  LOGIN_RESPONSE=$(curl -fsS \
+    -X POST \
+    -H "Content-Type: application/json" \
+    -d "{\"role_id\":\"${VAULT_APPROLE_ID}\",\"secret_id\":\"${VAULT_APPROLE_SECRET}\"}" \
+    "${VAULT_ADDR}/v1/auth/approle/login")
+  VAULT_TOKEN=$(echo "${LOGIN_RESPONSE}" | grep -oE '"client_token":"[^"]+"' | sed 's/.*:"//;s/"$//')
+  if [ -z "${VAULT_TOKEN}" ]; then
+    echo "✗ AppRole login failed:" >&2
+    echo "${LOGIN_RESPONSE}" >&2
+    exit 1
+  fi
+  echo "✔ AppRole token acquired (no root token in this container)"
+elif [ -n "${VAULT_TOKEN:-}" ]; then
+  echo "▶ Using VAULT_TOKEN directly (dev mode — AppRole envs not set)"
+else
+  echo "✗ Need either VAULT_APPROLE_ID+VAULT_APPROLE_SECRET (prod) or VAULT_TOKEN (dev)" >&2
+  exit 1
+fi
 
 # Fetch validator key from Vault
 echo "▶ Fetching validator ${VALIDATOR_ID} key from Vault..."
