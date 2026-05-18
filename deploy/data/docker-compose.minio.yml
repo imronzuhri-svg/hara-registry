@@ -1,0 +1,80 @@
+name: hara-ledger-minio
+
+# MinIO + bucket pre-creator. Lives on the hara-stateful VPS alongside
+# Postgres + Redis + Vault (see deploy/topology.md §2.2).
+#
+# Two buckets are created on first boot:
+#   • hara-chain-config   — genesis.json + static-nodes.json. Validator
+#                           VPSes pull these on first boot instead of
+#                           mounting a shared docker volume (cross-host
+#                           wouldn't work). Written once by the chain init
+#                           container; never modified.
+#   • hara-pq-anchors     — PQ signature blobs per ADR-0010. Keyed by
+#                           ml-dsa-65/<commit_hash>.sig. The Postgres
+#                           index (pq_anchor_signatures, migration 004)
+#                           points at object_key here.
+
+services:
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    container_name: hara-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?required}
+      MINIO_PROMETHEUS_AUTH_TYPE: public   # metrics scraped over the WG mesh
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    ports:
+      # 9000 = S3 API; 9001 = web console (firewalled to operator IPs)
+      - "${MINIO_API_BIND:-127.0.0.1:9000}:9000"
+      - "${MINIO_CONSOLE_BIND:-127.0.0.1:9001}:9001"
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.42
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  # Bucket pre-creator. Runs once, exits 0; safe to re-run (mc mb --ignore-existing).
+  minio-init:
+    image: minio/mc:RELEASE.2025-04-22T22-12-26Z
+    container_name: hara-minio-init
+    depends_on:
+      minio: { condition: service_healthy }
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?required}
+    networks:
+      - hara-platform
+    entrypoint: >
+      sh -c "
+        set -e;
+        echo '▶ Configuring mc alias';
+        mc alias set hara http://hara-minio:9000 \"$$MINIO_ROOT_USER\" \"$$MINIO_ROOT_PASSWORD\";
+        echo '▶ Creating buckets';
+        mc mb --ignore-existing hara/hara-chain-config;
+        mc mb --ignore-existing hara/hara-pq-anchors;
+        echo '▶ Setting bucket policies';
+        # hara-chain-config: read-only public (validators fetch genesis +
+        # static-nodes anonymously from within the mesh). NOT public-internet
+        # exposed — Caddy doesn't route to MinIO.
+        mc anonymous set download hara/hara-chain-config;
+        # hara-pq-anchors: private (audit blobs; auditors get presigned URLs).
+        mc anonymous set none hara/hara-pq-anchors;
+        echo '✓ MinIO bucket bootstrap complete';
+      "
+    restart: "no"
+
+networks:
+  hara-platform:
+    name: hara-platform
+    external: true   # Created by docker-compose.secrets.yml (single-host
+                     # smoke test) or by wg-bootstrap (multi-host prod).
+
+volumes:
+  minio-data:
