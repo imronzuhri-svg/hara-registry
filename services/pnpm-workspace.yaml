@@ -5,3 +5,4 @@ packages:
   - "migrate"
   - "indexer"
   - "rpc-cache"
+  - "anchor-worker"

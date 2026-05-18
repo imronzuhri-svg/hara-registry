@@ -26,7 +26,7 @@ jobs:
 
     strategy:
       matrix:
-        package: [shared, signer, broadcaster, indexer, migrate, rpc-cache]
+        package: [shared, signer, broadcaster, indexer, migrate, rpc-cache, anchor-worker]
 
     steps:
       - uses: actions/checkout@v4
@@ -60,7 +60,7 @@ jobs:
     needs: typecheck
     strategy:
       matrix:
-        package: [signer, broadcaster, indexer, migrate, rpc-cache]
+        package: [signer, broadcaster, indexer, migrate, rpc-cache, anchor-worker]
 
     steps:
       - uses: actions/checkout@v4
