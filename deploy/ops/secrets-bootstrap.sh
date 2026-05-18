@@ -22,7 +22,13 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-gen() { LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c "${1:-32}"; }
+gen() {
+  # tr reading /dev/urandom is unbounded; head -c N closes the pipe early
+  # and tr exits 141 (SIGPIPE). Under `set -euo pipefail` that aborts the
+  # whole script *before* any .env is written — found by the 2026-05-15
+  # pre-VPS gate-5 dry-run. Subshell with pipefail off absorbs it cleanly.
+  (set +o pipefail; LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom 2>/dev/null | head -c "${1:-32}")
+}
 
 cmd=${1:-init}
 
