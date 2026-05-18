@@ -286,7 +286,9 @@ Reproduced here from the session summary so it's all in one place:
 
 1. **Vault Raft HA migration** — non-negotiable. Today's chain stall proved dev-mode Vault is unfit for VPS.
 2. **WireGuard mesh validated locally** — ✅ done 2026-05-15 via `deploy/ops/wg-local-test.sh`. Two-container mesh handshakes cleanly, bidirectional ping works.
-3. **Snapshot + restore drill locally** — ✅ Postgres path done 2026-05-15 via `deploy/ops/snapshot-restore-drill.sh` (round-trip preserves all rows, spot-checked PQAnchorRegistry address byte-for-byte). Validator-data drill (`chain/data` wiped, restored from `snapshot-validator.sh`, chain resumes at correct block) still pending — lower risk because validators can resync from peers; Postgres cannot.
+3. **Snapshot + restore drill locally** — ✅ Both halves done.
+   - Postgres (2026-05-15): `deploy/ops/snapshot-restore-drill.sh` — round-trip preserves all rows, spot-checked PQAnchorRegistry address byte-for-byte.
+   - Validator data (2026-05-19): `deploy/ops/validator-snapshot-restore-drill.sh` — stop v1 → tar /opt/besu/data → wipe → restore → start; chain kept producing on 3/4 quorum, v1 returned to running state with data intact, chain still advanced post-restore.
 4. **TLS plan ready** — Caddyfile sketched, domains registered, DNS records prepared.
 5. **`secrets-bootstrap.sh` dry-run.** All five `.env` files produced; no template variables left.
 6. **Compose file split done** per §5 above (`platform.secrets.yml` + `platform.obs.yml`).
