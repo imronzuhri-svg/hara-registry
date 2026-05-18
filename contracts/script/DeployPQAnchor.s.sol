@@ -54,6 +54,20 @@ contract DeployPQAnchor is Script {
             console2.log("(CONTRACT_REGISTRY not set - skipped registry write)");
         }
 
+        // Optional: if ANCHOR_WORKER_ADDRESS is set, grant ANCHOR_ROLE + KEY_ROTATOR_ROLE
+        // to it at deploy time. Closes a real cold-start footgun: the worker
+        // cold-starts by trying to rotate the placeholder PQ key hash, but
+        // can't unless it has KEY_ROTATOR_ROLE. Without this env, the worker
+        // refuses to start on first run until the operator hand-grants the
+        // roles via `cast send ... grantRole(...)`. Set the env in CI/Compose
+        // when the worker address is known up-front.
+        address workerAddr = vm.envOr("ANCHOR_WORKER_ADDRESS", address(0));
+        if (workerAddr != address(0)) {
+            pq.grantRole(pq.ANCHOR_ROLE(), workerAddr);
+            pq.grantRole(pq.KEY_ROTATOR_ROLE(), workerAddr);
+            console2.log("Granted ANCHOR_ROLE + KEY_ROTATOR_ROLE to:", workerAddr);
+        }
+
         vm.stopBroadcast();
 
         console2.log("");
