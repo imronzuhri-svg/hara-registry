@@ -149,18 +149,47 @@ deploy/edge/docker-compose.yml         # Caddy TLS termination (see §6)
 
 This is the same IP layout the local Compose stack already uses, lifted directly into WireGuard so static enode URLs in `static-nodes.json` work without modification.
 
-| VPS | WG IP | Reserved range |
-|---|---|---|
-| hara-v1 | 10.42.0.11 | |
-| hara-v2 | 10.42.0.12 | |
-| hara-v3 | 10.42.0.13 | |
-| hara-v4 | 10.42.0.14 | |
-| hara-stateless | 10.42.0.20 (read) / .21 (write) | (one host, two IPs via dummy ifaces) |
-| hara-stateful | 10.42.0.30 (Postgres) / .31 (Redis) / .40 (Vault) | |
-| **reserved hara-did** | 10.42.0.50–69 | sibling repo |
-| **reserved hara-passport** | 10.42.0.70–89 | sibling repo |
+**Per-host WireGuard primary IP** (the IP each VPS's wg0 interface binds):
 
-State-2 §2 already documents this — it was the **planning** plan; now it's the wire plan.
+| VPS | WG IP |
+|---|---|
+| hara-v1 | 10.42.0.11 |
+| hara-v2 | 10.42.0.12 |
+| hara-v3 | 10.42.0.13 |
+| hara-v4 | 10.42.0.14 |
+| hara-stateless | 10.42.0.20 |
+| hara-stateful | 10.42.0.40 |
+
+**Per-container IPs on the hara-platform overlay** (matches the running compose files; verified zero collisions 2026-05-19):
+
+| IP | Container | Compose file |
+|---|---|---|
+| 10.42.0.2 | hara-caddy (prod) / hara-vault (dev only) | edge/ or platform/docker-compose.yml |
+| 10.42.0.3 | hara-prometheus | platform/obs.yml |
+| 10.42.0.4 | hara-alertmanager | platform/obs.yml |
+| 10.42.0.5 | hara-alert-sink | platform/obs.yml |
+| 10.42.0.6 | hara-loki | platform/obs.yml |
+| 10.42.0.7 | hara-grafana | platform/obs.yml |
+| 10.42.0.8 | hara-promtail | platform/obs.yml |
+| 10.42.0.11–14 | hara-validator1..4 | chain/ |
+| 10.42.0.20 | hara-lb (HAProxy) | rpc/ |
+| 10.42.0.22 | hara-rpc-read-1 (upstream) | rpc/ |
+| 10.42.0.23 | hara-rpc-read-2 (upstream) | rpc/ |
+| 10.42.0.24 | hara-rpc-write (upstream) | rpc/ |
+| 10.42.0.30 | hara-postgres | data/ |
+| 10.42.0.31 | hara-redis | data/ |
+| 10.42.0.40 | hara-vault (prod, Raft) | platform/secrets.yml |
+| 10.42.0.41 | hara-signer | services/ |
+| 10.42.0.42 | hara-minio | data/minio.yml |
+| 10.42.0.43 | hara-broadcaster | services/ |
+| 10.42.0.44 | hara-indexer | services/ |
+| 10.42.0.45 | hara-rpc-cache | services/ |
+| 10.42.0.46 | hara-blockscout (BE) | services/ |
+| 10.42.0.47 | hara-blockscout-fe | services/ |
+| **10.42.0.50–69** | **Reserved for hara-did** | sibling repo |
+| **10.42.0.70–89** | **Reserved for hara-halal-passport** | sibling repo |
+
+The per-host WG IPs (11–14, 20, 40) deliberately overlap with the container IPs running their primary role: hara-stateless's wg0 = 10.42.0.20 = the same IP HAProxy binds, hara-stateful's wg0 = 10.42.0.40 = the same IP Vault binds. This lets remote services dial `http://10.42.0.40:8200` whether they're talking to the host's wg0 or to the Vault container directly — the routing collapses cleanly because Vault is the only thing listening on .40:8200 on that host.
 
 **WireGuard key distribution:** out of scope of cloud-init (which can't know the other peers' public keys at boot). Use `deploy/ops/wg-bootstrap.sh`: feed it a `vps-hosts.env` mapping `role=public-ip`, run from the operator laptop, and it SSHes to each host to generate keys, collects pubkeys, renders `wg0.conf` everywhere, and verifies all 30 mesh edges (6 × 5). One-time, ~2 minutes.
 

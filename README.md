@@ -2,9 +2,12 @@
 
 Private permissioned EVM chain for the HARA ecosystem. Besu QBFT consensus, 4-validator minimum, instant finality.
 
-See `doc/` for architecture:
-- `haraledger_ecosystem_development_blueprint.md` — what to build
-- `hara-ledger-roadmap.md` — when, where, and why (phases P0–P3)
+**Start here:**
+- `doc/PRODUCT.md` — product manual, features, stages, roadmap.
+- `doc/TECHNICAL.md` — comprehensive technical reference (architecture, contracts, services, APIs, ops).
+- `deploy/topology.md` — 6-VPS deployment plan + pre-VPS checklist.
+
+Deeper reading in `doc/`: `haraledger_ecosystem_development_blueprint.md` (original blueprint), `hara-ledger-roadmap.md` (P0–P3 phases), `hara-ledger state 2.md` (carry-on context snapshot), `audit-security-quantum-performance.md` (security + PQ rationale), `hara-ledger integration manual.md` (for hara-did developers).
 
 ## Stack
 
@@ -30,13 +33,15 @@ Shared infra (Vault, Prometheus, Grafana, Loki, Alertmanager) lives in `../_plat
 Bring it up **once** for the host machine; then bring up hara-ledger on top.
 
 ```bash
-make platform-up   # one-time: shared Vault + observability stack
-make bootstrap     # generates validator keys → Vault, writes genesis
-make up            # brings up 4 validators + 3 RPC nodes + LB + signer + broadcaster + indexer
-make deploy        # deploys ContractRegistry, AnchorRegistry, GovernanceContract
-make logs          # tail logs from hara-ledger services
-make down          # stop hara-ledger (data persists)
-make clean         # destroy hara-ledger chain data (platform stays up)
+make platform-up        # one-time: shared Vault + observability stack
+make bootstrap          # generates validator keys → Vault, writes genesis
+make up                 # brings up 4 validators + 3 RPC nodes + LB + signer + broadcaster + indexer
+make deploy-all         # deploys all 6 contracts + auto-registers them with the indexer
+make register-watched   # re-register watched_contracts from existing broadcast files (no redeploy)
+make reset-indexer      # truncate indexer state + cursor (keeps watched_contracts)
+make logs               # tail logs
+make down               # stop hara-ledger (data persists)
+make clean              # destroy hara-ledger chain data (platform stays up)
 ```
 
 After `make up`, services are available at:
@@ -77,4 +82,5 @@ hara-ledger/
 
 ## Development phases
 
-See `doc/hara-ledger-roadmap.md`. Current stage: **L0 — Chain bring-up**.
+See `doc/PRODUCT.md` §6 (overview) and `doc/hara-ledger-roadmap.md` (full timeline).
+Current stage: **P0.5 — VPS transition** (P0 complete in local dev; all 7 pre-VPS gates closed per `deploy/topology.md` §9).

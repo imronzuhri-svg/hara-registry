@@ -17,7 +17,7 @@ services:
       VALIDATOR_ID: "rpc-read-1"
     networks:
       hara-platform:
-        ipv4_address: 10.42.0.21
+        ipv4_address: 10.42.0.22   # was .21 — freed for LB read-binding plan
     volumes:
       - rpc-read-1-data:/opt/besu/data
       - ./genesis:/opt/besu/genesis:ro
@@ -32,7 +32,7 @@ services:
       VALIDATOR_ID: "rpc-read-2"
     networks:
       hara-platform:
-        ipv4_address: 10.42.0.22
+        ipv4_address: 10.42.0.23   # bumped to keep upstream block contiguous
     volumes:
       - rpc-read-2-data:/opt/besu/data
       - ./genesis:/opt/besu/genesis:ro
@@ -47,7 +47,7 @@ services:
       VALIDATOR_ID: "rpc-write"
     networks:
       hara-platform:
-        ipv4_address: 10.42.0.23
+        ipv4_address: 10.42.0.24   # bumped to keep upstream block contiguous
     volumes:
       - rpc-write-data:/opt/besu/data
       - ./genesis:/opt/besu/genesis:ro
@@ -61,7 +61,7 @@ services:
     restart: unless-stopped
     networks:
       hara-platform:
-        ipv4_address: 10.42.0.30
+        ipv4_address: 10.42.0.20   # was .30 — collided with hara-postgres
     volumes:
       - ./lb/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     ports:

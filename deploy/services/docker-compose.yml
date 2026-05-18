@@ -2,6 +2,11 @@ name: hara-ledger-services
 
 # Application services: signer, broadcaster, indexer, rpc-cache, Blockscout (BE + FE).
 # In production runs on its own VPS, or co-locates with rpc/ on smaller deployments.
+#
+# IP plan (per deploy/topology.md §3):
+#   .40 reserved for hara-vault     (deploy/platform/docker-compose.secrets.yml)
+#   .42 reserved for hara-minio     (deploy/data/docker-compose.minio.yml)
+# Services tier therefore lives in .41 + .43–.47 below.
 
 services:
   migrate:
@@ -28,7 +33,7 @@ services:
     restart: unless-stopped
     networks:
       hara-platform:
-        ipv4_address: 10.42.0.40
+        ipv4_address: 10.42.0.41   # was .40 — collided with hara-vault
     environment:
       SERVICE_NAME: signer
       SIGNER_PORT: 7000
@@ -56,7 +61,7 @@ services:
     restart: unless-stopped
     networks:
       hara-platform:
-        ipv4_address: 10.42.0.41
+        ipv4_address: 10.42.0.43   # was .41 — bumped after signer moved to .41
     environment:
       SERVICE_NAME: broadcaster
       POSTGRES_HOST: postgres
@@ -80,7 +85,7 @@ services:
     restart: unless-stopped
     networks:
       hara-platform:
-        ipv4_address: 10.42.0.42
+        ipv4_address: 10.42.0.44   # was .42 — collided with hara-minio
     environment:
       SERVICE_NAME: indexer
       POSTGRES_HOST: postgres
@@ -107,7 +112,7 @@ services:
     restart: unless-stopped
     networks:
       hara-platform:
-        ipv4_address: 10.42.0.47
+        ipv4_address: 10.42.0.45   # was .47 — consolidated with services tier block
     environment:
       SERVICE_NAME: rpc-cache
       PORT: 8080
@@ -138,7 +143,7 @@ services:
     restart: unless-stopped
     networks:
       hara-platform:
-        ipv4_address: 10.42.0.43
+        ipv4_address: 10.42.0.46   # was .43 — bumped to free .43 for broadcaster
     env_file: [./blockscout/envs/common-blockscout.env]
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/blockscout
@@ -157,7 +162,7 @@ services:
     restart: unless-stopped
     networks:
       hara-platform:
-        ipv4_address: 10.42.0.44
+        ipv4_address: 10.42.0.47   # was .44 — bumped to free .44 for indexer
     env_file: [./blockscout/envs/common-frontend.env]
     ports:
       - "${BLOCKSCOUT_FE_BIND:-0.0.0.0:4010}:3000"
