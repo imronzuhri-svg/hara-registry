@@ -1,4 +1,4 @@
-.PHONY: help bootstrap up down logs deploy deploy-all register-watched clean test status platform-up platform-down
+.PHONY: help bootstrap up down logs deploy deploy-all register-watched reset-indexer clean test status platform-up platform-down
 
 COMPOSE := docker compose -f chain/docker-compose.yml --env-file chain/.env
 PLATFORM := docker compose -f ../_platform/docker-compose.yml --env-file ../_platform/.env
@@ -13,6 +13,9 @@ help:
 	@echo "  make down          Stop hara-ledger services (data persists)"
 	@echo "  make logs          Tail logs from hara-ledger services"
 	@echo "  make deploy        Deploy ContractRegistry, AnchorRegistry, GovernanceContract"
+	@echo "  make deploy-all    Deploy all 6 contracts + register in watched_contracts"
+	@echo "  make register-watched  Re-register from existing broadcast files (no redeploy)"
+	@echo "  make reset-indexer Wipe indexer state + cursor (keeps watched_contracts)"
 	@echo "  make test          Run Foundry contract tests"
 	@echo "  make status        Show running services + block height"
 	@echo "  make clean         Stop and DESTROY hara-ledger data (chain reset)"
@@ -98,3 +101,23 @@ clean:
 	$(COMPOSE) down -v
 	rm -rf chain/data chain/generated chain/genesis/genesis.json chain/static-nodes.json
 	@echo "✔ All data destroyed. Run 'make bootstrap' to start fresh."
+
+# Reset just the indexer state. Useful after a chain wipe where you DON'T
+# want to lose Postgres entirely (e.g. you redeployed contracts but the
+# `_migrations` history is still valid). The indexer will re-scan from
+# block 0 on next start.
+#
+# Idempotent. Safe to run against a stopped or running stack — but if the
+# indexer is running, it'll race the truncate and may re-add rows; prefer
+# stopping it first:
+#   docker compose -f chain/docker-compose.yml stop indexer
+#   make reset-indexer
+#   docker compose -f chain/docker-compose.yml start indexer
+reset-indexer:
+	@echo "▶ Truncating indexer tables + resetting cursor on hara-postgres..."
+	@docker exec hara-postgres psql -U hara -d hara_indexer -q -c "TRUNCATE indexed_events RESTART IDENTITY"
+	@docker exec hara-postgres psql -U hara -d hara_indexer -q -c "TRUNCATE indexed_blocks"
+	@docker exec hara-postgres psql -U hara -d hara_indexer -q -c "UPDATE indexer_state SET last_indexed_block = -1, last_indexed_at = now() WHERE id = 1"
+	@docker exec hara-postgres psql -U hara -d hara_indexer -q -c "UPDATE pq_anchor_worker_state SET last_anchored_block = -1, last_anchor_id = NULL, updated_at = now() WHERE id = 1" 2>/dev/null || echo "  (pq_anchor_worker_state table not present yet — skipped)"
+	@echo "✔ Indexer reset. On next indexer start it will re-scan from block 0."
+	@echo "  watched_contracts is preserved; re-run 'make register-watched' only if addresses changed."
