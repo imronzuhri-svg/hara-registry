@@ -1,42 +1,14 @@
-name: hara-platform
+name: hara-platform-obs
 
-# LOCAL DEV ONLY — bundled platform stack (Vault in dev-mode + observability).
+# Observability tier — Prometheus, Alertmanager, alert-sink, Loki, Promtail,
+# Grafana. In production this runs on the `hara-stateless` VPS (see
+# deploy/topology.md §2.3). In local dev, docker-compose.yml bundles all of
+# these alongside Vault.
 #
-# This file exists so a single `docker compose up -d` brings the whole
-# platform tier up on one host without the Vault Raft init ritual. It is
-# the convenient path for developer machines and single-VPS smoke tests.
-#
-# For 6-VPS production rollout, this file is NOT used. Instead:
-#   • docker-compose.secrets.yml  → runs on hara-stateful (Vault Raft mode)
-#   • docker-compose.obs.yml      → runs on hara-stateless (Prom/Graf/etc.)
-# See deploy/topology.md §2 + §5.
-#
-# Bring up FIRST in local dev — every other stack joins the hara-platform
-# network and needs Vault healthy before they can fetch keys.
+# Vault is intentionally NOT in this file — secrets live on hara-stateful in
+# Raft mode (see docker-compose.secrets.yml).
 
 services:
-  vault:
-    image: hashicorp/vault:1.17
-    container_name: hara-vault
-    restart: unless-stopped
-    cap_add: [IPC_LOCK]
-    environment:
-      VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_DEV_ROOT_TOKEN:?VAULT_DEV_ROOT_TOKEN required}
-      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
-      VAULT_ADDR: http://0.0.0.0:8200
-    command: server -dev
-    ports:
-      - "${VAULT_BIND:-0.0.0.0:8200}:8200"
-    networks:
-      hara-platform:
-        ipv4_address: 10.42.0.2
-    healthcheck:
-      test: ["CMD-SHELL", "VAULT_ADDR=http://127.0.0.1:8200 vault status >/dev/null 2>&1 || exit 1"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-      start_period: 5s
-
   prometheus:
     image: prom/prometheus:v2.55.0
     container_name: hara-prometheus
@@ -136,15 +108,10 @@ services:
 networks:
   hara-platform:
     name: hara-platform
-    # In single-host deployments, this stack CREATES the network (bridge).
-    # In multi-host deployments, comment out the `driver` line and uncomment
-    # the `external` line — the swarm overlay is created out-of-band.
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 10.42.0.0/24
-          gateway: 10.42.0.1
-    # external: true
+    # In multi-host (WireGuard mesh) production, this is external — created
+    # out-of-band by deploy/ops/wg-bootstrap.sh on a Swarm overlay or
+    # equivalent. In single-host smoke-test, the secrets file creates it.
+    external: true
 
 volumes:
   prometheus-data:
