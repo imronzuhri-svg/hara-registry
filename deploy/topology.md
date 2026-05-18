@@ -285,7 +285,7 @@ These are tracked elsewhere; out of scope here:
 Reproduced here from the session summary so it's all in one place:
 
 1. **Vault Raft HA migration** — non-negotiable. Today's chain stall proved dev-mode Vault is unfit for VPS.
-2. **WireGuard mesh validated locally** with two VMs/containers, ping ↔ ping, before deploying to Nevacloud.
+2. **WireGuard mesh validated locally** — ✅ done 2026-05-15 via `deploy/ops/wg-local-test.sh`. Two-container mesh handshakes cleanly, bidirectional ping works.
 3. **Snapshot + restore drill locally.** `chain/data` wiped, restored from `snapshot-validator.sh` output, chain resumes at correct block.
 4. **TLS plan ready** — Caddyfile sketched, domains registered, DNS records prepared.
 5. **`secrets-bootstrap.sh` dry-run.** All five `.env` files produced; no template variables left.
