@@ -18,12 +18,23 @@ jobs:
   analyze:
     name: Analyze ${{ matrix.language }}
     runs-on: ubuntu-latest
-    # CodeQL on private repos needs GitHub Advanced Security (paid per
-    # committer). Skip the job until the repo is public OR GHAS is enabled —
-    # otherwise the upload step always fails with "Code scanning is not
-    # enabled for this repository." The workflow stays in tree so it
-    # auto-resumes once visibility flips.
-    if: github.event.repository.visibility == 'public' || vars.HARA_GHAS_ENABLED == 'true'
+    # CodeQL "advanced" workflows (this file) cannot coexist with CodeQL
+    # "default setup" — GitHub rejects SARIF uploads from advanced workflows
+    # with "CodeQL analyses from advanced configurations cannot be processed
+    # when the default setup is enabled."
+    #
+    # Today (2026-05-19) the repo runs default setup (configured in repo
+    # Settings → Code security and analysis), which covers JavaScript /
+    # TypeScript scans automatically. This advanced workflow stays in tree
+    # for the day we want custom queries / extra languages / a tighter
+    # cadence than the weekly default — opt in by setting the repo variable:
+    #
+    #   gh variable set HARA_ADVANCED_CODEQL --body "true" \
+    #     --repo imronzuhri-svg/hara-ledger
+    #
+    # AND disable default setup in the same Settings page. Without both,
+    # this job is a no-op.
+    if: vars.HARA_ADVANCED_CODEQL == 'true'
     strategy:
       fail-fast: false
       matrix:
