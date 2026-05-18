@@ -59,7 +59,7 @@ Per `nevacloud-proposal.md` Option B, total ~Rp 7.7M/month for hara-ledger alone
 ```
 deploy/chain/docker-compose.validator-only.yml
 ```
-(versus the local-dev `docker-compose.yml` which runs all 4 validators in one stack, the `validator-only` variant runs a single validator per host, parameterised by env.)
+(versus the local-dev `docker-compose.yml` which runs all 4 validators in one stack, the `validator-only` variant runs a single validator per host, parameterised by env. Set `VALIDATOR_ID=1..4` in `chain/.env` per host.)
 
 **Required env (per VPS, in `chain/.env`):**
 ```
@@ -89,9 +89,9 @@ HARA_CHAIN_ID=131216
 
 **Compose files:**
 ```
-deploy/platform/docker-compose.yml     # Vault only (split — see §5 below)
-deploy/data/docker-compose.yml         # Postgres + Redis
-deploy/data/minio.yml                  # NEW — needs to be added (ADR-0010)
+deploy/platform/docker-compose.secrets.yml  # Vault in Raft mode
+deploy/data/docker-compose.yml              # Postgres + Redis
+deploy/data/docker-compose.minio.yml        # MinIO + bucket pre-creator
 ```
 
 **Internal ports (mesh only):**
@@ -123,9 +123,8 @@ Each validator VPS pulls those two files from MinIO on first boot. After init, t
 deploy/rpc/docker-compose.yml          # 2 RPC read + 1 write + HAProxy LB
 deploy/services/docker-compose.yml     # signer + broadcaster + indexer + migrate + rpc-cache
 deploy/services/blockscout/            # Blockscout BE + FE
-deploy/platform/docker-compose.obs.yml # NEW — Prom + Grafana + Loki + Alertmanager + Promtail
-                                       # (split out from platform/ when we move Vault to stateful)
-deploy/edge/caddy.yml                  # NEW — TLS termination, see §6
+deploy/platform/docker-compose.obs.yml # Prom + Grafana + Loki + Alertmanager + Promtail
+deploy/edge/docker-compose.yml         # Caddy TLS termination (see §6)
 ```
 
 **Public ports (Caddy reverse-proxied):**
@@ -163,7 +162,7 @@ This is the same IP layout the local Compose stack already uses, lifted directly
 
 State-2 §2 already documents this — it was the **planning** plan; now it's the wire plan.
 
-**WireGuard key distribution:** out of scope of cloud-init (which can't know the other peers' public keys at boot). Use a small post-create script — once all 6 VPSes are up, run `deploy/ops/wg-bootstrap.sh` (to be written) from the operator laptop; it SSHes to each host, generates a key pair, collects the public keys, distributes the peer config back. One-time, ~2 minutes.
+**WireGuard key distribution:** out of scope of cloud-init (which can't know the other peers' public keys at boot). Use `deploy/ops/wg-bootstrap.sh`: feed it a `vps-hosts.env` mapping `role=public-ip`, run from the operator laptop, and it SSHes to each host to generate keys, collects pubkeys, renders `wg0.conf` everywhere, and verifies all 30 mesh edges (6 × 5). One-time, ~2 minutes.
 
 ---
 
@@ -180,12 +179,16 @@ Hard ordering — the cross-host dependencies are real.
 ssh hara@hara-stateful
 cd /opt/hara-ledger
 ./deploy/ops/secrets-bootstrap.sh init     # generates .env files locally
-docker compose -f deploy/platform/docker-compose.yml --env-file deploy/platform/.env up -d
-# wait for Vault healthy
+docker compose -f deploy/platform/docker-compose.secrets.yml --env-file deploy/platform/.env up -d
+# Vault boots SEALED. Initialise + unseal:
+./deploy/ops/vault-raft-init.sh             # generates vault-init-keys.json; move OUT-OF-HOST
+VAULT_TOKEN=$(jq -r .root_token vault-init-keys.json) ./deploy/ops/vault-approle-bootstrap.sh
+# Save the AppRole role_id/secret_id pairs printed — paste into per-VPS .env
+
 docker compose -f deploy/data/docker-compose.yml --env-file deploy/data/.env up -d
-docker compose -f deploy/data/minio.yml up -d
+docker compose -f deploy/data/docker-compose.minio.yml --env-file deploy/data/.env up -d
 ```
-Vault comes up in Raft mode (NOT `-dev`), unsealed via the `secrets-bootstrap.sh`-generated keys stored in your password manager. Postgres + Redis + MinIO follow.
+Vault comes up in Raft mode (not `-dev`); persistence survives container restarts. MinIO bucket pre-creator runs once, exits.
 
 **Step 3: chain init (still on hara-stateful).**
 ```bash
@@ -221,50 +224,33 @@ Contracts deploy through the LB at the public TLS endpoint; addresses auto-regis
 
 ---
 
-## 5. Compose files that need splitting before deploy
+## 5. Compose files — what runs where
 
-The current `deploy/platform/docker-compose.yml` bundles Vault + Prom + Grafana + Loki + Alertmanager + Promtail + alert-sink. **In 6-VPS prod, Vault lives on hara-stateful and the rest lives on hara-stateless.** Two solutions:
+Done — the split landed in commits c802e0b, 1ead083, 8f9b020, 3d6310a.
 
-**A. Split into two files** (recommended):
-- `deploy/platform/docker-compose.secrets.yml` — just Vault, deployed on hara-stateful
-- `deploy/platform/docker-compose.obs.yml` — Prom/Graf/Loki/AM/Promtail/alert-sink, deployed on hara-stateless
-
-Local dev keeps using the existing `docker-compose.yml` (which can be a thin wrapper that includes both via `include:`, or just be left as-is for the single-host case).
-
-**B. Single file with profiles.** Keep one compose file but tag services with profiles (`profiles: [secrets]` vs `profiles: [obs]`); each VPS runs only its profile.
-
-Pick A — explicit beats clever. The split is a one-time refactor.
-
-Also needed:
-- `deploy/data/minio.yml` — NEW. MinIO currently runs in hara-did's compose; hara-ledger needs its own for the `hara-pq-anchors` bucket (ADR-0010). Or share hara-did's MinIO and document the cross-network dependency — but the topology should not depend on a sibling repo being up first.
-- `deploy/chain/docker-compose.validator-only.yml` — already exists and correctly parameterises `VALIDATOR_ID` (verified). Each validator VPS sets `VALIDATOR_ID=N` in its `chain/.env` where N is 1..4.
-- `deploy/edge/caddy.yml` — NEW. Reverse-proxies all public-facing services through one TLS endpoint.
+- `deploy/platform/docker-compose.secrets.yml` → hara-stateful (Vault, Raft)
+- `deploy/platform/docker-compose.obs.yml` → hara-stateless (Prom/Graf/etc.)
+- `deploy/platform/docker-compose.yml` → local dev only (bundled, Vault `-dev`)
+- `deploy/data/docker-compose.yml` → hara-stateful (Postgres + Redis)
+- `deploy/data/docker-compose.minio.yml` → hara-stateful (MinIO + buckets)
+- `deploy/chain/docker-compose.validator-only.yml` → hara-v1..v4 (one validator per host, `VALIDATOR_ID=1..4`)
+- `deploy/rpc/docker-compose.yml` → hara-stateless (RPC mesh + HAProxy LB)
+- `deploy/services/docker-compose.yml` → hara-stateless (signer/broadcaster/indexer/migrate/rpc-cache)
+- `deploy/edge/docker-compose.yml` → hara-stateless (Caddy TLS)
 
 ---
 
 ## 6. TLS termination — Caddy
 
-One Caddy container on hara-stateless. Auto-renews via Let's Encrypt. `Caddyfile` outline:
+Done — see `deploy/edge/Caddyfile` and `deploy/edge/docker-compose.yml` (commit 3d6310a). One Caddy container on hara-stateless auto-renews Let's Encrypt certs for:
 
-```caddy
-rpc.hara.id {
-  reverse_proxy /read/* rpc-cache:8088
-  reverse_proxy /write/* hara-lb:8545
-  reverse_proxy /ws hara-lb:8546
-}
+- `rpc.hara.id` — `/read/*` → rpc-cache, `/write/*` → HAProxy LB, `/ws` → WS
+- `explorer.hara.id` — Blockscout FE + `/api/*` → Blockscout BE
+- `grafana.hara.id` — Grafana
 
-grafana.hara.id {
-  reverse_proxy hara-grafana:3000
-}
+DNS for the three hostnames must point at hara-stateless's public IP **before** Caddy starts (ACME HTTP-01 challenge needs port 80 reachable). Update `email` in the Caddyfile before going live.
 
-explorer.hara.id {
-  reverse_proxy hara-blockscout-fe:3000
-}
-```
-
-DNS for the three hostnames points to hara-stateless's public IP. Caddy handles cert issuance + renewal; no per-service TLS.
-
-Vault is NOT exposed publicly. Operator access via SSH tunnel or VPN.
+Vault is NOT routed through Caddy. Operator access via SSH tunnel only.
 
 ---
 
