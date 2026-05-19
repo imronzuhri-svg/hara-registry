@@ -21,6 +21,9 @@
 //   Warmup pre-fetches eth_chainId, net_version, web3_clientVersion, eth_blockNumber
 //   and eth_gasPrice so the first client request after restart is already a hit.
 
+// OTel side-effect import (no-op without OTEL_EXPORTER_OTLP_ENDPOINT).
+import "@hara/shared/otel";
+
 import Fastify from "fastify";
 import { createRedis, logger } from "@hara/shared";
 import crypto from "node:crypto";

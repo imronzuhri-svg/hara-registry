@@ -105,6 +105,26 @@ services:
         ipv4_address: 10.42.0.7
     depends_on: [prometheus]
 
+  # Tempo — distributed-trace store, sink for OTLP from the TS services
+  # (signer / broadcaster / indexer / rpc-cache / anchor-worker).
+  # Services emit via `@hara/shared/otel`, which is a no-op unless
+  # OTEL_EXPORTER_OTLP_ENDPOINT is set in their env (e.g. http://tempo:4318).
+  tempo:
+    image: grafana/tempo:2.6.1
+    container_name: hara-tempo
+    restart: unless-stopped
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    volumes:
+      - ./tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    ports:
+      # 4318 = OTLP/HTTP — what @opentelemetry/exporter-trace-otlp-http speaks
+      - "${TEMPO_OTLP_HTTP_BIND:-127.0.0.1:4318}:4318"
+      # 3200 internal Tempo query API — exposed only to Grafana via the mesh
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.9
+
 networks:
   hara-platform:
     name: hara-platform
@@ -119,3 +139,4 @@ volumes:
   alertmanager-data:
   loki-data:
   promtail-positions:
+  tempo-data:

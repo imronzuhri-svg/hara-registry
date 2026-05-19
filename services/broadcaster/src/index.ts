@@ -1,3 +1,6 @@
+// OTel side-effect import (no-op without OTEL_EXPORTER_OTLP_ENDPOINT).
+import "@hara/shared/otel";
+
 import { createPublicClient, http, type Hex } from "viem";
 import {
   createDbPool,

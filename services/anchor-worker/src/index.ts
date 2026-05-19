@@ -1,3 +1,6 @@
+// OTel side-effect import (no-op without OTEL_EXPORTER_OTLP_ENDPOINT).
+import "@hara/shared/otel";
+
 import { createPublicClient, http, type Hex } from "viem";
 import { keccak_256 } from "@noble/hashes/sha3";
 import pino from "pino";

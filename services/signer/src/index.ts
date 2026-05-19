@@ -1,3 +1,8 @@
+// OTel init MUST be the first import — auto-instrumentations patch
+// fastify/pg/redis/http at load time. No-op unless OTEL_EXPORTER_OTLP_ENDPOINT
+// is set in env. See services/shared/src/otel.ts.
+import "@hara/shared/otel";
+
 import Fastify from "fastify";
 import { randomUUID } from "node:crypto";
 import { createDbPool, createRedis, logger, QUEUE_KEY_OUTBOUND } from "@hara/shared";

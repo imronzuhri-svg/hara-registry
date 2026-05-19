@@ -1,0 +1,44 @@
+# Tempo config — minimal single-binary mode for P0/P1.
+#
+# Receives OTLP/HTTP traces from the TS services (signer / broadcaster /
+# indexer / rpc-cache / anchor-worker via @hara/shared/otel), stores them on
+# local NVMe, exposes a query API for Grafana.
+#
+# At P1+ scale (millions of spans/day): switch storage to S3 (MinIO bucket
+# `hara-tempo-traces`) and add a separate Tempo distributor/ingester/
+# querier topology. For P0 single-binary is fine.
+
+server:
+  http_listen_port: 3200      # Grafana datasource hits this for queries
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        http:
+          endpoint: 0.0.0.0:4318
+        # grpc protocol intentionally omitted — we only emit OTLP/HTTP.
+
+ingester:
+  # Flush every 5 min OR when 100 MB accumulates per tenant, whichever first.
+  max_block_duration: 5m
+
+compactor:
+  compaction:
+    block_retention: 168h     # 7 days — auditors can replay; longer-term
+                              # storage is the chain itself + MinIO blobs
+
+storage:
+  trace:
+    backend: local
+    local:
+      path: /var/tempo/blocks
+    wal:
+      path: /var/tempo/wal
+
+# Disable multi-tenancy: single-tenant for P0/P1. Re-enable when hara-did /
+# hara-passport want their own trace silos.
+multitenancy_enabled: false
+
+usage_report:
+  reporting_enabled: false
