@@ -115,7 +115,7 @@ jobs:
       # Fails the build on HIGH/CRITICAL findings. Scans the local image
       # (load:true on PRs, the just-pushed image on main).
       - name: Trivy CVE scan
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ steps.mode.outputs.tag }}
           format: table

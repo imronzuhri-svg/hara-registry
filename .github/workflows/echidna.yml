@@ -81,10 +81,14 @@ jobs:
       - name: Run Echidna on ${{ matrix.harness }}
         uses: crytic/echidna-action@v2
         with:
-          files: contracts/
+          # Point at the specific harness file. Passing `contracts/` makes
+          # crytic-compile build the whole tree but echidna can't then
+          # resolve the named contract; the earlier "contract not found in
+          # given file" failure was this exact misuse.
+          files: contracts/${{ matrix.path }}
           contract: ${{ matrix.harness }}
           test-mode: assertion
           config: contracts/echidna.config.yaml
           test-limit: ${{ steps.budget.outputs.limit }}
           solc-version: 0.8.26
-          # crytic-compile auto-detects Foundry layout.
+          crytic-args: --foundry-out-directory out --foundry-compile-all
