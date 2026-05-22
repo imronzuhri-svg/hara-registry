@@ -1,0 +1,90 @@
+name: echidna
+
+# Property-based fuzz testing for the contracts. Catches invariant
+# violations Slither cannot reason about — specifically HaraPalmOil's
+# mass-balance invariant across arbitrary transfer chains.
+#
+# Runs:
+#   • on every push touching contracts/**
+#   • on PRs touching contracts/**
+#   • weekly cron (Sunday 06:00 UTC) at a higher iteration budget
+
+on:
+  workflow_dispatch:
+    inputs:
+      testLimit:
+        description: "Fuzz iterations per contract (default: 10000)"
+        required: false
+        default: "10000"
+  push:
+    branches: [main]
+    paths:
+      - "contracts/**"
+      - ".github/workflows/echidna.yml"
+  pull_request:
+    paths:
+      - "contracts/**"
+      - ".github/workflows/echidna.yml"
+  schedule:
+    # Sunday 06:00 UTC — nightly-ish deep run with longer test budget
+    - cron: "0 6 * * 0"
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    name: ${{ matrix.harness }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - harness: HaraPalmOilFuzz
+            path: test-fuzz/HaraPalmOilFuzz.sol
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install contract deps (forge-std + OZ via git, matching slither.yml)
+        working-directory: contracts
+        run: |
+          mkdir -p lib
+          [ -d lib/forge-std ] || git clone --depth 1 \
+            https://github.com/foundry-rs/forge-std.git lib/forge-std
+          [ -d lib/openzeppelin-contracts ] || git clone --depth 1 --branch v5.1.0 \
+            https://github.com/OpenZeppelin/openzeppelin-contracts.git \
+            lib/openzeppelin-contracts
+
+      - name: Build contracts
+        working-directory: contracts
+        run: forge build
+
+      # Schedule runs get a higher iteration budget — same harness, longer
+      # search. Workflow-dispatch lets an operator pick any value.
+      - name: Set test budget
+        id: budget
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "limit=200000" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "limit=${{ inputs.testLimit }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "limit=10000" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run Echidna on ${{ matrix.harness }}
+        uses: crytic/echidna-action@v2
+        with:
+          files: contracts/
+          contract: ${{ matrix.harness }}
+          test-mode: assertion
+          config: contracts/echidna.config.yaml
+          test-limit: ${{ steps.budget.outputs.limit }}
+          solc-version: 0.8.26
+          # crytic-compile auto-detects Foundry layout.

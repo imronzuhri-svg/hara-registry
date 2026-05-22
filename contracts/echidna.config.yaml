@@ -1,0 +1,38 @@
+# Echidna configuration for HaraLedger property tests.
+#
+# Run locally:
+#   docker run --rm -v "$PWD:/work" -w /work \
+#     ghcr.io/crytic/echidna/echidna:v2.2.5 \
+#     echidna test-fuzz/HaraPalmOilFuzz.sol --contract HaraPalmOilFuzz --config echidna.config.yaml
+#
+# Or via CI (.github/workflows/echidna.yml).
+
+# How long to fuzz, per test contract. 10 000 calls ≈ 30 s of CPU.
+# Bump to 100 000+ for nightly cron runs once we add scheduling.
+testLimit: 10000
+
+# Coverage-guided fuzzing — Echidna prioritises mutations that hit new
+# control-flow edges. Essential for finding deep state-dependent bugs.
+coverage: true
+
+# Echidna's default sender pool. We use a single sender (the test contract)
+# in the harness; the harness itself does the per-actor routing in fuzz_*.
+sender: ["0x10000"]
+
+# Constructor balance (1 ETH worth). Not strictly needed at gasPrice=0 but
+# avoids spurious "out of gas" reports.
+balanceContract: 0xffffffffffffffff
+
+# Use Echidna's "assertion" mode in addition to property mode — catches
+# `assert()` violations + custom errors that would revert. Keeps the
+# echidna_* return-bool style as the primary signal.
+testMode: assertion
+
+# Cap revert chains — Echidna by default treats every revert as discovery
+# of a new branch. Bounding here keeps the corpus focused on the property
+# under test, not on coercing reverts.
+filterFunctions: []
+filterBlacklist: true
+
+# Random seed: omit for true randomness; pin for reproducible CI runs.
+# seed: 42
