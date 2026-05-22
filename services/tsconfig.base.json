@@ -2,11 +2,7 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "ES2022",
-    // "node" (a.k.a. "node10") is deprecated in TS 6+ but still works; we'll
-    // migrate to "bundler" or "nodenext" as a follow-up. Silence the
-    // deprecation warning until then.
     "moduleResolution": "node",
-    "ignoreDeprecations": "6.0",
     "lib": ["ES2022"],
     "strict": true,
     "esModuleInterop": true,
