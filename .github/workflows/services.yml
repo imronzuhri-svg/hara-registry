@@ -114,21 +114,11 @@ jobs:
       # ── #3: Trivy CVE scan ─────────────────────────────────────────────
       # Fails the build on HIGH/CRITICAL findings. Scans the local image
       # (load:true on PRs, the just-pushed image on main).
-      # Gate: CRITICAL only (today). The CRITICAL,HIGH tightening was
-      # attempted with the node:22-bookworm-slim + apt-upgrade + pnpm@10.26.1
-      # bump in commit <this>, which cleared all OS-level HIGH CVEs (libgnutls30
-      # et al.) — but ~7 HIGH CVEs remain in TRANSITIVE npm deps (cross-spawn,
-      # glob, picomatch, @opentelemetry/auto-instrumentations-node, others).
-      # `pnpm update --latest` reports "already up to date" because these are
-      # not direct deps; clearing them needs `pnpm.overrides` entries in
-      # services/package.json — a real dep-maintenance pass.
-      #
-      # Filed as a follow-up: "Npm transitive-dep CVE cleanup + Trivy gate
-      # to HIGH". When that lands, swap `CRITICAL` → `CRITICAL,HIGH` here
-      # and delete this comment block.
-      #
-      # Suppressions in .trivyignore (~10 CVEs, all justified) cover non-
-      # exploitable bundle-only CVEs (node-tar inside pnpm; pnpm tokenHelper).
+      # Gate: CRITICAL,HIGH. Allowlist lives in .trivyignore — currently
+      # ~22 CVEs, all in build-time tooling (npm + corepack-cached pnpm +
+      # node-tar bundled in those) that the runtime carries but never
+      # invokes. Each entry justified per-CVE in that file's preamble.
+      # Will obsolete when multi-stage distroless builds land (separate task).
       - name: Trivy CVE scan
         uses: aquasecurity/trivy-action@master
         with:
@@ -136,7 +126,7 @@ jobs:
           format: table
           exit-code: "1"
           ignore-unfixed: true
-          severity: CRITICAL
+          severity: CRITICAL,HIGH
           vuln-type: os,library
           trivyignores: .trivyignore
 

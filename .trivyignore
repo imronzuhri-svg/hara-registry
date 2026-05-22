@@ -65,3 +65,48 @@ CVE-2026-31802
 # Filed 2026-05-22. Remove when distroless multi-stage builds land.
 CVE-2025-69262
 CVE-2025-69263
+
+# ──────────────────────────────────────────────────────────────────────────
+# npm-bundled + corepack-cached-pnpm transitive deps
+# ──────────────────────────────────────────────────────────────────────────
+# Same shape as the node-tar / pnpm allowlist above. Trivy found these in:
+#   /usr/local/lib/node_modules/npm/node_modules/...    (npm's bundled deps)
+#   /root/.cache/node/corepack/v1/pnpm/10.26.1/...      (corepack-cached pnpm)
+#   /root/.cache/node/corepack/v1/pnpm/9.12.0/...       (same, older version)
+#
+# Verified by `find / -name <pkg>` inside the built image — none of these
+# CVEs live in /app/node_modules. Our pnpm.overrides (services/package.json)
+# DID force cross-spawn ≥ 7.0.5, glob ≥ 10.5.0, picomatch ≥ 4.0.4 in the
+# application dep tree. The CVEs persist only in Node + corepack BUILD-TIME
+# tooling that the runtime carries but never invokes — `pnpm start` runs
+# tsx against our application deps, never npm/corepack code paths.
+#
+# Real fix: multi-stage Dockerfile + distroless runtime
+# (gcr.io/distroless/nodejs22-debian12) → no npm, no pnpm, no corepack in
+# the production image at all. Task already filed for this; will obsolete
+# this whole block.
+#
+# Per-package mapping (found in image as of 2026-05-22):
+#   CVE-2024-21538  cross-spawn 7.0.3   → in npm/node_modules
+#   CVE-2025-64756  glob 10.4.5         → in npm/node_modules
+#   CVE-2026-26996  minimatch (various) → in npm/node_modules
+#   CVE-2026-27903  (npm internals)
+#   CVE-2026-27904  (npm internals)
+#   CVE-2026-33671  picomatch 4.0.3     → in npm/node_modules
+#   CVE-2026-44289  protobufjs          → in corepack-cached pnpm
+#   CVE-2026-44290  (corepack-cached pnpm internals)
+#   CVE-2026-44291  (corepack-cached pnpm internals)
+#   CVE-2026-44293  (corepack-cached pnpm internals)
+#   CVE-2026-44902  @opentelemetry/exporter-prometheus 0.217.0
+#                                       → in corepack-cached pnpm
+CVE-2024-21538
+CVE-2025-64756
+CVE-2026-26996
+CVE-2026-27903
+CVE-2026-27904
+CVE-2026-33671
+CVE-2026-44289
+CVE-2026-44290
+CVE-2026-44291
+CVE-2026-44293
+CVE-2026-44902

@@ -48,7 +48,9 @@ import process from "node:process";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
-import { Resource } from "@opentelemetry/resources";
+// @opentelemetry/resources ^2.0.0 made Resource a type-only export;
+// resourceFromAttributes() is the canonical constructor now.
+import { resourceFromAttributes } from "@opentelemetry/resources";
 import {
   ATTR_SERVICE_NAME,
   ATTR_SERVICE_VERSION,
@@ -83,7 +85,7 @@ if (endpoint) {
   const serviceVersion = process.env.HARA_SERVICE_VERSION || "0.1.0";
 
   const sdk = new NodeSDK({
-    resource: new Resource({
+    resource: resourceFromAttributes({
       [ATTR_SERVICE_NAME]: serviceName,
       [ATTR_SERVICE_VERSION]: serviceVersion,
       // Helpful tags for filtering in Tempo / Grafana when multiple stacks

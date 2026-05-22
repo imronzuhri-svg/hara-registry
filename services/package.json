@@ -13,5 +13,12 @@
     "migrate",
     "indexer",
     "rpc-cache"
-  ]
+  ],
+  "pnpm": {
+    "overrides": {
+      "cross-spawn": ">=7.0.5",
+      "glob": ">=10.5.0",
+      "picomatch": ">=4.0.4"
+    }
+  }
 }
