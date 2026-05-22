@@ -1,0 +1,67 @@
+# Trivy CVE allowlist for HaraLedger service images.
+#
+# Each entry below must justify WHY the CVE is not exploitable in our
+# pipeline OR runtime, AND name the unblocking action that would let us
+# remove it. This file is scanned at every push (.github/workflows/services.yml
+# Trivy step) so anything ignored here is being deliberately deferred.
+#
+# Format: <CVE-ID>  (one per line; # comments allowed)
+#
+# ──────────────────────────────────────────────────────────────────────────
+# node-tar CVEs (bundled inside Node 22 LTS's npm + pnpm 10.x)
+# ──────────────────────────────────────────────────────────────────────────
+# All six CVEs below are in node-tar v7.5.2 (or 6.x), the version shipped
+# inside Node 22's bundled npm and inside pnpm 10.26.1's install bundle.
+# Fixed in node-tar 7.5.3 / 7.5.4 / 7.5.7 / 7.5.8 / 7.5.10 / 7.5.11 — none
+# of which have shipped to Node LTS or pnpm release yet.
+#
+# Exploit mechanism: malicious tarball passed to `npm install` /
+# `pnpm install` triggers path-traversal / symlink-poisoning during
+# extract.
+#
+# Why we're not exploitable:
+#   1. Build-time: pnpm install runs against a committed lockfile
+#      (services/pnpm-lock.yaml). No arbitrary tarball resolution.
+#   2. Runtime: production containers run `pnpm start` only — never
+#      `pnpm install`. There is no tar-extract path in the runtime
+#      surface area.
+#
+# Unblock action: when Node 22 LTS or pnpm 10.x ships an update bundling
+# node-tar >= 7.5.11, rebuild + re-scan; this allowlist becomes a no-op.
+# Track upstream: https://github.com/nodejs/node/blob/main/CHANGELOG_V22.md
+#                https://github.com/pnpm/pnpm/releases
+#
+# Filed 2026-05-22 alongside the node:20-alpine → node:22-bookworm-slim
+# base-image migration. Remove these lines when the upstream patches land.
+CVE-2026-23745
+CVE-2026-23950
+CVE-2026-24842
+CVE-2026-26960
+CVE-2026-29786
+CVE-2026-31802
+
+# ──────────────────────────────────────────────────────────────────────────
+# pnpm CVEs
+# ──────────────────────────────────────────────────────────────────────────
+# Our Dockerfiles pin pnpm via `corepack prepare pnpm@10.26.1 --activate`
+# AFTER `rm -rf /usr/local/lib/node_modules/pnpm`. Despite this, `pnpm
+# --version` inside the built image still reports 9.12.0 — corepack
+# manages its own internal cache (`~/.cache/node/corepack`) which carries
+# the Node-22 default pnpm 9.12.0, and Trivy scans that cache too.
+#
+# Real fix: multi-stage build with a distroless runtime that has neither
+# pnpm nor npm. Filed as a separate task ("Multi-stage Dockerfile +
+# distroless runtime") which is the canonical attack-surface reduction.
+#
+# Why these are not exploitable in our pipeline today:
+#   CVE-2025-69262 — pnpm tokenHelper env-var leak. We do not configure
+#                    or use the tokenHelper feature anywhere.
+#   CVE-2025-69263 — pnpm lockfile integrity bypass. We use
+#                    `pnpm install --frozen-lockfile=false` AGAINST a
+#                    committed services/pnpm-lock.yaml. No attacker can
+#                    inject an alternative lockfile at install time, and
+#                    our runtime never re-installs.
+#
+# Filed 2026-05-22. Remove when distroless multi-stage builds land.
+CVE-2025-69262
+CVE-2025-69263
