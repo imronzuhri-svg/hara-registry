@@ -124,4 +124,10 @@ volumes:
   validator2-data:
   validator3-data:
   validator4-data:
+  # Explicit `name:` so this volume is reachable from other stacks
+  # (deploy/rpc/, validator-only) without compose's project-name prefix.
+  # Without it the volume becomes `hara-ledger-chain_chain-shared` and an
+  # `external: true` lookup of `chain-shared` from another stack fails.
+  # Found by the 2026-05-26 sim dry-run.
   chain-shared:
+    name: chain-shared

@@ -40,4 +40,8 @@ networks:
 
 volumes:
   validator-data:
+  # See deploy/chain/docker-compose.yml — same explicit name so this stack
+  # can share genesis/static-nodes with the validator init container even
+  # though they run as separate compose projects.
   chain-shared:
+    name: chain-shared
