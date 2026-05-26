@@ -60,6 +60,8 @@ ssh --version            # OpenSSH 8+
 docker --version         # to verify .trivyignore + image references locally
 jq --version             # used by ops scripts
 rclone version           # for object-storage backup configuration
+age --version            # encrypts nightly backups before upload
+age-keygen --version     # one-time keypair generation (deploy/ops/backup-setup.sh)
 
 # 3. Make sure you can read the hara-ledger repo on the VPSes — either:
 #    a. Public repo: no auth needed; cloud-init clones via HTTPS

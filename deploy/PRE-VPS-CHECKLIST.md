@@ -52,17 +52,42 @@ uncomment the `acme_ca` staging line in the Caddyfile global block.
 
 ---
 
-#### 3. Backup destination — RECOMMENDED before day-2
+#### 3. Backup destination — REQUIRED before day-2
 
-`deploy/ops/vault-raft-snapshot.sh`, `deploy/ops/snapshot-postgres.sh`,
-and `deploy/ops/snapshot-validator.sh` all upload nightly via cron.
-The runbook lists ~Rp 300K/mo Nevacloud object storage but the bucket
-and credentials don't exist yet. Decide now or backups silently fail.
+**Decision: Nevacloud Object Storage + age-encryption.** Cheap (~Rp 300K/mo),
+S3-compatible, in-region (fast snapshots), keeps data in Indonesia, and
+every snapshot is encrypted to an age recipient *before* leaving the VPS so
+the provider only ever sees ciphertext.
 
-Either:
-- provision a Nevacloud object-storage bucket + service account, OR
-- use the MinIO instance on `hara-stateful` itself (cheaper but not
-  off-host; loses backups if hara-stateful is the failure).
+Three things to do before going live:
+
+1. **Provision a Nevacloud Object Storage bucket** + service-account key.
+   In the Nevacloud panel: Object Storage → Create bucket → grab access key
+   + secret key.
+
+2. **Generate the age keypair on your operator workstation** (laptop, not VPS):
+   ```bash
+   ./deploy/ops/backup-setup.sh
+   ```
+   This writes `~/.config/age/hara-backups.txt` (the private key — back this
+   up to 1Password/Bitwarden the same way you back up Vault unseal keys) and
+   prints the `age1…` recipient string.
+
+3. **On each VPS** add to the env that the snapshot cron sources:
+   ```
+   BACKUP_AGE_RECIPIENT=age1…           # from step 2
+   ```
+   Snapshot scripts refuse to start without it.
+
+Restore is operator-side (the only host that has the private key):
+```bash
+rclone copy nevacloud-s3:hara-backups-postgres/hara_indexer/<file>.age .
+age -d -i ~/.config/age/hara-backups.txt < <file>.sql.zst.age | zstd -d | psql …
+```
+
+**Do NOT** use local MinIO as the backup destination — it lives on
+hara-stateful, the same VPS as the things being backed up. Defeats the
+point. The MinIO instance is for the `hara-pq-anchors` audit bucket only.
 
 ---
 

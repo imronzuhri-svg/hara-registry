@@ -14,6 +14,8 @@ packages:
   - git
   - wireguard
   - rclone
+  - age                             # encrypts nightly backups before rclone upload
+  - zstd                            # compresses pg_dump + tar streams
   - prometheus-node-exporter
   - ufw
   - fail2ban
