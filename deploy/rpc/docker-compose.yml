@@ -20,7 +20,7 @@ services:
         ipv4_address: 10.42.0.22   # was .21 — freed for LB read-binding plan
     volumes:
       - rpc-read-1-data:/opt/besu/data
-      - ./genesis:/opt/besu/genesis:ro
+      - ../chain/genesis:/opt/besu/genesis:ro
       - chain-shared:/shared:ro
       - ./scripts/start-rpc.sh:/start-rpc.sh:ro
     entrypoint: ["/bin/bash", "/start-rpc.sh"]
@@ -35,7 +35,7 @@ services:
         ipv4_address: 10.42.0.23   # bumped to keep upstream block contiguous
     volumes:
       - rpc-read-2-data:/opt/besu/data
-      - ./genesis:/opt/besu/genesis:ro
+      - ../chain/genesis:/opt/besu/genesis:ro
       - chain-shared:/shared:ro
       - ./scripts/start-rpc.sh:/start-rpc.sh:ro
     entrypoint: ["/bin/bash", "/start-rpc.sh"]
@@ -50,7 +50,7 @@ services:
         ipv4_address: 10.42.0.24   # bumped to keep upstream block contiguous
     volumes:
       - rpc-write-data:/opt/besu/data
-      - ./genesis:/opt/besu/genesis:ro
+      - ../chain/genesis:/opt/besu/genesis:ro
       - chain-shared:/shared:ro
       - ./scripts/start-rpc.sh:/start-rpc.sh:ro
     entrypoint: ["/bin/bash", "/start-rpc.sh"]
