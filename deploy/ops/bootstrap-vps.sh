@@ -97,7 +97,7 @@ ports=3200/tcp
 [hara-p2p]
 title=Chain P2P
 description=Besu validator P2P
-ports=30303/tcp,30303/udp
+ports=30303/tcp|30303/udp
 
 [hara-wireguard]
 title=WireGuard
