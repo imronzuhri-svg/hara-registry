@@ -78,7 +78,9 @@ deploy-all: deploy
 	@./scripts/register-from-broadcast.sh contracts/broadcast/DeployPalmOil.s.sol/131216/run-latest.json
 	@CR=$$(jq -r '.transactions[] | select(.contractName=="ContractRegistry") | .contractAddress' \
 		contracts/broadcast/Deploy.s.sol/131216/run-latest.json); \
-	cd contracts && CONTRACT_REGISTRY=$$CR forge script script/DeployPQAnchor.s.sol:DeployPQAnchor \
+	cd contracts && CONTRACT_REGISTRY=$$CR \
+		ANCHOR_WORKER_ADDRESS=$${ANCHOR_WORKER_ADDRESS:-0x70997970C51812dc3A010C7d01b50e0d17dc79C8} \
+		forge script script/DeployPQAnchor.s.sol:DeployPQAnchor \
 		--rpc-url http://localhost:8545 \
 		--broadcast --legacy --skip-simulation \
 		--private-key $${DEPLOYER_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
