@@ -14,7 +14,7 @@
 
 set -euo pipefail
 
-: "${BACKUP_AGE_RECIPIENT:?BACKUP_AGE_RECIPIENT required — run deploy/ops/backup-setup.sh on operator workstation, then put the age1… recipient in this VPS's env}"
+: "${BACKUP_AGE_RECIPIENT:?BACKUP_AGE_RECIPIENT required — run deploy/ops/backup-setup.sh on operator workstation, then put the age1 recipient in this VPS env}"
 
 DB_USER="${POSTGRES_USER:-hara}"
 DB_NAME_INDEXER="${POSTGRES_DB:-hara_indexer}"
