@@ -1,4 +1,4 @@
-.PHONY: help bootstrap up down logs deploy deploy-all register-watched reset-indexer clean test status platform-up platform-down
+.PHONY: help bootstrap up down logs deploy deploy-all register-watched reset-indexer clean test status platform-up platform-down sim-up sim-down sim-purge sim-status
 
 COMPOSE := docker compose -f chain/docker-compose.yml --env-file chain/.env
 PLATFORM := docker compose -f ../_platform/docker-compose.yml --env-file ../_platform/.env
@@ -21,6 +21,12 @@ help:
 	@echo "  make clean         Stop and DESTROY hara-ledger data (chain reset)"
 	@echo ""
 	@echo "Order: 'make platform-up' once → 'make bootstrap' → 'make up'"
+	@echo ""
+	@echo "Production-shape simulation (mimics 6-VPS Nevacloud topology):"
+	@echo "  make sim-up        Bring up all 6 'VPSes' as named container groups"
+	@echo "  make sim-down      Stop sim (volumes kept — fast restart)"
+	@echo "  make sim-purge     Stop AND nuke volumes (full chain reset)"
+	@echo "  make sim-status    Show what's running with topology labels"
 
 platform-up:
 	@test -f ../_platform/.env || cp ../_platform/.env.example ../_platform/.env
@@ -121,3 +127,28 @@ reset-indexer:
 	@docker exec hara-postgres psql -U hara -d hara_indexer -q -c "UPDATE pq_anchor_worker_state SET last_anchored_block = -1, last_anchor_id = NULL, updated_at = now() WHERE id = 1" 2>/dev/null || echo "  (pq_anchor_worker_state table not present yet — skipped)"
 	@echo "✔ Indexer reset. On next indexer start it will re-scan from block 0."
 	@echo "  watched_contracts is preserved; re-run 'make register-watched' only if addresses changed."
+
+# ── Production-shape local simulation ───────────────────────────────────────
+# Brings up all 6 logical "VPSes" (hara-stateful, hara-stateless, hara-v1..v4)
+# as named container groups on the hara-platform Docker bridge. Same compose
+# files used in production, with Vault in dev mode for local convenience.
+# See deploy/sim/README.md for details.
+
+sim-up:
+	@bash deploy/sim/sim-up.sh
+
+sim-down:
+	@bash deploy/sim/sim-down.sh
+
+sim-purge:
+	@bash deploy/sim/sim-down.sh --purge
+
+sim-status:
+	@echo "── hara-stateful ───────────────────────────────────────"
+	@docker ps --filter "name=hara-vault" --filter "name=hara-postgres" --filter "name=hara-redis" --filter "name=hara-minio" --format "  {{.Names}}\t{{.Status}}"
+	@echo ""
+	@echo "── hara-stateless ──────────────────────────────────────"
+	@docker ps --filter "name=hara-signer" --filter "name=hara-broadcaster" --filter "name=hara-indexer" --filter "name=hara-rpc-cache" --filter "name=hara-blockscout" --filter "name=hara-anchor-worker" --filter "name=hara-lb" --filter "name=hara-rpc-" --filter "name=hara-prometheus" --filter "name=hara-grafana" --filter "name=hara-loki" --filter "name=hara-alertmanager" --filter "name=hara-promtail" --filter "name=hara-alert-sink" --format "  {{.Names}}\t{{.Status}}"
+	@echo ""
+	@echo "── hara-v1..v4 (validators) ────────────────────────────"
+	@docker ps --filter "name=hara-validator" --format "  {{.Names}}\t{{.Status}}"
