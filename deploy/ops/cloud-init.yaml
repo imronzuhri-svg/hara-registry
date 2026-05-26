@@ -26,8 +26,9 @@ users:
     shell: /bin/bash
     sudo: ALL=(ALL) NOPASSWD:ALL
     ssh_authorized_keys:
-      # REPLACE with your team's SSH keys before booting
-      - ssh-ed25519 AAAA... ops@hara
+      # Primary operator key (Imron). Generated 2026-05-26.
+      # Add additional teammates by appending more `- ssh-ed25519 …` lines.
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILxywCp9uJ1ZANpmRzWpJc41oZfVoeA5Xpt7V5SKwVUV ops@haratrust
 
 write_files:
   - path: /etc/ufw/applications.d/hara
