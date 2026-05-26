@@ -5,7 +5,7 @@ name: hara-edge
 # Let's Encrypt certs.
 #
 # Pre-reqs:
-#   • DNS records for rpc/explorer/grafana.hara.id pointing at this host
+#   • DNS records for rpc/explorer/grafana.haratrust.io pointing at this host
 #   • Ports 80 + 443 reachable from public internet
 #   • The hara-platform network already exists (created by upstream stacks)
 #

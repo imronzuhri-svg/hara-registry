@@ -273,9 +273,9 @@ Done — the split landed in commits c802e0b, 1ead083, 8f9b020, 3d6310a.
 
 Done — see `deploy/edge/Caddyfile` and `deploy/edge/docker-compose.yml` (commit 3d6310a). One Caddy container on hara-stateless auto-renews Let's Encrypt certs for:
 
-- `rpc.hara.id` — `/read/*` → rpc-cache, `/write/*` → HAProxy LB, `/ws` → WS
-- `explorer.hara.id` — Blockscout FE + `/api/*` → Blockscout BE
-- `grafana.hara.id` — Grafana
+- `rpc.haratrust.io` — `/read/*` → rpc-cache, `/write/*` → HAProxy LB, `/ws` → WS
+- `explorer.haratrust.io` — Blockscout FE + `/api/*` → Blockscout BE
+- `grafana.haratrust.io` — Grafana
 
 DNS for the three hostnames must point at hara-stateless's public IP **before** Caddy starts (ACME HTTP-01 challenge needs port 80 reachable). Update `email` in the Caddyfile before going live.
 

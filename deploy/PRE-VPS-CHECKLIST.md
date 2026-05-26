@@ -37,7 +37,7 @@ Decide which domain serves the 3 public hostnames:
 - `explorer.<domain>`   → Blockscout
 - `grafana.<domain>`    → Grafana
 
-Default in repo: `hara.id`. If you use a different domain, change three places:
+Default in repo: `haratrust.io`. If you use a different domain, change three places:
 
 - `deploy/edge/Caddyfile` — three site blocks
 - `deploy/PRE-VPS-CHECKLIST.md` — this file (for clarity)
