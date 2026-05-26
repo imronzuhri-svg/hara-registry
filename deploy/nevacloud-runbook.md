@@ -122,7 +122,18 @@ For each of the 6 hostnames in §1:
 2. Choose Ubuntu 24.04 LTS.
 3. Pick the region per §1 (Jakarta or Surabaya).
 4. Pick the spec per §1 (4×4-core/8GB for validators, 2×8-core/32GB for stateful + stateless).
-5. **Paste the entire contents of `deploy/ops/cloud-init.yaml` into the User Data / Init Script field.** This is what makes the VPS come up with Docker, the hara user, WireGuard, UFW, fail2ban, node_exporter — all already configured.
+5. **If the panel has a User Data / Init Script field**: paste the entire contents of `deploy/ops/cloud-init.yaml`. This is what makes the VPS come up with Docker, the hara user, WireGuard, UFW, fail2ban, node_exporter — all already configured.
+
+   **If the panel has no User Data field** (as of 2026-05, Nevacloud's standard plans don't): you'll bootstrap each VPS manually with the equivalent script. After the VPS is provisioned and you can SSH in (with whatever credentials Nevacloud emails you — typically root + a temporary password):
+
+   ```bash
+   # On operator laptop
+   scp deploy/ops/bootstrap-vps.sh root@<vps-public-ip>:/root/
+   ssh root@<vps-public-ip> 'bash /root/bootstrap-vps.sh'
+   ```
+
+   The script is idempotent — re-run safely if it fails partway. After it finishes, root password login is disabled and you can only reach the VPS as `ssh hara@<vps>` using your ed25519 ops key.
+
 6. Submit.
 
 Wait for all 6 to show **"running"** and accept SSH at port 22. Total elapsed: ~10–15 minutes.
