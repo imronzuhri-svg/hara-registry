@@ -17,7 +17,7 @@ x-besu-common: &besu-common
   build:
     context: ./node
     dockerfile: Dockerfile
-  image: hara-ledger-node:latest
+  image: ${IMAGE_REGISTRY:-}hara-ledger-node:${IMAGE_TAG:-latest}
   restart: unless-stopped
   depends_on:
     init:

@@ -13,7 +13,7 @@ services:
     build:
       context: ../../services
       dockerfile: migrate/Dockerfile
-    image: hara-ledger-migrate:latest
+    image: ${IMAGE_REGISTRY:-}hara-ledger-migrate:${IMAGE_TAG:-latest}
     container_name: hara-migrate
     networks: [hara-platform]
     environment:
@@ -28,7 +28,7 @@ services:
     build:
       context: ../../services
       dockerfile: signer/Dockerfile
-    image: hara-ledger-signer:latest
+    image: ${IMAGE_REGISTRY:-}hara-ledger-signer:${IMAGE_TAG:-latest}
     container_name: hara-signer
     restart: unless-stopped
     networks:
@@ -56,7 +56,7 @@ services:
     build:
       context: ../../services
       dockerfile: broadcaster/Dockerfile
-    image: hara-ledger-broadcaster:latest
+    image: ${IMAGE_REGISTRY:-}hara-ledger-broadcaster:${IMAGE_TAG:-latest}
     container_name: hara-broadcaster
     restart: unless-stopped
     networks:
@@ -80,7 +80,7 @@ services:
     build:
       context: ../../services
       dockerfile: indexer/Dockerfile
-    image: hara-ledger-indexer:latest
+    image: ${IMAGE_REGISTRY:-}hara-ledger-indexer:${IMAGE_TAG:-latest}
     container_name: hara-indexer
     restart: unless-stopped
     networks:
@@ -107,7 +107,7 @@ services:
     build:
       context: ../../services
       dockerfile: rpc-cache/Dockerfile
-    image: hara-ledger-rpc-cache:latest
+    image: ${IMAGE_REGISTRY:-}hara-ledger-rpc-cache:${IMAGE_TAG:-latest}
     container_name: hara-rpc-cache
     restart: unless-stopped
     networks:
@@ -123,6 +123,49 @@ services:
       LOG_LEVEL: info
     ports:
       - "${RPC_CACHE_BIND:-0.0.0.0:8088}:8080"
+
+  # PQ anchor worker. Runs on a 10-min cadence (default), produces ML-DSA-65
+  # signed Merkle anchors over indexed_events, PUTs the signature blob to
+  # MinIO (hara-pq-anchors bucket), and commits keccak256(sig) on-chain via
+  # PQAnchorRegistry. See services/anchor-worker/src/index.ts §header.
+  #
+  # Requires:
+  #   • A pre-funded ECDSA wallet (refuses to start with zero balance).
+  #   • PQAnchorRegistry deployed and its address in PQ_ANCHOR_REGISTRY_ADDRESS.
+  #     Pull this from chain/deploy/broadcast/DeployPQAnchor.s.sol/<chain>/run-latest.json
+  #     or set explicitly post-deploy.
+  #   • MinIO bucket `hara-pq-anchors` (created by minio-init in docker-compose.minio.yml).
+  anchor-worker:
+    build:
+      context: ../../services
+      dockerfile: anchor-worker/Dockerfile
+    image: ${IMAGE_REGISTRY:-}hara-ledger-anchor-worker:${IMAGE_TAG:-latest}
+    container_name: hara-anchor-worker
+    restart: unless-stopped
+    networks:
+      hara-platform:
+        ipv4_address: 10.42.0.48
+    environment:
+      SERVICE_NAME: anchor-worker
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN:?required}
+      ANCHOR_VAULT_PATH: secret/haraledger/signer-keys/anchor-worker
+      DATABASE_URL: postgresql://${POSTGRES_USER:?required}:${POSTGRES_PASSWORD:?required}@postgres:5432/${POSTGRES_DB:-hara_indexer}
+      RPC_READ_URL: http://lb:8545/rpc/read
+      RPC_WRITE_URL: http://lb:8545/rpc/write
+      CHAIN_ID: ${HARA_CHAIN_ID:-131216}
+      PQ_ANCHOR_REGISTRY_ADDRESS: ${PQ_ANCHOR_REGISTRY_ADDRESS:?required — set after PQAnchorRegistry deploy}
+      MINIO_ENDPOINT: hara-minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:?required}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?required}
+      PQ_BUCKET: hara-pq-anchors
+      ANCHOR_INTERVAL_MS: ${ANCHOR_INTERVAL_MS:-600000}
+      METRICS_PORT: 9102
+      LOG_LEVEL: info
+    ports:
+      - "${ANCHOR_METRICS_BIND:-127.0.0.1:9102}:9102"
+    depends_on:
+      migrate: { condition: service_completed_successfully }
 
   blockscout-db-init:
     image: postgres:16-alpine

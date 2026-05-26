@@ -172,8 +172,13 @@ cd /opt/hara-ledger      # cloud-init clones the repo here
 
 # 4a — Generate the 5 .env files
 ./deploy/ops/secrets-bootstrap.sh init
-# Will print: Vault token, Grafana password, Postgres password.
-# COPY THESE THREE TO YOUR PASSWORD MANAGER right now.
+# Will print: Vault token, Grafana password, Postgres password, MinIO password.
+# COPY ALL FOUR TO YOUR PASSWORD MANAGER right now.
+# Then append IMAGE_REGISTRY to every .env so docker compose pulls images
+# from GHCR instead of trying to build them locally:
+for f in deploy/{platform,data,services,chain,rpc}/.env; do
+  echo 'IMAGE_REGISTRY=ghcr.io/imronzuhri-svg/' >> "$f"
+done
 # After copying, secure the files: chmod 600 deploy/*/.env
 ls -la deploy/{platform,data,services,chain,rpc}/.env
 # All should be -rw-------

@@ -4,7 +4,7 @@ name: hara-ledger-rpc
 # In production this can run on its own VPS or co-locate with services/.
 
 x-besu-common: &besu-common
-  image: hara-ledger-node:latest  # Built by deploy/chain/ — must be on the same Docker host or registry
+  image: ${IMAGE_REGISTRY:-}hara-ledger-node:${IMAGE_TAG:-latest}  # Built by deploy/chain/ — must be on the same Docker host or registry
   restart: unless-stopped
   networks:
     - hara-platform

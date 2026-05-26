@@ -13,7 +13,7 @@ services:
     build:
       context: ./node
       dockerfile: Dockerfile
-    image: hara-ledger-node:latest
+    image: ${IMAGE_REGISTRY:-}hara-ledger-node:${IMAGE_TAG:-latest}
     container_name: hara-validator${VALIDATOR_ID:?VALIDATOR_ID required, 1-4}
     restart: unless-stopped
     environment:

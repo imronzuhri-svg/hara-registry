@@ -45,16 +45,20 @@ init)
   VAULT_TOKEN="$(gen 48)"
   GF_PASSWORD="$(gen 32)"
   PG_PASSWORD="$(gen 32)"
+  MINIO_PASSWORD="$(gen 32)"
 
   echo "▶ Writing deploy/platform/.env"
   cat > "$ROOT/platform/.env" <<EOF
 VAULT_DEV_ROOT_TOKEN=${VAULT_TOKEN}
 GF_SECURITY_ADMIN_PASSWORD=${GF_PASSWORD}
+GF_SERVER_ROOT_URL=https://grafana.hara.id
 GRAFANA_BIND=0.0.0.0:3200
 VAULT_BIND=127.0.0.1:8200
+VAULT_CLUSTER_BIND=127.0.0.1:8201
 PROM_BIND=127.0.0.1:9090
 ALERTMANAGER_BIND=127.0.0.1:9093
 LOKI_BIND=127.0.0.1:3201
+TEMPO_OTLP_HTTP_BIND=127.0.0.1:4318
 PROM_RETENTION=90d
 EOF
   chmod 600 "$ROOT/platform/.env"
@@ -67,6 +71,10 @@ POSTGRES_DB=hara_indexer
 POSTGRES_BIND=127.0.0.1:5432
 REDIS_BIND=127.0.0.1:6379
 REDIS_MAXMEMORY=512mb
+MINIO_ROOT_USER=haraadmin
+MINIO_ROOT_PASSWORD=${MINIO_PASSWORD}
+MINIO_API_BIND=127.0.0.1:9000
+MINIO_CONSOLE_BIND=127.0.0.1:9001
 EOF
   chmod 600 "$ROOT/data/.env"
 
@@ -91,6 +99,7 @@ VAULT_DEV_ROOT_TOKEN=${VAULT_TOKEN}
 HARA_CHAIN_ID=131216
 HARA_BLOCK_PERIOD_SECONDS=2
 HARA_VALIDATOR_COUNT=4
+V1_P2P_BIND=0.0.0.0:30303
 EOF
   chmod 600 "$ROOT/chain/.env"
 
@@ -109,6 +118,7 @@ EOF
   echo "  Vault token:      ${VAULT_TOKEN:0:8}…  (48 chars)"
   echo "  Grafana password: ${GF_PASSWORD:0:8}…  (32 chars)"
   echo "  Postgres pwd:     ${PG_PASSWORD:0:8}…  (32 chars)"
+  echo "  MinIO root pwd:   ${MINIO_PASSWORD:0:8}…  (32 chars)"
   echo "═════════════════════════════════════════════════════════════════════"
   echo
   echo "Next steps:"

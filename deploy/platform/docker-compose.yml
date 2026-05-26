@@ -80,7 +80,7 @@ services:
     build:
       context: ./alert-sink
       dockerfile: Dockerfile
-    image: hara-alert-sink:latest
+    image: ${IMAGE_REGISTRY:-}hara-alert-sink:${IMAGE_TAG:-latest}
     container_name: hara-alert-sink
     restart: unless-stopped
     networks:
