@@ -66,8 +66,14 @@ services:
       - "allkeys-lru"
       - "--save"
       - "60 1000"        # snapshot every 60s if 1000+ writes
+      # Disable FLUSHALL (production safety). The `--rename-command` CLI flag
+      # takes TWO separate args (command name + new name); collapsing them into
+      # one token "FLUSHALL \"\"" makes Redis 7+ refuse to start with
+      # "Bad directive or wrong number of arguments". Caught by the 2026-05-26
+      # dry-run.
       - "--rename-command"
-      - "FLUSHALL \"\""  # disable FLUSHALL (production safety)
+      - "FLUSHALL"
+      - ""
 
 networks:
   hara-platform:
