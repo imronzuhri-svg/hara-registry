@@ -51,7 +51,7 @@ init)
   cat > "$ROOT/platform/.env" <<EOF
 VAULT_DEV_ROOT_TOKEN=${VAULT_TOKEN}
 GF_SECURITY_ADMIN_PASSWORD=${GF_PASSWORD}
-GF_SERVER_ROOT_URL=https://grafana.haratrust.io
+GF_SERVER_ROOT_URL=https://grafana.platform.haratrust.io
 GRAFANA_BIND=0.0.0.0:3200
 VAULT_BIND=127.0.0.1:8200
 VAULT_CLUSTER_BIND=127.0.0.1:8201

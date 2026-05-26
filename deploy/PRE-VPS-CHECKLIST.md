@@ -31,13 +31,16 @@ ssh_import_id:
 
 #### 2. Domain — REQUIRED before bringing up Caddy
 
-Decide which domain serves the 3 public hostnames:
+Three public hostnames are served from `hara-stateless`:
 
-- `rpc.<domain>`        → JSON-RPC + WS
-- `explorer.<domain>`   → Blockscout
-- `grafana.<domain>`    → Grafana
+- `rpc.ledger.haratrust.io`        → JSON-RPC + WS (read/write/ws split per Caddyfile)
+- `explorer.ledger.haratrust.io`   → Blockscout
+- `grafana.platform.haratrust.io`  → Grafana
 
-Default in repo: `haratrust.io`. If you use a different domain, change three places:
+The split is deliberate: `ledger.*` is chain-specific (rpc, explorer);
+`platform.*` is cross-cutting infra (Grafana observes the ledger today,
+will observe hara-did and other products later). Keeps URLs honest as
+the platform grows. If you use a different domain, change three places:
 
 - `deploy/edge/Caddyfile` — three site blocks
 - `deploy/PRE-VPS-CHECKLIST.md` — this file (for clarity)

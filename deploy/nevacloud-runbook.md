@@ -36,9 +36,9 @@ Three A records, all pointing at `hara-stateless`'s public IP:
 
 | Hostname | Type | Value |
 |---|---|---|
-| `rpc.haratrust.io` | A | `<hara-stateless public IP>` |
-| `explorer.haratrust.io` | A | `<hara-stateless public IP>` |
-| `grafana.haratrust.io` | A | `<hara-stateless public IP>` |
+| `rpc.ledger.haratrust.io` | A | `<hara-stateless public IP>` |
+| `explorer.ledger.haratrust.io` | A | `<hara-stateless public IP>` |
+| `grafana.platform.haratrust.io` | A | `<hara-stateless public IP>` |
 
 Caddy needs port 80 reachable for the Let's Encrypt HTTP-01 challenge. If you're testing on Indonesian DNS, propagation is usually ≤ 10 min.
 
@@ -336,7 +336,7 @@ docker compose -f deploy/platform/docker-compose.obs.yml up -d
 # Grafana auto-provisions datasources for Prometheus + Loki + Tempo
 
 # 6g — Bring up Caddy (TLS edge)
-# Pre-check: DNS A records for rpc.haratrust.io / explorer.haratrust.io / grafana.haratrust.io
+# Pre-check: DNS A records for rpc.ledger.haratrust.io / explorer.ledger.haratrust.io / grafana.platform.haratrust.io
 # MUST already point at this VPS. Caddy needs port 80 reachable for ACME.
 docker compose -f deploy/edge/docker-compose.yml up -d
 # Wait for Caddy to issue certs:
@@ -380,22 +380,22 @@ From operator laptop, NOT via SSH tunnel:
 
 ```bash
 # RPC read endpoint
-curl -s -X POST https://rpc.haratrust.io/read/ \
+curl -s -X POST https://rpc.ledger.haratrust.io/read/ \
   -H "Content-Type: application/json" \
   --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
 # Expect: {"jsonrpc":"2.0","id":1,"result":"0x..."}
 
 # Block explorer
-curl -sI https://explorer.haratrust.io/ | head -1
+curl -sI https://explorer.ledger.haratrust.io/ | head -1
 # Expect: HTTP/2 200
 
 # Grafana
-curl -sI https://grafana.haratrust.io/ | head -1
+curl -sI https://grafana.platform.haratrust.io/ | head -1
 # Expect: HTTP/2 200 (login page)
 
 # WebSocket (will need wscat or similar — short connect test)
 echo '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
-  | wscat -c wss://rpc.haratrust.io/ws
+  | wscat -c wss://rpc.ledger.haratrust.io/ws
 ```
 
 If any return 5xx: check Caddy logs (`docker logs hara-caddy` on hara-stateless) for cert / upstream errors.
@@ -496,7 +496,7 @@ Realistic with one or two stumbles: ~3 hours for first-time operator.
 | Validators stuck "Fetching validator N key from Vault" + 404 | Vault sealed OR Raft re-init wiped keys | `vault operator unseal <key>` × 3 OR re-run init |
 | `make deploy-all` fails with "zero balance sender" | Deployer wallet has 0 wei native HARA | `cast send --value 1 --legacy --gas-price 0 <addr>` from a pre-funded account |
 | RPC returns 503 | All upstream Besu RPC nodes down OR LB can't resolve them | `docker ps | grep rpc-` to find the dead one; `docker logs hara-rpc-read-1` |
-| Caddy "certificate not obtained" | DNS A record points elsewhere OR port 80 blocked | Verify `dig +short rpc.haratrust.io` returns hara-stateless IP; open port 80 |
+| Caddy "certificate not obtained" | DNS A record points elsewhere OR port 80 blocked | Verify `dig +short rpc.ledger.haratrust.io` returns hara-stateless IP; open port 80 |
 | Indexer shows no events | watched_contracts empty after wipe + redeploy | `make register-watched` |
 | Anchor-worker refuses to start (zero balance) | Anchor signer not pre-funded | `cast send` 1 wei to the anchor address from the deployer |
 | Chain halts after a single VPS reboot | QBFT lost quorum (2 of 4 down) | Bring the dead validators back; chain auto-resumes when 3 of 4 alive |

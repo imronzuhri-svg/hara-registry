@@ -5,9 +5,9 @@
 # upstream is plaintext over the WireGuard mesh.
 #
 # Hostnames you must point at hara-stateless's public IP before this runs:
-#   • rpc.haratrust.io            → JSON-RPC + WS (write goes via /write/*)
-#   • explorer.haratrust.io       → Blockscout
-#   • grafana.haratrust.io        → Grafana
+#   • rpc.ledger.haratrust.io            → JSON-RPC + WS (write goes via /write/*)
+#   • explorer.ledger.haratrust.io       → Blockscout
+#   • grafana.platform.haratrust.io        → Grafana
 #
 # Vault is intentionally NOT exposed. Operator access via SSH tunnel.
 
@@ -18,7 +18,7 @@
 }
 
 # ── JSON-RPC: read + write split, WS ─────────────────────────────────────────
-rpc.haratrust.io {
+rpc.ledger.haratrust.io {
     # All read traffic flows through rpc-cache (99% hit rate per
     # observability dashboards; cuts validator load 40–60% under read load).
     # Default route is read.
@@ -55,7 +55,7 @@ rpc.haratrust.io {
 }
 
 # ── Blockscout explorer ──────────────────────────────────────────────────────
-explorer.haratrust.io {
+explorer.ledger.haratrust.io {
     reverse_proxy http://hara-blockscout-fe:3000
 
     # Blockscout backend API on the same hostname under /api
@@ -70,7 +70,7 @@ explorer.haratrust.io {
 }
 
 # ── Grafana ──────────────────────────────────────────────────────────────────
-grafana.haratrust.io {
+grafana.platform.haratrust.io {
     reverse_proxy http://hara-grafana:3000
 
     # Grafana lives behind basic auth + Grafana's own session cookies; no
