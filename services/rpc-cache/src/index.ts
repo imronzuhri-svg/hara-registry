@@ -143,6 +143,24 @@ async function proxyUpstream(body: any, method: string): Promise<any> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+    // Upstream may return HTML error pages (e.g., HAProxy 503 when no backend is
+    // available). Don't try to JSON.parse those — surface as JSON-RPC error envelope
+    // so clients get a structured response instead of a 500 from this cache.
+    const contentType = res.headers.get("content-type") ?? "";
+    if (!res.ok || !contentType.includes("application/json")) {
+      const text = await res.text();
+      errorCount.labels("upstream").inc();
+      const id = Array.isArray(body) ? null : (body?.id ?? null);
+      return {
+        jsonrpc: "2.0",
+        id,
+        error: {
+          code: -32603,
+          message: `Upstream returned ${res.status} ${res.statusText} (${contentType || "no content-type"})`,
+          data: text.slice(0, 200),
+        },
+      };
+    }
     return await res.json();
   } catch (err: any) {
     errorCount.labels("upstream").inc();
