@@ -103,10 +103,24 @@ BACKUP_AGE_RECIPIENT=${AGE_RECIP}
 EOF
     chmod 600 deploy/chain/.env
 
-    # Pre-pull the validator image (faster startup)
+    # Create the hara-platform docker bridge network if it doesn't exist.
+    # validator-only.yml declares it as external, but each validator VPS
+    # has its own docker daemon — the network must exist locally.
+    # Subnet 10.42.0.0/24 is the docker bridge subnet (per the redesign);
+    # WG mesh lives separately on 10.43.0.0/24, no conflict.
+    if ! docker network inspect hara-platform >/dev/null 2>&1; then
+      docker network create --driver bridge \
+        --subnet 10.42.0.0/24 --gateway 10.42.0.1 \
+        hara-platform
+    fi
+
+    # Pre-pull the validator image. NOTE: hara-ledger-node is NOT in GHCR
+    # (no CI workflow builds it yet). The pull will fail with "denied" —
+    # then docker compose builds locally from deploy/chain/node/Dockerfile.
+    # That's expected; we want to suppress the noise but not abort.
     docker pull ghcr.io/imronzuhri-svg/hara-ledger-node:latest 2>&1 | tail -1 || true
 
-    # Bring up
+    # Bring up (will build the image if not present locally)
     docker compose -f deploy/chain/docker-compose.validator-only.yml \
                    --env-file deploy/chain/.env up -d
 
