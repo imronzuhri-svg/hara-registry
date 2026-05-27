@@ -102,6 +102,14 @@ ls -la deploy/chain/genesis/genesis.json
 chmod 600 deploy/{platform,services,rpc}/.env
 
 # 4. RPC tier (LB + 3 read RPC nodes)
+# Pre-build the hara-ledger-node image. GHCR doesn't have it yet (no CI
+# workflow builds it), so the pull would fail and fall back to build —
+# but the fallback is racy with multi-replica startup. Build first.
+echo ""
+echo "▶ Building hara-ledger-node image (not in GHCR)"
+docker compose -f deploy/rpc/docker-compose.yml \
+               --env-file deploy/rpc/.env build rpc-read-1 2>&1 | tail -3
+
 echo ""
 echo "▶ Bringing up RPC tier"
 docker compose -f deploy/rpc/docker-compose.yml \

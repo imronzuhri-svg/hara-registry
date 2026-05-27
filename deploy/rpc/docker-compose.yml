@@ -4,7 +4,18 @@ name: hara-ledger-rpc
 # In production this can run on its own VPS or co-locate with services/.
 
 x-besu-common: &besu-common
-  image: ${IMAGE_REGISTRY:-}hara-ledger-node:${IMAGE_TAG:-latest}  # Built by deploy/chain/ — must be on the same Docker host or registry
+  build:
+    context: ../chain/node
+    dockerfile: Dockerfile
+    # Host networking for build — see deploy/chain/docker-compose.yml for
+    # the full rationale (wg-mesh / docker-bridge subnet conflict on
+    # Nevacloud VPSes that breaks BuildKit's default network).
+    network: host
+  image: ${IMAGE_REGISTRY:-}hara-ledger-node:${IMAGE_TAG:-latest}
+  # When IMAGE_REGISTRY=ghcr.io/imronzuhri-svg/ is set, compose tries to pull
+  # first; GHCR doesn't have hara-ledger-node yet, pull fails with "denied",
+  # then falls through to the build above. Falls through cleanly with
+  # `docker compose up --build` or after a one-time `docker compose build`.
   restart: unless-stopped
   networks:
     - hara-platform
