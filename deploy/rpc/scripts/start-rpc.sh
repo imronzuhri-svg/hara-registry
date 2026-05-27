@@ -38,6 +38,7 @@ exec besu \
   --rpc-http-max-active-connections=4000 \
   --rpc-http-max-batch-size=200 \
   --tx-pool-max-future-by-sender=2000 \
+  --tx-pool-layer-max-capacity=104857600 \
   --rpc-http-cors-origins="*" \
   --rpc-http-api=ETH,NET,WEB3,QBFT,DEBUG,TRACE,TXPOOL \
   --rpc-http-authentication-enabled=false \
@@ -53,4 +54,5 @@ exec besu \
   --metrics-port=9545 \
   --min-gas-price=0 \
   --remote-connections-limit-enabled=false \
+  --sync-min-peers=2 \
   --logging=INFO

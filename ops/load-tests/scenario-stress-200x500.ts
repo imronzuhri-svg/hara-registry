@@ -90,14 +90,15 @@ async function batchSendChunked(
   publicClient: ReturnType<typeof createPublicClient>,
   txs: Hex[],
   label: string,
-  opts: { waitBetweenChunks?: boolean; receiptTimeoutMs?: number } = {},
+  opts: { waitBetweenChunks?: boolean; receiptTimeoutMs?: number; chunkSize?: number } = {},
 ): Promise<Hex[]> {
   const waitBetween = opts.waitBetweenChunks ?? true;
   const receiptTimeout = opts.receiptTimeoutMs ?? 180_000;
+  const chunkSize = opts.chunkSize ?? CHUNK_SIZE;
   const allHashes: Hex[] = [];
-  const totalChunks = Math.ceil(txs.length / CHUNK_SIZE);
+  const totalChunks = Math.ceil(txs.length / chunkSize);
   for (let c = 0; c < totalChunks; c++) {
-    const chunk = txs.slice(c * CHUNK_SIZE, (c + 1) * CHUNK_SIZE);
+    const chunk = txs.slice(c * chunkSize, (c + 1) * chunkSize);
     const t0 = Date.now();
     const results = await batchSendRawTxs(url, chunk);
     const errors = results.filter((r): r is Error => r instanceof Error);
@@ -238,9 +239,15 @@ async function batchSendChunked(
   }
   console.log(`  Signed ${allRaws.length} txs in ${Date.now() - chainStart}ms`);
 
+  // Phase C uses chunks of 25 with per-chunk receipt wait. Heavy executeChain txs
+  // (250+ hops) hit a per-sender ~200-deep wall in Besu's pool when submitted en
+  // masse — pool maintenance can't validate them all and the higher-nonce txs get
+  // silently dropped. Keeping pool depth <200 from any one sender at all times
+  // works around this. Confirmed during 2026-05-27 investigation.
   const submitStart = Date.now();
   const successHashes = await batchSendChunked(RPC_WRITE, publicClient, allRaws, "chains", {
-    waitBetweenChunks: false,
+    waitBetweenChunks: true,
+    chunkSize: 25,
     receiptTimeoutMs: 600_000,
   });
   if (successHashes.length !== allRaws.length) {

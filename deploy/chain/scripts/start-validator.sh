@@ -63,4 +63,5 @@ exec besu \
   --block-txs-selection-max-time=8000 \
   --tx-pool-enable-save-restore=false \
   --tx-pool-max-future-by-sender=2000 \
+  --tx-pool-layer-max-capacity=104857600 \
   --logging=INFO
