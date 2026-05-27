@@ -32,7 +32,7 @@ services:
     volumes:
       - rpc-read-1-data:/opt/besu/data
       - ../chain/genesis:/opt/besu/genesis:ro
-      - chain-shared:/shared:ro
+      - ../chain/shared:/shared:ro
       - ./scripts/start-rpc.sh:/start-rpc.sh:ro
     entrypoint: ["/bin/bash", "/start-rpc.sh"]
 
@@ -47,7 +47,7 @@ services:
     volumes:
       - rpc-read-2-data:/opt/besu/data
       - ../chain/genesis:/opt/besu/genesis:ro
-      - chain-shared:/shared:ro
+      - ../chain/shared:/shared:ro
       - ./scripts/start-rpc.sh:/start-rpc.sh:ro
     entrypoint: ["/bin/bash", "/start-rpc.sh"]
 
@@ -62,7 +62,7 @@ services:
     volumes:
       - rpc-write-data:/opt/besu/data
       - ../chain/genesis:/opt/besu/genesis:ro
-      - chain-shared:/shared:ro
+      - ../chain/shared:/shared:ro
       - ./scripts/start-rpc.sh:/start-rpc.sh:ro
     entrypoint: ["/bin/bash", "/start-rpc.sh"]
 
@@ -93,5 +93,3 @@ volumes:
   rpc-read-1-data:
   rpc-read-2-data:
   rpc-write-data:
-  chain-shared:
-    external: true   # Shared with deploy/chain/ — same volume name across stacks

@@ -93,11 +93,14 @@ if ! docker network inspect hara-platform >/dev/null 2>&1; then
   echo "  ✓ created hara-platform docker network"
 fi
 
-# Pull genesis.json from MinIO (rpc nodes need it at deploy/chain/genesis/)
-mkdir -p deploy/chain/genesis
+# Pull genesis.json AND static-nodes.json from MinIO. RPC nodes mount
+# both via bind: deploy/chain/genesis + deploy/chain/shared.
+mkdir -p deploy/chain/genesis deploy/chain/shared
 curl -fsS -o deploy/chain/genesis/genesis.json \
   http://${STATEFUL}:9000/hara-chain-config/genesis.json
-ls -la deploy/chain/genesis/genesis.json
+curl -fsS -o deploy/chain/shared/static-nodes.json \
+  http://${STATEFUL}:9000/hara-chain-config/static-nodes.json
+ls -la deploy/chain/genesis/genesis.json deploy/chain/shared/static-nodes.json
 
 chmod 600 deploy/{platform,services,rpc}/.env
 
