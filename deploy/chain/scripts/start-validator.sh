@@ -60,4 +60,6 @@ exec besu \
   --metrics-host=0.0.0.0 \
   --metrics-port=9545 \
   --min-gas-price=0 \
+  --block-txs-selection-max-time=8000 \
+  --tx-pool-enable-save-restore=false \
   --logging=INFO

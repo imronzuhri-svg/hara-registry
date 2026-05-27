@@ -90,7 +90,10 @@ async function batchSendChunked(
   publicClient: ReturnType<typeof createPublicClient>,
   txs: Hex[],
   label: string,
+  opts: { waitBetweenChunks?: boolean; receiptTimeoutMs?: number } = {},
 ): Promise<Hex[]> {
+  const waitBetween = opts.waitBetweenChunks ?? true;
+  const receiptTimeout = opts.receiptTimeoutMs ?? 180_000;
   const allHashes: Hex[] = [];
   const totalChunks = Math.ceil(txs.length / CHUNK_SIZE);
   for (let c = 0; c < totalChunks; c++) {
@@ -103,11 +106,22 @@ async function batchSendChunked(
     }
     const hashes = results.filter((r): r is Hex => !(r instanceof Error));
     allHashes.push(...hashes);
-    const lastHash = hashes[hashes.length - 1];
-    if (lastHash) {
-      await publicClient.waitForTransactionReceipt({ hash: lastHash, timeout: 180_000 });
+    if (waitBetween) {
+      const lastHash = hashes[hashes.length - 1];
+      if (lastHash) {
+        await publicClient.waitForTransactionReceipt({ hash: lastHash, timeout: receiptTimeout });
+      }
+      process.stderr.write(`    ${label} chunk ${c + 1}/${totalChunks} (${chunk.length} txs) confirmed in ${Date.now() - t0}ms\n`);
+    } else {
+      process.stderr.write(`    ${label} chunk ${c + 1}/${totalChunks} (${chunk.length} txs) submitted in ${Date.now() - t0}ms\n`);
     }
-    process.stderr.write(`    ${label} chunk ${c + 1}/${totalChunks} (${chunk.length} txs) confirmed in ${Date.now() - t0}ms\n`);
+  }
+  if (!waitBetween && allHashes.length) {
+    const finalT0 = Date.now();
+    const lastHash = allHashes[allHashes.length - 1];
+    process.stderr.write(`    ${label}: waiting for final receipt (${lastHash.slice(0, 10)}...)\n`);
+    await publicClient.waitForTransactionReceipt({ hash: lastHash, timeout: receiptTimeout });
+    process.stderr.write(`    ${label} all ${allHashes.length} txs final receipt in ${Date.now() - finalT0}ms\n`);
   }
   return allHashes;
 }
@@ -225,7 +239,10 @@ async function batchSendChunked(
   console.log(`  Signed ${allRaws.length} txs in ${Date.now() - chainStart}ms`);
 
   const submitStart = Date.now();
-  const successHashes = await batchSendChunked(RPC_WRITE, publicClient, allRaws, "chains");
+  const successHashes = await batchSendChunked(RPC_WRITE, publicClient, allRaws, "chains", {
+    waitBetweenChunks: false,
+    receiptTimeoutMs: 600_000,
+  });
   if (successHashes.length !== allRaws.length) {
     throw new Error(`Phase C: only ${successHashes.length}/${allRaws.length} txs accepted at submission`);
   }
