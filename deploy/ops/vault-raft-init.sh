@@ -33,19 +33,20 @@ die()  { printf '\033[1;31m✗ %s\033[0m\n' "$*" >&2; exit "${2:-1}"; }
 command -v jq >/dev/null \
   || die "jq required"
 
-# Use the host's vault CLI if installed; otherwise fall back to `docker exec`
-# into the running container. This way the script works whether or not the
-# operator installed the CLI on the VPS (they don't strictly need it).
-if command -v vault >/dev/null 2>&1; then
-  vault() { command vault "$@"; }
-elif docker ps --format '{{.Names}}' | grep -q '^hara-vault$'; then
+# Prefer `docker exec` into the hara-vault container if it's running — this
+# avoids surprises if the host has an unrelated /usr/bin/vault (Ubuntu has
+# an unrelated 'vault' package; HashiCorp's is at v1.x, the other is v2.x).
+# Only fall back to host CLI if no container is present.
+if docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^hara-vault$'; then
   vault() { docker exec -e VAULT_ADDR=http://127.0.0.1:8200 \
                     ${VAULT_TOKEN:+-e VAULT_TOKEN="$VAULT_TOKEN"} \
                     -i hara-vault vault "$@"; }
-  # When using docker exec, VAULT_ADDR points to the container's own listener
   VAULT_ADDR="http://127.0.0.1:8200"
+elif command -v vault >/dev/null 2>&1 \
+     && vault --version 2>/dev/null | grep -qE '^Vault v1\.'; then
+  vault() { command vault "$@"; }
 else
-  die "vault CLI not on PATH and hara-vault container not running. Bring up the secrets stack first."
+  die "no usable Vault: hara-vault container not running AND no HashiCorp Vault v1.x CLI on host"
 fi
 
 export VAULT_ADDR

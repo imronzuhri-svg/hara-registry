@@ -40,17 +40,19 @@ die()  { printf '\033[1;31m✗ %s\033[0m\n' "$*" >&2; exit "${2:-1}"; }
 
 command -v jq >/dev/null || die "jq required"
 
-# Use host's vault CLI if installed; else fall back to `docker exec` into
-# the running container. See vault-raft-init.sh for the same pattern.
-if command -v vault >/dev/null 2>&1; then
-  vault() { command vault "$@"; }
-elif docker ps --format '{{.Names}}' | grep -q '^hara-vault$'; then
+# Prefer docker exec into hara-vault container; only fall back to host CLI
+# if the binary identifies as HashiCorp Vault v1.x (some distros ship an
+# unrelated `vault` v2.x command). Same pattern as vault-raft-init.sh.
+if docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^hara-vault$'; then
   vault() { docker exec -e VAULT_ADDR=http://127.0.0.1:8200 \
                     -e VAULT_TOKEN="$VAULT_TOKEN" \
                     -i hara-vault vault "$@"; }
   VAULT_ADDR="http://127.0.0.1:8200"
+elif command -v vault >/dev/null 2>&1 \
+     && vault --version 2>/dev/null | grep -qE '^Vault v1\.'; then
+  vault() { command vault "$@"; }
 else
-  die "vault CLI not on PATH and hara-vault container not running"
+  die "no usable Vault: hara-vault container not running AND no HashiCorp Vault v1.x CLI on host"
 fi
 
 vault status -format=json | jq -e '.sealed == false' >/dev/null \
