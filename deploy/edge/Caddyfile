@@ -56,11 +56,23 @@ rpc.ledger.haratrust.io {
 
 # ── Blockscout explorer ──────────────────────────────────────────────────────
 explorer.ledger.haratrust.io {
-    reverse_proxy http://hara-blockscout-fe:3000
+    # Use explicit handle blocks (not a bare reverse_proxy + handle_path)
+    # — bare reverse_proxy matches ALL paths and wins the ordering battle
+    # against path-specific routes in Caddyfile auto-sort. Caught 2026-05-27
+    # when FE showed "No data" while BE was happily populating (1951
+    # blocks indexed).
 
-    # Blockscout backend API on the same hostname under /api
-    handle_path /api/* {
+    # Blockscout BE: /api/* + /socket/* (Phoenix LiveView WS)
+    handle /api/* {
         reverse_proxy http://hara-blockscout:4000
+    }
+    handle /socket/* {
+        reverse_proxy http://hara-blockscout:4000
+    }
+
+    # Everything else → frontend
+    handle {
+        reverse_proxy http://hara-blockscout-fe:3000
     }
 
     log {
