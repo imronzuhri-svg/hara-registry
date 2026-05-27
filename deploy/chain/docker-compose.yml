@@ -17,6 +17,9 @@ x-besu-common: &besu-common
   build:
     context: ./node
     dockerfile: Dockerfile
+    # See init service for rationale — host networking dodges the
+    # wg-mesh-vs-docker-bridge 10.42.0.0/24 subnet conflict during build.
+    network: host
   image: ${IMAGE_REGISTRY:-}hara-ledger-node:${IMAGE_TAG:-latest}
   restart: unless-stopped
   depends_on:
@@ -28,6 +31,12 @@ services:
     build:
       context: ./init
       dockerfile: Dockerfile
+      # Use host networking for the build phase. Default BuildKit network
+      # has the same conflict between WG mesh and docker bridge subnets
+      # (both 10.42.0.0/24) that breaks outbound from container builds.
+      # The host's network namespace works fine (verified by direct curl).
+      # Runtime stays on the hara-platform bridge — only the build moves.
+      network: host
     container_name: hara-init
     environment:
       VAULT_ADDR: http://vault:8200
