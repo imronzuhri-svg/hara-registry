@@ -39,7 +39,7 @@ services:
       network: host
     container_name: hara-init
     environment:
-      VAULT_ADDR: http://vault:8200
+      VAULT_ADDR: ${VAULT_ADDR:-http://vault:8200}
       VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN:?required}
       VALIDATOR_COUNT: ${HARA_VALIDATOR_COUNT:-4}
       CHAIN_ID: ${HARA_CHAIN_ID:-131216}
@@ -57,7 +57,7 @@ services:
     container_name: hara-validator1
     environment:
       VALIDATOR_ID: "1"
-      VAULT_ADDR: http://vault:8200
+      VAULT_ADDR: ${VAULT_ADDR:-http://vault:8200}
       VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN:?required}
     networks:
       hara-platform:
@@ -77,7 +77,7 @@ services:
     container_name: hara-validator2
     environment:
       VALIDATOR_ID: "2"
-      VAULT_ADDR: http://vault:8200
+      VAULT_ADDR: ${VAULT_ADDR:-http://vault:8200}
       VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN:?required}
     networks:
       hara-platform:
@@ -94,7 +94,7 @@ services:
     container_name: hara-validator3
     environment:
       VALIDATOR_ID: "3"
-      VAULT_ADDR: http://vault:8200
+      VAULT_ADDR: ${VAULT_ADDR:-http://vault:8200}
       VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN:?required}
     networks:
       hara-platform:
@@ -111,7 +111,7 @@ services:
     container_name: hara-validator4
     environment:
       VALIDATOR_ID: "4"
-      VAULT_ADDR: http://vault:8200
+      VAULT_ADDR: ${VAULT_ADDR:-http://vault:8200}
       VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN:?required}
     networks:
       hara-platform:

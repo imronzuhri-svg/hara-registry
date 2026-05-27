@@ -47,14 +47,31 @@ init)
   PG_PASSWORD="$(gen 32)"
   MINIO_PASSWORD="$(gen 32)"
 
-  echo "▶ Writing deploy/platform/.env"
+  # Production layout (post-2026-05-27 redesign):
+  #   WG mesh on 10.43.0.0/24 — each host's wg0 IP is the cross-host endpoint.
+  #   Docker bridge stays on 10.42.0.0/24 — container-local only.
+  #   Services on hara-stateful bind their ports to 10.43.0.40 (wg0); services
+  #   on hara-stateless reach them at http://10.43.0.40:<port>.
+  #
+  # Bind addresses below assume each .env file deploys to the VPS that hosts
+  # those services:
+  #   platform/.env, data/.env, data/minio       → hara-stateful (binds 10.43.0.40)
+  #   services/.env, rpc/.env, platform/obs.env  → hara-stateless
+  #   chain/.env                                  → hara-v1..v4 + hara-stateful (init)
+
+  HARA_STATEFUL_WG="10.43.0.40"
+  HARA_STATELESS_WG="10.43.0.20"
+
+  echo "▶ Writing deploy/platform/.env  (for hara-stateful)"
   cat > "$ROOT/platform/.env" <<EOF
 VAULT_DEV_ROOT_TOKEN=${VAULT_TOKEN}
 GF_SECURITY_ADMIN_PASSWORD=${GF_PASSWORD}
 GF_SERVER_ROOT_URL=https://grafana.platform.haratrust.io
-GRAFANA_BIND=0.0.0.0:3200
-VAULT_BIND=127.0.0.1:8200
-VAULT_CLUSTER_BIND=127.0.0.1:8201
+GRAFANA_BIND=${HARA_STATELESS_WG}:3200
+# Vault listens on hara-stateful's wg0 IP so other VPSes can reach it via
+# WG mesh (validators + signer + anchor-worker all need this).
+VAULT_BIND=${HARA_STATEFUL_WG}:8200
+VAULT_CLUSTER_BIND=${HARA_STATEFUL_WG}:8201
 PROM_BIND=127.0.0.1:9090
 ALERTMANAGER_BIND=127.0.0.1:9093
 LOKI_BIND=127.0.0.1:3201
@@ -63,28 +80,35 @@ PROM_RETENTION=90d
 EOF
   chmod 600 "$ROOT/platform/.env"
 
-  echo "▶ Writing deploy/data/.env"
+  echo "▶ Writing deploy/data/.env  (for hara-stateful)"
   cat > "$ROOT/data/.env" <<EOF
 POSTGRES_USER=hara
 POSTGRES_PASSWORD=${PG_PASSWORD}
 POSTGRES_DB=hara_indexer
-POSTGRES_BIND=127.0.0.1:5432
-REDIS_BIND=127.0.0.1:6379
+# Postgres + Redis + MinIO bind on hara-stateful's wg0 so hara-stateless
+# services can reach them cross-host via WG.
+POSTGRES_BIND=${HARA_STATEFUL_WG}:5432
+REDIS_BIND=${HARA_STATEFUL_WG}:6379
 REDIS_MAXMEMORY=512mb
 MINIO_ROOT_USER=haraadmin
 MINIO_ROOT_PASSWORD=${MINIO_PASSWORD}
-MINIO_API_BIND=127.0.0.1:9000
+MINIO_API_BIND=${HARA_STATEFUL_WG}:9000
 MINIO_CONSOLE_BIND=127.0.0.1:9001
 EOF
   chmod 600 "$ROOT/data/.env"
 
-  echo "▶ Writing deploy/services/.env"
+  echo "▶ Writing deploy/services/.env  (for hara-stateless)"
   cat > "$ROOT/services/.env" <<EOF
 VAULT_DEV_ROOT_TOKEN=${VAULT_TOKEN}
 POSTGRES_USER=hara
 POSTGRES_PASSWORD=${PG_PASSWORD}
 POSTGRES_DB=hara_indexer
 HARA_CHAIN_ID=131216
+# Cross-host service endpoints (point at hara-stateful's wg0 IP)
+VAULT_ADDR=http://${HARA_STATEFUL_WG}:8200
+POSTGRES_HOST=${HARA_STATEFUL_WG}
+REDIS_HOST=${HARA_STATEFUL_WG}
+MINIO_ENDPOINT=${HARA_STATEFUL_WG}:9000
 SIGNER_BIND=127.0.0.1:7000
 INDEXER_METRICS_BIND=127.0.0.1:9100
 RPC_CACHE_BIND=0.0.0.0:8088
@@ -93,12 +117,16 @@ BLOCKSCOUT_FE_BIND=0.0.0.0:4010
 EOF
   chmod 600 "$ROOT/services/.env"
 
-  echo "▶ Writing deploy/chain/.env"
+  echo "▶ Writing deploy/chain/.env  (for hara-v1..v4 + hara-stateful init)"
   cat > "$ROOT/chain/.env" <<EOF
 VAULT_DEV_ROOT_TOKEN=${VAULT_TOKEN}
 HARA_CHAIN_ID=131216
 HARA_BLOCK_PERIOD_SECONDS=2
 HARA_VALIDATOR_COUNT=4
+# Vault is on hara-stateful, reachable cross-host at its wg0 IP. Validators
+# AND the init container on hara-stateful both use this address — on
+# hara-stateful, 10.43.0.40 IS the local wg0 IP, so it works there too.
+VAULT_ADDR=http://${HARA_STATEFUL_WG}:8200
 V1_P2P_BIND=0.0.0.0:30303
 EOF
   chmod 600 "$ROOT/chain/.env"

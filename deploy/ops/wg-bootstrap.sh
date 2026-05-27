@@ -19,13 +19,28 @@
 #   5. systemctl enable + start wg-quick@wg0.
 #   6. Verify mesh: each host can ping every other host's WG IP.
 #
-# IP plan matches deploy/topology.md §3:
-#   hara-v1         10.42.0.11
-#   hara-v2         10.42.0.12
-#   hara-v3         10.42.0.13
-#   hara-v4         10.42.0.14
-#   hara-stateless  10.42.0.20  (+ 10.42.0.21 aliased on the same iface)
-#   hara-stateful   10.42.0.40  (+ 10.42.0.30, 10.42.0.31 aliased)
+# IP plan (post-redesign 2026-05-27):
+#   WG MESH lives on 10.43.0.0/24 — this is the cross-host service endpoint
+#   space. Each host has ONE wg0 IP. Services on that host bind their ports
+#   to this IP so other hosts can reach them via WG.
+#
+#   DOCKER BRIDGE (per host) stays on 10.42.0.0/24 — container-local only.
+#   Containers within a host find each other via Docker DNS (unchanged).
+#
+#   Why split: prior plan put both on 10.42.0.0/24, causing kernel route
+#   ambiguity (two interfaces claiming the same /24). Container outbound
+#   randomly broke. See git log around 2026-05-27 for the diagnosis.
+#
+#   hara-v1         10.43.0.11
+#   hara-v2         10.43.0.12
+#   hara-v3         10.43.0.13
+#   hara-v4         10.43.0.14
+#   hara-stateless  10.43.0.20
+#   hara-stateful   10.43.0.40
+#
+#   No more wg0 aliases needed — each cross-host service has a unique port
+#   on the single wg0 IP (vault:8200, postgres:5432, redis:6379, minio:9000
+#   all live on 10.43.0.40 with different ports).
 #
 # Required input: a hosts file mapping role → public IP, e.g.:
 #   hara-v1=203.0.113.11
@@ -55,14 +70,14 @@ while IFS='=' read -r role ip; do
   HOSTS["$role"]="$ip"
 done < "$HOSTS_FILE"
 
-# Role → mesh IP table (must match topology.md §3)
+# Role → mesh IP table (10.43.0.0/24 — see header for rationale)
 declare -A MESH_IP=(
-  [hara-v1]=10.42.0.11
-  [hara-v2]=10.42.0.12
-  [hara-v3]=10.42.0.13
-  [hara-v4]=10.42.0.14
-  [hara-stateless]=10.42.0.20
-  [hara-stateful]=10.42.0.40
+  [hara-v1]=10.43.0.11
+  [hara-v2]=10.43.0.12
+  [hara-v3]=10.43.0.13
+  [hara-v4]=10.43.0.14
+  [hara-stateless]=10.43.0.20
+  [hara-stateful]=10.43.0.40
 )
 
 # Sanity: every role in hosts file must have a known mesh IP.
@@ -125,17 +140,9 @@ PersistentKeepalive = 25
 "
   done
 
-  # hara-stateful needs aliases 10.42.0.30 + .31 on top of its primary .40
-  # hara-stateless needs alias .21 on top of .20
+  # Post-redesign 2026-05-27: no more wg0 aliases. Each cross-host service
+  # uses a unique port on the host's single wg0 IP.
   aliases=""
-  case "$role" in
-    hara-stateful)
-      aliases=$'\nPostUp = ip addr add 10.42.0.30/32 dev %i\nPostUp = ip addr add 10.42.0.31/32 dev %i'
-      ;;
-    hara-stateless)
-      aliases=$'\nPostUp = ip addr add 10.42.0.21/32 dev %i'
-      ;;
-  esac
 
   ssh_run "$host" bash -s <<REMOTE
     set -e

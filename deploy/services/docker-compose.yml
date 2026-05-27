@@ -17,7 +17,7 @@ services:
     container_name: hara-migrate
     networks: [hara-platform]
     environment:
-      POSTGRES_HOST: postgres
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
       POSTGRES_USER: ${POSTGRES_USER:?required}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
       POSTGRES_DB: ${POSTGRES_DB:-hara_indexer}
@@ -38,13 +38,13 @@ services:
       SERVICE_NAME: signer
       SIGNER_PORT: 7000
       HARA_CHAIN_ID: ${HARA_CHAIN_ID:-131216}
-      VAULT_ADDR: http://vault:8200
+      VAULT_ADDR: ${VAULT_ADDR:-http://vault:8200}
       VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN:?required}
-      POSTGRES_HOST: postgres
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
       POSTGRES_USER: ${POSTGRES_USER:?required}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
       POSTGRES_DB: ${POSTGRES_DB:-hara_indexer}
-      REDIS_HOST: redis
+      REDIS_HOST: ${REDIS_HOST:-redis}
       RPC_READ_URL: http://lb:8545/rpc/read
       LOG_LEVEL: info
     ports:
@@ -64,11 +64,11 @@ services:
         ipv4_address: 10.42.0.43   # was .41 — bumped after signer moved to .41
     environment:
       SERVICE_NAME: broadcaster
-      POSTGRES_HOST: postgres
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
       POSTGRES_USER: ${POSTGRES_USER:?required}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
       POSTGRES_DB: ${POSTGRES_DB:-hara_indexer}
-      REDIS_HOST: redis
+      REDIS_HOST: ${REDIS_HOST:-redis}
       RPC_WRITE_URL: http://lb:8545/rpc/write
       RPC_READ_URL: http://lb:8545/rpc/read
       LOG_LEVEL: info
@@ -88,7 +88,7 @@ services:
         ipv4_address: 10.42.0.44   # was .42 — collided with hara-minio
     environment:
       SERVICE_NAME: indexer
-      POSTGRES_HOST: postgres
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
       POSTGRES_USER: ${POSTGRES_USER:?required}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
       POSTGRES_DB: ${POSTGRES_DB:-hara_indexer}
@@ -117,7 +117,7 @@ services:
       SERVICE_NAME: rpc-cache
       PORT: 8080
       UPSTREAM_RPC: http://lb:8545/rpc/read
-      REDIS_HOST: redis
+      REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_DB: 5
       WARMUP_ON_START: "true"
       LOG_LEVEL: info
@@ -147,15 +147,15 @@ services:
         ipv4_address: 10.42.0.48
     environment:
       SERVICE_NAME: anchor-worker
-      VAULT_ADDR: http://vault:8200
+      VAULT_ADDR: ${VAULT_ADDR:-http://vault:8200}
       VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN:?required}
       ANCHOR_VAULT_PATH: secret/haraledger/signer-keys/anchor-worker
-      DATABASE_URL: postgresql://${POSTGRES_USER:?required}:${POSTGRES_PASSWORD:?required}@postgres:5432/${POSTGRES_DB:-hara_indexer}
+      DATABASE_URL: postgresql://${POSTGRES_USER:?required}:${POSTGRES_PASSWORD:?required}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-hara_indexer}
       RPC_READ_URL: http://lb:8545/rpc/read
       RPC_WRITE_URL: http://lb:8545/rpc/write
       CHAIN_ID: ${HARA_CHAIN_ID:-131216}
       PQ_ANCHOR_REGISTRY_ADDRESS: ${PQ_ANCHOR_REGISTRY_ADDRESS:?required — set after PQAnchorRegistry deploy}
-      MINIO_ENDPOINT: hara-minio:9000
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-hara-minio:9000}
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:?required}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?required}
       PQ_BUCKET: hara-pq-anchors
@@ -189,7 +189,7 @@ services:
         ipv4_address: 10.42.0.46   # was .43 — bumped to free .43 for broadcaster
     env_file: [./blockscout/envs/common-blockscout.env]
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/blockscout
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/blockscout
     command:
       - sh
       - -c

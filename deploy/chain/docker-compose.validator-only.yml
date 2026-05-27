@@ -33,8 +33,11 @@ services:
       - ./scripts/start-validator.sh:/start-validator.sh:ro
     entrypoint: ["/bin/bash", "/start-validator.sh"]
     ports:
-      - "0.0.0.0:30303:30303/tcp"
-      - "0.0.0.0:30303:30303/udp"
+      # Bind P2P to the host's wg0 IP so peer validators can reach this
+      # one over the WG mesh. Default 0.0.0.0 for sim/single-host; prod
+      # sets VALIDATOR_P2P_BIND=10.43.0.X (this validator's wg IP).
+      - "${VALIDATOR_P2P_BIND:-0.0.0.0:30303}:30303/tcp"
+      - "${VALIDATOR_P2P_BIND:-0.0.0.0:30303}:30303/udp"
 
 networks:
   hara-platform:
