@@ -97,12 +97,16 @@ ok "Chain init complete — 4 validator keys in Vault, genesis.json on disk"
 log "5/5  Uploading genesis.json to MinIO (hara-chain-config bucket)"
 MINIO_USER=$(grep ^MINIO_ROOT_USER deploy/data/.env | cut -d= -f2)
 MINIO_PASS=$(grep ^MINIO_ROOT_PASSWORD deploy/data/.env | cut -d= -f2)
+# Use MC_HOST_<name>=URL form instead of `mc alias set`. The alias-set
+# path in mc 2025-08 has a bug that fails with "Insufficient permissions"
+# on cp even with valid root creds; the env-URL form works. Caught
+# 2026-05-27 on hara-stateful.
 docker run --rm --network hara-platform \
   -v "$REPO_ROOT/deploy/chain/genesis:/work:ro" \
-  -e MUSER="$MINIO_USER" -e MPASS="$MINIO_PASS" \
-  --entrypoint sh \
+  -e MC_HOST_h="http://${MINIO_USER}:${MINIO_PASS}@hara-minio:9000" \
+  --entrypoint mc \
   minio/mc:RELEASE.2025-08-13T08-35-41Z \
-  -c 'mc alias set h http://hara-minio:9000 "$MUSER" "$MPASS" >/dev/null && mc cp /work/genesis.json h/hara-chain-config/genesis.json'
+  cp /work/genesis.json h/hara-chain-config/genesis.json
 ok "genesis.json uploaded — validators + stateless can now pull it"
 
 # ── Summary ──────────────────────────────────────────────────────────────────
