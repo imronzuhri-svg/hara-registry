@@ -47,6 +47,7 @@ const BASE_BATCH_ID = BigInt(process.env.BASE_BATCH_ID ?? Date.now());
 
 const ERC1155_ABI = parseAbi([
   "function setApprovalForAll(address operator, bool approved)",
+  "function isApprovedForAll(address account, address operator) view returns (bool)",
   "function mintBatch(uint256 batchId, address to, uint256 amount, bytes32 rspoHash, bytes32 plantationId, uint64 productionDate)",
   "function balanceOf(address account, uint256 id) view returns (uint256)",
 ]);
@@ -123,7 +124,12 @@ async function batchSendChunked(
 
   const startAll = Date.now();
 
-  // ── Phase A — Prime wallets ──────────────────────────────────────────────
+  // ── Phase A — Prime wallets (chunked + verified) ─────────────────────────
+  // Priming materializes each wallet's account in world state. If any wallet
+  // is missed, Phase B's approval tx for that sender becomes a permanent zombie
+  // — SenderBalanceChecker throws on the missing account and the validator
+  // pool keeps the tx forever, blocking the chain until all 4 validators are
+  // simultaneously restarted. See validator-pool-zombies (memory) / 2026-05-27.
   console.log(`\n▶ A. Priming ${HOPS} wallets with 1 wei native HARA...`);
   let depNonce = await publicClient.getTransactionCount({ address: deployer.address, blockTag: "pending" });
   const primeStart = Date.now();
@@ -134,13 +140,25 @@ async function batchSendChunked(
       to: wallets[i].address, value: 1n, gasPrice: 0n, gas: 21_000n,
     }));
   }
-  const primeResults = await batchSendRawTxs(RPC_WRITE, primeRaws);
-  const lastPrime = primeResults.filter((r): r is Hex => !(r instanceof Error)).pop()!;
-  await publicClient.waitForTransactionReceipt({ hash: lastPrime, timeout: 180_000 });
-  console.log(`  ✔ ${HOPS} primed in ${Date.now() - primeStart}ms`);
+  await batchSendChunked(RPC_WRITE, publicClient, primeRaws, "prime");
   depNonce += HOPS;
 
-  // ── Phase B — Approve relay (each wallet nonce=0, parallel) ─────────────
+  process.stderr.write(`  verifying ${HOPS} wallet balances...\n`);
+  const unfunded: number[] = [];
+  for (let i = 0; i < HOPS; i++) {
+    const bal = await publicClient.getBalance({ address: wallets[i].address });
+    if (bal < 1n) unfunded.push(i);
+  }
+  if (unfunded.length) {
+    throw new Error(
+      `Phase A incomplete: ${unfunded.length}/${HOPS} wallets unfunded ` +
+      `(indices ${unfunded.slice(0, 10).join(",")}${unfunded.length > 10 ? "..." : ""}). ` +
+      `Abort before Phase B to avoid creating validator pool zombies.`,
+    );
+  }
+  console.log(`  ✔ ${HOPS} primed and verified in ${Date.now() - primeStart}ms`);
+
+  // ── Phase B — Approve relay (each wallet nonce=0, parallel + verified) ──
   console.log(`\n▶ B. ${HOPS} senders setApprovalForAll(relay, true)...`);
   const apprStart = Date.now();
   const apprData = encodeFunctionData({ abi: ERC1155_ABI, functionName: "setApprovalForAll", args: [RELAY, true] });
@@ -152,7 +170,24 @@ async function batchSendChunked(
     }));
   }
   await batchSendChunked(RPC_WRITE, publicClient, apprRaws, "approvals");
-  console.log(`  ✔ ${HOPS} approvals in ${Date.now() - apprStart}ms`);
+
+  process.stderr.write(`  verifying ${HOPS} approvals...\n`);
+  const notApproved: number[] = [];
+  for (let i = 0; i < HOPS; i++) {
+    const ok = await publicClient.readContract({
+      address: TOKEN, abi: ERC1155_ABI, functionName: "isApprovedForAll",
+      args: [wallets[i].address, RELAY],
+    });
+    if (!ok) notApproved.push(i);
+  }
+  if (notApproved.length) {
+    throw new Error(
+      `Phase B incomplete: ${notApproved.length}/${HOPS} approvals missing ` +
+      `(indices ${notApproved.slice(0, 10).join(",")}${notApproved.length > 10 ? "..." : ""}). ` +
+      `Phase C would revert mid-chain — fix before retrying.`,
+    );
+  }
+  console.log(`  ✔ ${HOPS} approvals confirmed in ${Date.now() - apprStart}ms`);
 
   // ── Phase C — Submit all CHAINS mint+executeChain pairs concurrently ────
   console.log(`\n▶ C. ${CHAINS} chains: mint + executeChain(${HOPS - 1} hops)...`);
@@ -191,6 +226,9 @@ async function batchSendChunked(
 
   const submitStart = Date.now();
   const successHashes = await batchSendChunked(RPC_WRITE, publicClient, allRaws, "chains");
+  if (successHashes.length !== allRaws.length) {
+    throw new Error(`Phase C: only ${successHashes.length}/${allRaws.length} txs accepted at submission`);
+  }
   console.log(`  ✔ All ${successHashes.length}/${allRaws.length} txs confirmed in ${Date.now() - submitStart}ms`);
 
   // Get the LAST executeChain receipt for block info
