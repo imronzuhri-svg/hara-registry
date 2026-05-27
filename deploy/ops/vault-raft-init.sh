@@ -30,10 +30,23 @@ ok()   { printf '\033[1;32m✓ %s\033[0m\n' "$*" >&2; }
 warn() { printf '\033[1;33m! %s\033[0m\n' "$*" >&2; }
 die()  { printf '\033[1;31m✗ %s\033[0m\n' "$*" >&2; exit "${2:-1}"; }
 
-command -v vault >/dev/null \
-  || die "vault CLI required. Install hashicorp/vault or run inside the container."
 command -v jq >/dev/null \
   || die "jq required"
+
+# Use the host's vault CLI if installed; otherwise fall back to `docker exec`
+# into the running container. This way the script works whether or not the
+# operator installed the CLI on the VPS (they don't strictly need it).
+if command -v vault >/dev/null 2>&1; then
+  vault() { command vault "$@"; }
+elif docker ps --format '{{.Names}}' | grep -q '^hara-vault$'; then
+  vault() { docker exec -e VAULT_ADDR=http://127.0.0.1:8200 \
+                    ${VAULT_TOKEN:+-e VAULT_TOKEN="$VAULT_TOKEN"} \
+                    -i hara-vault vault "$@"; }
+  # When using docker exec, VAULT_ADDR points to the container's own listener
+  VAULT_ADDR="http://127.0.0.1:8200"
+else
+  die "vault CLI not on PATH and hara-vault container not running. Bring up the secrets stack first."
+fi
 
 export VAULT_ADDR
 

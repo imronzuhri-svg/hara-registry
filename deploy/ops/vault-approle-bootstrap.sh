@@ -38,8 +38,20 @@ log()  { printf '\033[1;36m▶ %s\033[0m\n' "$*" >&2; }
 ok()   { printf '\033[1;32m✓ %s\033[0m\n' "$*" >&2; }
 die()  { printf '\033[1;31m✗ %s\033[0m\n' "$*" >&2; exit "${2:-1}"; }
 
-command -v vault >/dev/null || die "vault CLI required"
-command -v jq    >/dev/null || die "jq required"
+command -v jq >/dev/null || die "jq required"
+
+# Use host's vault CLI if installed; else fall back to `docker exec` into
+# the running container. See vault-raft-init.sh for the same pattern.
+if command -v vault >/dev/null 2>&1; then
+  vault() { command vault "$@"; }
+elif docker ps --format '{{.Names}}' | grep -q '^hara-vault$'; then
+  vault() { docker exec -e VAULT_ADDR=http://127.0.0.1:8200 \
+                    -e VAULT_TOKEN="$VAULT_TOKEN" \
+                    -i hara-vault vault "$@"; }
+  VAULT_ADDR="http://127.0.0.1:8200"
+else
+  die "vault CLI not on PATH and hara-vault container not running"
+fi
 
 vault status -format=json | jq -e '.sealed == false' >/dev/null \
   || die "Vault is sealed — run vault-raft-init.sh or unseal first"
