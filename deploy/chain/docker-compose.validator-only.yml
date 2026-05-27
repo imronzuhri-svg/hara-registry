@@ -29,7 +29,11 @@ services:
     volumes:
       - validator-data:/opt/besu/data
       - ./genesis:/opt/besu/genesis:ro
-      - chain-shared:/shared:ro
+      # Bind-mount ./shared instead of a named volume. In multi-host prod,
+      # the chain-shared docker volume only exists on hara-stateful (where
+      # chain init ran). Validator VPSes get static-nodes.json copied to
+      # ./shared/static-nodes.json from MinIO via bringup-validators.sh.
+      - ./shared:/shared:ro
       - ./scripts/start-validator.sh:/start-validator.sh:ro
     entrypoint: ["/bin/bash", "/start-validator.sh"]
     ports:
@@ -46,8 +50,3 @@ networks:
 
 volumes:
   validator-data:
-  # See deploy/chain/docker-compose.yml — same explicit name so this stack
-  # can share genesis/static-nodes with the validator init container even
-  # though they run as separate compose projects.
-  chain-shared:
-    name: chain-shared
