@@ -87,8 +87,13 @@ log "4/5  Chain init (genesis + validator keys → Vault)"
 # root token). In Raft mode, the real root token is returned by
 # vault-raft-init.sh and lives in vault-init-keys.json. The orchestrator
 # was invoked with VAULT_TOKEN=$root_token in env — pipe it through.
+# Also pass VALIDATOR_IP_PREFIX=10.43.0.1 so chain init bakes WG mesh IPs
+# into static-nodes.json. Otherwise it defaults to 10.42.0.1 (container
+# bridge IPs) which only work for single-host, not multi-host where
+# validators are on separate VPSes and need to reach each other via WG.
 VAULT_ADDR=http://vault:8200 \
 VAULT_DEV_ROOT_TOKEN="$VAULT_TOKEN" \
+VALIDATOR_IP_PREFIX=10.43.0.1 \
   docker compose -f deploy/chain/docker-compose.yml \
                  --env-file deploy/chain/.env run --rm init 2>&1 | tail -20
 ok "Chain init complete — 4 validator keys in Vault, genesis.json on disk"

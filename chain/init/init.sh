@@ -84,10 +84,18 @@ for KEY_DIR in "${WORK_OUT}/keys"/*/; do
     "${VAULT_ADDR}/v1/secret/data/haraledger/validators/${VALIDATOR_INDEX}" > /dev/null
 
   # Build enode entry — strip 0x prefix from pubkey if present.
-  # Besu's enode parser requires an IP address (not a hostname). Use the static IPs
-  # assigned in docker-compose.yml: 10.42.0.1<N> for validator N.
+  # Besu's enode parser requires an IP address (not a hostname). The IP used
+  # depends on deployment mode:
+  #   • Single-host (all 4 validators on one docker bridge): use container
+  #     bridge IPs 10.42.0.1N — set VALIDATOR_IP_PREFIX=10.42.0.1 (default).
+  #   • Multi-host (each validator on its own VPS, talking via WG mesh):
+  #     use the WG IPs 10.43.0.1N — set VALIDATOR_IP_PREFIX=10.43.0.1.
+  #
+  # Caught 2026-05-27 — multi-host deploy initially hardcoded 10.42.0.1N,
+  # validators couldn't reach each other (each VPS's bridge is local).
   PUB_HEX="${PUB#0x}"
-  VALIDATOR_IP="10.42.0.1${VALIDATOR_INDEX}"
+  : "${VALIDATOR_IP_PREFIX:=10.42.0.1}"
+  VALIDATOR_IP="${VALIDATOR_IP_PREFIX}${VALIDATOR_INDEX}"
   ENODES+=("\"enode://${PUB_HEX}@${VALIDATOR_IP}:30303\"")
 done
 

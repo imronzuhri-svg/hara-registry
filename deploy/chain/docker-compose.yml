@@ -44,6 +44,11 @@ services:
       VALIDATOR_COUNT: ${HARA_VALIDATOR_COUNT:-4}
       CHAIN_ID: ${HARA_CHAIN_ID:-131216}
       BLOCK_PERIOD_SECONDS: ${HARA_BLOCK_PERIOD_SECONDS:-2}
+      # In multi-host production set VALIDATOR_IP_PREFIX=10.43.0.1 so
+      # static-nodes.json gets baked with WG mesh IPs (not container
+      # bridge IPs which only work on a single host). Defaults to
+      # 10.42.0.1 (container IPs) for single-host sim.
+      VALIDATOR_IP_PREFIX: ${VALIDATOR_IP_PREFIX:-10.42.0.1}
     volumes:
       - ./qbft-config.json:/work/qbft-config.json:ro
       - ./genesis:/work/genesis
