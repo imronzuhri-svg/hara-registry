@@ -79,20 +79,13 @@ for ID in 1 2 3 4; do
     git stash 2>/dev/null || true
     git pull origin main >/dev/null
 
-    # Pull genesis + static-nodes from MinIO (anonymous read, hara-chain-config is download)
+    # Pull genesis + static-nodes from MinIO using curl (anonymous —
+    # hara-chain-config bucket has download policy).
     mkdir -p deploy/chain/genesis deploy/chain/shared
-    docker run --rm --network host \
-      --entrypoint mc minio/mc:RELEASE.2025-08-13T08-35-41Z \
-      cp http://10.43.0.40:9000/hara-chain-config/genesis.json /tmp/genesis.json 2>&1 | tail -3
-    # mc can't cp from http URL directly; use anonymous alias instead
-    docker run --rm --network host \
-      -v "$(pwd)/deploy/chain/genesis:/work" \
-      --entrypoint sh minio/mc:RELEASE.2025-08-13T08-35-41Z \
-      -c 'mc alias set h http://10.43.0.40:9000 "" "" && mc cp h/hara-chain-config/genesis.json /work/genesis.json'
-    docker run --rm --network host \
-      -v "$(pwd)/deploy/chain/shared:/work" \
-      --entrypoint sh minio/mc:RELEASE.2025-08-13T08-35-41Z \
-      -c 'mc alias set h http://10.43.0.40:9000 "" "" && mc cp h/hara-chain-config/static-nodes.json /work/static-nodes.json'
+    curl -fsS -o deploy/chain/genesis/genesis.json \
+      http://10.43.0.40:9000/hara-chain-config/genesis.json
+    curl -fsS -o deploy/chain/shared/static-nodes.json \
+      http://10.43.0.40:9000/hara-chain-config/static-nodes.json
 
     ls -la deploy/chain/genesis/genesis.json deploy/chain/shared/static-nodes.json
 
