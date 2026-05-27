@@ -47,16 +47,45 @@ ROOT=$(jq -r .root_token "$VAULT_ROOT_TOKEN_FILE")
 AGE_RECIPIENT="${BACKUP_AGE_RECIPIENT:-age1fcdr3qk0wuzxy0ynmzj3d28d8m8pfe489wpk6udstzcyccj7l45sjla6e3}"
 HARA_STATEFUL_WG="10.43.0.40"
 
-# ── Step 1-6: bring up on hara-stateless ────────────────────────────────────
-log "Bringing up hara-stateless (rpc + services + obs)"
+# ── Steps 1-3: prep on operator laptop, then push to hara-stateless ─────────
+log "Step 1-3: prep network + env files (on operator laptop, push to host)"
 
-ssh hara-stateless "ROOT='$ROOT' AGE_RECIP='$AGE_RECIPIENT' STATEFUL='$HARA_STATEFUL_WG' bash -s" <<'REMOTE'
+TMPDIR=$(mktemp -d)
+trap "rm -rf $TMPDIR" EXIT
+
+# Pull .env files from hara-stateful via operator laptop's ssh
+ssh hara-stateful 'cat /opt/hara/hara-ledger/deploy/platform/.env' > "$TMPDIR/platform.env"
+ssh hara-stateful 'cat /opt/hara/hara-ledger/deploy/services/.env' > "$TMPDIR/services.env"
+ssh hara-stateful 'cat /opt/hara/hara-ledger/deploy/rpc/.env'      > "$TMPDIR/rpc.env"
+
+# Replace dev token placeholder with the real Vault root token. The .env on
+# hara-stateful has a random 48-char string under VAULT_DEV_ROOT_TOKEN (left
+# over from dev-mode assumptions); in Raft mode the actual root token is
+# the one returned by vault operator init.
+sed -i "s|^VAULT_DEV_ROOT_TOKEN=.*|VAULT_DEV_ROOT_TOKEN=${ROOT}|" "$TMPDIR/services.env"
+sed -i "s|^VAULT_DEV_ROOT_TOKEN=.*|VAULT_DEV_ROOT_TOKEN=${ROOT}|" "$TMPDIR/platform.env"
+
+# Append IMAGE_REGISTRY + age recipient (idempotent)
+for f in "$TMPDIR"/{platform,services,rpc}.env; do
+  grep -q ^IMAGE_REGISTRY       "$f" || echo "IMAGE_REGISTRY=ghcr.io/imronzuhri-svg/" >> "$f"
+  grep -q ^BACKUP_AGE_RECIPIENT "$f" || echo "BACKUP_AGE_RECIPIENT=${AGE_RECIPIENT}"   >> "$f"
+done
+
+# Upload to hara-stateless
+scp "$TMPDIR/platform.env" hara-stateless:/opt/hara/hara-ledger/deploy/platform/.env >/dev/null
+scp "$TMPDIR/services.env" hara-stateless:/opt/hara/hara-ledger/deploy/services/.env >/dev/null
+scp "$TMPDIR/rpc.env"      hara-stateless:/opt/hara/hara-ledger/deploy/rpc/.env      >/dev/null
+ok ".env files uploaded to hara-stateless (3 files)"
+
+# Now do everything else on hara-stateless
+log "Step 4-6: bring up RPC + services + obs on hara-stateless"
+ssh hara-stateless "STATEFUL='$HARA_STATEFUL_WG' bash -s" <<'REMOTE'
 set -euo pipefail
 cd /opt/hara/hara-ledger
 git stash 2>/dev/null || true
 git pull origin main >/dev/null
 
-# 1. Create hara-platform docker network if missing
+# Create hara-platform docker network if missing
 if ! docker network inspect hara-platform >/dev/null 2>&1; then
   docker network create --driver bridge \
     --subnet 10.42.0.0/24 --gateway 10.42.0.1 \
@@ -64,27 +93,11 @@ if ! docker network inspect hara-platform >/dev/null 2>&1; then
   echo "  ✓ created hara-platform docker network"
 fi
 
-# 2. Pull genesis.json from MinIO (rpc nodes need it at deploy/chain/genesis/)
+# Pull genesis.json from MinIO (rpc nodes need it at deploy/chain/genesis/)
 mkdir -p deploy/chain/genesis
 curl -fsS -o deploy/chain/genesis/genesis.json \
   http://${STATEFUL}:9000/hara-chain-config/genesis.json
 ls -la deploy/chain/genesis/genesis.json
-
-# 3. Scp the .env files from hara-stateful + customize with real root token
-ssh -o StrictHostKeyChecking=no hara-stateful 'cat /opt/hara/hara-ledger/deploy/platform/.env' > deploy/platform/.env
-ssh -o StrictHostKeyChecking=no hara-stateful 'cat /opt/hara/hara-ledger/deploy/services/.env' > deploy/services/.env
-ssh -o StrictHostKeyChecking=no hara-stateful 'cat /opt/hara/hara-ledger/deploy/rpc/.env'      > deploy/rpc/.env
-
-# Replace dev token placeholder with the real Vault root token (services use
-# token-based auth for now; AppRole hardening is a follow-up).
-sed -i "s|^VAULT_DEV_ROOT_TOKEN=.*|VAULT_DEV_ROOT_TOKEN=${ROOT}|" deploy/services/.env
-sed -i "s|^VAULT_DEV_ROOT_TOKEN=.*|VAULT_DEV_ROOT_TOKEN=${ROOT}|" deploy/platform/.env
-
-# Append IMAGE_REGISTRY + age recipient
-for f in deploy/platform/.env deploy/services/.env deploy/rpc/.env; do
-  grep -q ^IMAGE_REGISTRY $f      || echo "IMAGE_REGISTRY=ghcr.io/imronzuhri-svg/" >> $f
-  grep -q ^BACKUP_AGE_RECIPIENT $f || echo "BACKUP_AGE_RECIPIENT=${AGE_RECIP}"     >> $f
-done
 
 chmod 600 deploy/{platform,services,rpc}/.env
 
