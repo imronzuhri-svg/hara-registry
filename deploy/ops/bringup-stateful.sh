@@ -74,8 +74,23 @@ ok "MinIO up; buckets hara-chain-config + hara-pq-anchors ready"
 # ── 4. Chain init ────────────────────────────────────────────────────────────
 log "4/5  Chain init (genesis + validator keys → Vault)"
 # If genesis already exists, the init script skips. Idempotent.
-docker compose -f deploy/chain/docker-compose.yml \
-               --env-file deploy/chain/.env run --rm init 2>&1 | tail -20
+#
+# IMPORTANT: chain/.env has VAULT_ADDR=http://10.43.0.40:8200 because that
+# value is correct for validators on hara-v1..v4 reaching vault cross-host.
+# But this init container runs on hara-stateful where vault is LOCAL —
+# and Docker's iptables chain doesn't NAT bridge→host-wg-IP traffic on
+# Linux kernel defaults, so 10.43.0.40 is unreachable from the bridge.
+# Override here to docker DNS for the intra-host case.
+# Also override VAULT_DEV_ROOT_TOKEN with the REAL Vault Raft root token.
+# chain/.env stores a random 48-char string under that name (left over from
+# dev-mode assumptions — in dev mode, $VAULT_DEV_ROOT_TOKEN was the literal
+# root token). In Raft mode, the real root token is returned by
+# vault-raft-init.sh and lives in vault-init-keys.json. The orchestrator
+# was invoked with VAULT_TOKEN=$root_token in env — pipe it through.
+VAULT_ADDR=http://vault:8200 \
+VAULT_DEV_ROOT_TOKEN="$VAULT_TOKEN" \
+  docker compose -f deploy/chain/docker-compose.yml \
+                 --env-file deploy/chain/.env run --rm init 2>&1 | tail -20
 ok "Chain init complete — 4 validator keys in Vault, genesis.json on disk"
 
 # ── 5. Upload genesis.json to MinIO so validators + stateless can pull it ───
