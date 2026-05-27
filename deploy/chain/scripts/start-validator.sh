@@ -62,4 +62,5 @@ exec besu \
   --min-gas-price=0 \
   --block-txs-selection-max-time=8000 \
   --tx-pool-enable-save-restore=false \
+  --tx-pool-max-future-by-sender=2000 \
   --logging=INFO

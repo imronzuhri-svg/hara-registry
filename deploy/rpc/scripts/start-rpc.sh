@@ -37,6 +37,7 @@ exec besu \
   --rpc-http-port=8545 \
   --rpc-http-max-active-connections=4000 \
   --rpc-http-max-batch-size=200 \
+  --tx-pool-max-future-by-sender=2000 \
   --rpc-http-cors-origins="*" \
   --rpc-http-api=ETH,NET,WEB3,QBFT,DEBUG,TRACE,TXPOOL \
   --rpc-http-authentication-enabled=false \
