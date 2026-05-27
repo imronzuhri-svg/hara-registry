@@ -181,7 +181,17 @@ async function handleOne(req: JsonRpcReq): Promise<JsonRpcRes> {
   }
 
   const fresh = (await proxyUpstream(req, method)) as JsonRpcRes;
-  if (fresh.result !== undefined && fresh.error === undefined) {
+  // Cache only when the upstream returned a non-null result. JSON-RPC
+  // returns `result: null` for eth_getTransactionReceipt /
+  // eth_getTransactionByHash when the tx hasn't mined yet — caching that
+  // for 1h means clients polling for confirmation keep getting null even
+  // after the tx mines. Found 2026-05-27 when refinery-DAG load test
+  // failed at the priming phase with TransactionReceiptNotFoundError.
+  if (
+    fresh.result !== undefined &&
+    fresh.result !== null &&
+    fresh.error === undefined
+  ) {
     try {
       await redis.setex(key, ttl, JSON.stringify({ jsonrpc: fresh.jsonrpc, result: fresh.result }));
     } catch (err) {
