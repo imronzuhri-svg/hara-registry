@@ -77,6 +77,40 @@ async function batchSendRawTxs(url: string, txs: Hex[]): Promise<(Hex | Error)[]
   return arr.sort((a, b) => a.id - b.id).map(r => r.error ? new Error(r.error.message) : r.result as Hex);
 }
 
+// Chunked submit: sends txs in groups of CHUNK_SIZE and waits for each chunk's
+// last receipt before moving on. Avoids Besu's broadcast rate-limit piling up
+// hundreds of pending txs from different senders (each with nonce=0) which
+// causes long propagation delays. Found 2026-05-27 when 500-wallet approval
+// phase stuck at 300 pending for >60s.
+const CHUNK_SIZE = Number(process.env.CHUNK_SIZE ?? 50);
+
+async function batchSendChunked(
+  url: string,
+  publicClient: ReturnType<typeof createPublicClient>,
+  txs: Hex[],
+  label: string,
+): Promise<Hex[]> {
+  const allHashes: Hex[] = [];
+  const totalChunks = Math.ceil(txs.length / CHUNK_SIZE);
+  for (let c = 0; c < totalChunks; c++) {
+    const chunk = txs.slice(c * CHUNK_SIZE, (c + 1) * CHUNK_SIZE);
+    const t0 = Date.now();
+    const results = await batchSendRawTxs(url, chunk);
+    const errors = results.filter((r): r is Error => r instanceof Error);
+    if (errors.length) {
+      console.warn(`    chunk ${c + 1}/${totalChunks}: ${errors.length} errors:`, errors.slice(0, 2).map(e => e.message));
+    }
+    const hashes = results.filter((r): r is Hex => !(r instanceof Error));
+    allHashes.push(...hashes);
+    const lastHash = hashes[hashes.length - 1];
+    if (lastHash) {
+      await publicClient.waitForTransactionReceipt({ hash: lastHash, timeout: 180_000 });
+    }
+    process.stderr.write(`    ${label} chunk ${c + 1}/${totalChunks} (${chunk.length} txs) confirmed in ${Date.now() - t0}ms\n`);
+  }
+  return allHashes;
+}
+
 (async () => {
   console.log("═══════════════════════════════════════════════════════════════");
   console.log(`  STRESS TEST — ${CHAINS} chains × ${HOPS} hops`);
@@ -117,9 +151,7 @@ async function batchSendRawTxs(url: string, txs: Hex[]): Promise<(Hex | Error)[]
       to: TOKEN, data: apprData, value: 0n, gasPrice: 0n, gas: 60_000n,
     }));
   }
-  const apprResults = await batchSendRawTxs(RPC_WRITE, apprRaws);
-  const lastAppr = apprResults.filter((r): r is Hex => !(r instanceof Error)).pop()!;
-  await publicClient.waitForTransactionReceipt({ hash: lastAppr, timeout: 240_000 });
+  await batchSendChunked(RPC_WRITE, publicClient, apprRaws, "approvals");
   console.log(`  ✔ ${HOPS} approvals in ${Date.now() - apprStart}ms`);
 
   // ── Phase C — Submit all CHAINS mint+executeChain pairs concurrently ────
@@ -158,21 +190,13 @@ async function batchSendRawTxs(url: string, txs: Hex[]): Promise<(Hex | Error)[]
   console.log(`  Signed ${allRaws.length} txs in ${Date.now() - chainStart}ms`);
 
   const submitStart = Date.now();
-  const chainResults = await batchSendRawTxs(RPC_WRITE, allRaws);
-  const errors = chainResults.filter((r): r is Error => r instanceof Error);
-  if (errors.length) {
-    console.error(`  ⚠ ${errors.length} txs failed at submit:`);
-    errors.slice(0, 5).forEach(e => console.error(`    ${e.message}`));
-  }
-  const successHashes = chainResults.filter((r): r is Hex => !(r instanceof Error));
-  console.log(`  Submitted ${successHashes.length}/${allRaws.length} in ${Date.now() - submitStart}ms`);
+  const successHashes = await batchSendChunked(RPC_WRITE, publicClient, allRaws, "chains");
+  console.log(`  ✔ All ${successHashes.length}/${allRaws.length} txs confirmed in ${Date.now() - submitStart}ms`);
 
-  // Wait for the LAST executeChain receipt (highest nonce)
+  // Get the LAST executeChain receipt for block info
   const lastExec = successHashes[successHashes.length - 1];
-  console.log(`  Waiting for last receipt (${lastExec.slice(0, 10)}…)…`);
-  const lastReceipt = await publicClient.waitForTransactionReceipt({ hash: lastExec, timeout: 600_000 });
-  const chainEnd = Date.now();
-  console.log(`  ✔ All chains mined by block ${lastReceipt.blockNumber}, gas ${lastReceipt.gasUsed} (last tx)`);
+  const lastReceipt = await publicClient.getTransactionReceipt({ hash: lastExec });
+  console.log(`  Last tx in block ${lastReceipt.blockNumber}, gas ${lastReceipt.gasUsed}`);
 
   // ── Summary ──────────────────────────────────────────────────────────────
   const totalElapsed = Date.now() - startAll;
