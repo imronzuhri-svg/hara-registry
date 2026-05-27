@@ -57,6 +57,7 @@ trap "rm -rf $TMPDIR" EXIT
 ssh hara-stateful 'cat /opt/hara/hara-ledger/deploy/platform/.env' > "$TMPDIR/platform.env"
 ssh hara-stateful 'cat /opt/hara/hara-ledger/deploy/services/.env' > "$TMPDIR/services.env"
 ssh hara-stateful 'cat /opt/hara/hara-ledger/deploy/rpc/.env'      > "$TMPDIR/rpc.env"
+ssh hara-stateful 'cat /opt/hara/hara-ledger/deploy/data/.env'     > "$TMPDIR/data.env"
 
 # Replace dev token placeholder with the real Vault root token. The .env on
 # hara-stateful has a random 48-char string under VAULT_DEV_ROOT_TOKEN (left
@@ -65,11 +66,24 @@ ssh hara-stateful 'cat /opt/hara/hara-ledger/deploy/rpc/.env'      > "$TMPDIR/rp
 sed -i "s|^VAULT_DEV_ROOT_TOKEN=.*|VAULT_DEV_ROOT_TOKEN=${ROOT}|" "$TMPDIR/services.env"
 sed -i "s|^VAULT_DEV_ROOT_TOKEN=.*|VAULT_DEV_ROOT_TOKEN=${ROOT}|" "$TMPDIR/platform.env"
 
+# services/.env on hara-stateless ALSO needs the MinIO + Postgres creds
+# from data/.env (anchor-worker reaches MinIO + Postgres on hara-stateful
+# via WG). Copy the relevant lines over.
+{
+  echo ""
+  echo "# Cross-host service creds (copied from hara-stateful's data/.env)"
+  grep -E '^(MINIO_ROOT_USER|MINIO_ROOT_PASSWORD|POSTGRES_USER|POSTGRES_PASSWORD|POSTGRES_DB)' "$TMPDIR/data.env"
+} >> "$TMPDIR/services.env"
+
 # Append IMAGE_REGISTRY + age recipient (idempotent)
 for f in "$TMPDIR"/{platform,services,rpc}.env; do
   grep -q ^IMAGE_REGISTRY       "$f" || echo "IMAGE_REGISTRY=ghcr.io/imronzuhri-svg/" >> "$f"
   grep -q ^BACKUP_AGE_RECIPIENT "$f" || echo "BACKUP_AGE_RECIPIENT=${AGE_RECIPIENT}"   >> "$f"
 done
+
+# Set anchor-worker placeholder address so compose validates (real one set in Phase 7)
+grep -q ^PQ_ANCHOR_REGISTRY_ADDRESS "$TMPDIR/services.env" \
+  || echo "PQ_ANCHOR_REGISTRY_ADDRESS=0x0000000000000000000000000000000000000000" >> "$TMPDIR/services.env"
 
 # Upload to hara-stateless
 scp "$TMPDIR/platform.env" hara-stateless:/opt/hara/hara-ledger/deploy/platform/.env >/dev/null
