@@ -136,7 +136,14 @@ ok "node_exporter + fail2ban active"
 log "Hardening sshd (PermitRootLogin no, PasswordAuthentication no)"
 sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
 sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
-systemctl reload ssh
+# Ubuntu 24.04 uses socket-activated ssh, so the service may not be running
+# and reload fails with "ssh.service is not active, cannot reload". Try
+# reload first; if that fails, restart the socket so new connections pick
+# up the new sshd_config.
+systemctl reload ssh 2>/dev/null \
+  || systemctl restart ssh.socket 2>/dev/null \
+  || systemctl restart ssh 2>/dev/null \
+  || true
 ok "ssh hardened — root password login disabled"
 
 cat <<EOF
