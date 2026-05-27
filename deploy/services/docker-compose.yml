@@ -172,7 +172,7 @@ services:
     container_name: hara-blockscout-db-init
     networks: [hara-platform]
     environment:
-      PGHOST: postgres
+      PGHOST: ${POSTGRES_HOST:-postgres}
       PGUSER: ${POSTGRES_USER:?required}
       PGPASSWORD: ${POSTGRES_PASSWORD:?required}
     volumes:
