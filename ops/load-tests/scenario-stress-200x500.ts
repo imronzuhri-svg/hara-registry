@@ -247,7 +247,7 @@ async function batchSendChunked(
   const submitStart = Date.now();
   const successHashes = await batchSendChunked(RPC_WRITE, publicClient, allRaws, "chains", {
     waitBetweenChunks: true,
-    chunkSize: 25,
+    chunkSize: 15,
     receiptTimeoutMs: 600_000,
   });
   if (successHashes.length !== allRaws.length) {
