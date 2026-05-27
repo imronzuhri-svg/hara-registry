@@ -23,6 +23,15 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:?required}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?required}
       MINIO_PROMETHEUS_AUTH_TYPE: public   # metrics scraped over the WG mesh
+      # MinIO's image defaults set MINIO_ROOT_USER_FILE=access_key and
+      # MINIO_ROOT_PASSWORD_FILE=secret_key (for Docker Secrets support).
+      # When _FILE vars are set, MinIO reads creds from those filenames
+      # and IGNORES the regular MINIO_ROOT_USER/PASSWORD env vars — even
+      # when both are set. Override the _FILE vars to empty so MinIO uses
+      # the regular env vars. Caught 2026-05-27 on hara-stateful — root
+      # password ignored, all auth returned "Access Denied".
+      MINIO_ROOT_USER_FILE: ""
+      MINIO_ROOT_PASSWORD_FILE: ""
     command: server /data --console-address ":9001"
     volumes:
       - minio-data:/data
