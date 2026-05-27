@@ -87,7 +87,7 @@ log "2/7  Seeding key into Vault (via hara-stateful)"
 ssh hara-stateful "
   cd /opt/hara/hara-ledger
   ANCHOR_ADDRESS='$ANCHOR_ADDR' ANCHOR_PRIVATE_KEY='$ANCHOR_KEY' \\
-    VAULT_TOKEN='$ROOT' VAULT_ADDR=http://127.0.0.1:8200 \\
+    VAULT_TOKEN='$ROOT' VAULT_ADDR=http://10.43.0.40:8200 \\
     bash deploy/ops/seed-anchor-key.sh
 " | tail -15
 ok "Vault seeded at secret/haraledger/signer-keys/anchor-worker"
