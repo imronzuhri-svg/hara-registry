@@ -107,6 +107,12 @@ EOF
 ufw --force reset >/dev/null
 ufw default deny incoming
 ufw default allow outgoing
+# Docker uses iptables FORWARD chain to NAT container traffic to eth0. With
+# UFW's default DROP on FORWARD, containers can't reach the internet (apt,
+# docker pull, curl from inside a container all fail with "connection timed
+# out"). Set FORWARD policy to ACCEPT — container outbound works, but UFW
+# still blocks unsolicited *inbound* on eth0.
+sed -i 's/^DEFAULT_FORWARD_POLICY=.*/DEFAULT_FORWARD_POLICY="ACCEPT"/' /etc/default/ufw
 ufw allow hara-ssh
 ufw allow hara-wireguard
 warn "UFW rules staged but NOT enabled. Enable AFTER wg-bootstrap.sh succeeds:"
