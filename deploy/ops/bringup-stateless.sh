@@ -89,7 +89,20 @@ grep -q ^PQ_ANCHOR_REGISTRY_ADDRESS "$TMPDIR/services.env" \
 scp "$TMPDIR/platform.env" hara-stateless:/opt/hara/hara-ledger/deploy/platform/.env >/dev/null
 scp "$TMPDIR/services.env" hara-stateless:/opt/hara/hara-ledger/deploy/services/.env >/dev/null
 scp "$TMPDIR/rpc.env"      hara-stateless:/opt/hara/hara-ledger/deploy/rpc/.env      >/dev/null
-ok ".env files uploaded to hara-stateless (3 files)"
+
+# Blockscout env files are gitignored (they contain SECRET_KEY_BASE +
+# hardcoded passwords). Scp them from the operator laptop's local copy.
+SCRIPT_REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+BS_ENVS="$SCRIPT_REPO_ROOT/deploy/services/blockscout/envs"
+if [ -d "$BS_ENVS" ]; then
+  ssh hara-stateless 'mkdir -p /opt/hara/hara-ledger/deploy/services/blockscout/envs'
+  scp -q "$BS_ENVS"/common-blockscout.env hara-stateless:/opt/hara/hara-ledger/deploy/services/blockscout/envs/
+  scp -q "$BS_ENVS"/common-frontend.env   hara-stateless:/opt/hara/hara-ledger/deploy/services/blockscout/envs/
+  ok ".env files + blockscout configs uploaded to hara-stateless (5 files)"
+else
+  warn "Blockscout envs missing at $BS_ENVS — Blockscout will fail to start. Skipping."
+  ok ".env files uploaded to hara-stateless (3 files)"
+fi
 
 # Now do everything else on hara-stateless
 log "Step 4-6: bring up RPC + services + obs on hara-stateless"
