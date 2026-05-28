@@ -85,8 +85,10 @@ echo "═══ Phase 1: PREP ═══"
 
 if [[ -f "$NEW_ADMIN_FILE" ]]; then
   echo "✓ New admin key already exists at $NEW_ADMIN_FILE — reusing"
-  NEW_ADMIN_ADDR=$(jq -r '.address' "$NEW_ADMIN_FILE")
-  NEW_ADMIN_KEY=$(jq -r '.private_key' "$NEW_ADMIN_FILE")
+  # cast wallet new --json returns an ARRAY [{...}]; older/manual files may be
+  # a bare object. Handle both.
+  NEW_ADMIN_ADDR=$(jq -r 'if type=="array" then .[0] else . end | .address' "$NEW_ADMIN_FILE")
+  NEW_ADMIN_KEY=$(jq -r 'if type=="array" then .[0] else . end | .private_key' "$NEW_ADMIN_FILE")
 else
   if [[ "$EXECUTE" == "false" ]]; then
     echo "   [dry-run] would generate new key via 'cast wallet new'"
@@ -95,8 +97,8 @@ else
     NEW_ADMIN_KEY="<NEW_KEY>"
   else
     mkdir -p "$(dirname "$NEW_ADMIN_FILE")"
-    WALLET_OUT=$(cast wallet new --json)
-    echo "$WALLET_OUT" | jq '.' > "$NEW_ADMIN_FILE"
+    # Normalize cast's array output to a bare object on disk
+    cast wallet new --json | jq 'if type=="array" then .[0] else . end' > "$NEW_ADMIN_FILE"
     chmod 600 "$NEW_ADMIN_FILE"
     NEW_ADMIN_ADDR=$(jq -r '.address' "$NEW_ADMIN_FILE")
     NEW_ADMIN_KEY=$(jq -r '.private_key' "$NEW_ADMIN_FILE")
@@ -183,8 +185,9 @@ echo "  Draining anvil-0 balance to new admin..."
 if [[ "$EXECUTE" == "true" ]]; then
   ANVIL0_BAL=$(cast balance "$ANVIL0_ADDR" --rpc-url "$RPC")
   echo "  Anvil-0 balance: $ANVIL0_BAL wei"
-  # Leave 1 wei to avoid 'tx underpriced' edge cases; sweep the rest
-  AMOUNT=$(( ANVIL0_BAL - 1 ))
+  # Leave 1 wei. NOTE: balances are >9e21 wei — bash 64-bit arithmetic overflows
+  # (max ~9.2e18), so use python3 for the subtraction. (Bug hit 2026-05-28.)
+  AMOUNT=$(python3 -c "print($ANVIL0_BAL - 1)")
   cast send --private-key "$ANVIL0_KEY" --rpc-url "$RPC" --chain "$CHAIN" \
     --gas-price 0 --legacy "$NEW_ADMIN_ADDR" --value "$AMOUNT" 2>&1 | tail -3
 else
