@@ -57,8 +57,34 @@ const RELAY_ABI = parseAbi([
 ]);
 
 const deployer = privateKeyToAccount(DEPLOYER_KEY);
-const publicClient = createPublicClient({ transport: http(RPC_READ) });
-const writeClient = createWalletClient({ account: deployer, transport: http(RPC_WRITE) });
+// retryCount/retryDelay give viem its own first line of defense against the
+// rpc-write 503s that occur when it briefly falls out of sync under load.
+const publicClient = createPublicClient({ transport: http(RPC_READ, { retryCount: 6, retryDelay: 2500 }) });
+const writeClient = createWalletClient({ account: deployer, transport: http(RPC_WRITE, { retryCount: 6, retryDelay: 2500 }) });
+
+// waitForTransactionReceipt internally polls getBlock/getTransactionByHash and
+// will throw on a 503/HTML body (rpc-write evicted mid-sync-flip) or
+// BlockNotFoundError. Wrap it so those transient states retry until an overall
+// deadline instead of aborting the whole run. (2026-05-28: this is what killed
+// the 200x500 run at chunk 18/27.)
+async function waitForReceiptResilient(hash: Hex, timeoutMs: number) {
+  const deadline = Date.now() + timeoutMs;
+  let lastErr: any;
+  while (Date.now() < deadline) {
+    try {
+      return await publicClient.waitForTransactionReceipt({ hash, timeout: 30_000 });
+    } catch (e: any) {
+      lastErr = e;
+      const msg = String(e?.message ?? e);
+      if (/503|service unavailable|not valid JSON|could not be found|timed out|not enabled|not yet in sync|sync/i.test(msg)) {
+        await new Promise(r => setTimeout(r, 3000));
+        continue;
+      }
+      throw e; // genuine error (revert, bad hash) — surface it
+    }
+  }
+  throw new Error(`waitForReceiptResilient: deadline exceeded for ${hash}: ${lastErr?.message ?? lastErr}`);
+}
 
 // Derive HOPS deterministic wallets from the seed (reused across all chains)
 const wallets = Array.from({ length: HOPS }, (_, i) =>
@@ -170,7 +196,7 @@ async function batchSendChunked(
     if (waitBetween) {
       const lastHash = hashes[hashes.length - 1];
       if (lastHash) {
-        await publicClient.waitForTransactionReceipt({ hash: lastHash, timeout: receiptTimeout });
+        await waitForReceiptResilient(lastHash, receiptTimeout);
       }
       process.stderr.write(`    ${label} chunk ${c + 1}/${totalChunks} (${chunk.length} txs) confirmed in ${Date.now() - t0}ms\n`);
     } else {
@@ -181,7 +207,7 @@ async function batchSendChunked(
     const finalT0 = Date.now();
     const lastHash = allHashes[allHashes.length - 1];
     process.stderr.write(`    ${label}: waiting for final receipt (${lastHash.slice(0, 10)}...)\n`);
-    await publicClient.waitForTransactionReceipt({ hash: lastHash, timeout: receiptTimeout });
+    await waitForReceiptResilient(lastHash, receiptTimeout);
     process.stderr.write(`    ${label} all ${allHashes.length} txs final receipt in ${Date.now() - finalT0}ms\n`);
   }
   return allHashes;
