@@ -19,7 +19,13 @@ mkdir -p "${DATA_DIR}"
 # (see memory: rpc-node-hang-bug). The default worker pool exhausted when many heavy
 # batched eth_sendRawTransaction / getTransactionReceipt calls ran concurrently and
 # the JSON-RPC handler stopped accepting connections without recovering.
-export BESU_OPTS="${BESU_OPTS:--Xmx6g -Xms4g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Dvertx.options.workerPoolSize=64}"
+#
+# 2026-05-28: pin heap (-Xms == -Xmx) to stop the 4-6g resize churn that added GC
+# pauses under heavy block import; and DROP the -XX:MaxGCPauseMillis override — the
+# besu launcher already sets 100ms (Besu-tuned), and our 200ms was *overriding it to
+# a worse value* (last flag wins). Let besu.sh's GC tuning + jemalloc (LD_PRELOAD,
+# confirmed active) stand. Keep workerPoolSize=64. UseG1GC is the Java 25 default.
+export BESU_OPTS="${BESU_OPTS:--Xmx6g -Xms6g -Dvertx.options.workerPoolSize=64}"
 
 BOOTNODES=$(grep -oE 'enode://[^\"]+' "${STATIC_NODES}" | paste -sd,)
 echo "▶ Bootnodes: ${BOOTNODES}"
@@ -56,3 +62,6 @@ exec besu \
   --remote-connections-limit-enabled=false \
   --sync-min-peers=2 \
   --logging=INFO
+# NOTE: --sync-min-peers=2 (was default 5) — our chain only has 4 validators, so the
+# default-5 "Unable to find sync target. Waiting for 5 peers minimum" left RPC nodes
+# idle for ~11 min after restart and delayed tx-pool enablement. (Besu #6327.)
