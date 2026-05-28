@@ -19,6 +19,27 @@ x-besu-common: &besu-common
   restart: unless-stopped
   networks:
     - hara-platform
+  # Real RPC healthcheck (2026-05-28): the base image's built-in check passes
+  # even when the Vert.x JSON-RPC listener has deadlocked (worker-pool
+  # exhaustion) — which is why hung nodes kept showing "(healthy)". This one
+  # actually POSTs eth_blockNumber, so a wedged listener goes "unhealthy".
+  # Paired with the autoheal sidecar below (plain Docker does NOT restart on
+  # unhealthy — only on exit), a wedged node self-recovers in ~1 min instead
+  # of sitting dead until a human notices. (curl is in the image — the
+  # validator entrypoint uses it for Vault.)
+  healthcheck:
+    test:
+      - CMD-SHELL
+      - >-
+        curl -fsS -m 8 -X POST -H 'Content-Type: application/json'
+        --data '{"jsonrpc":"2.0","method":"eth_blockNumber","id":1}'
+        http://localhost:8545 | grep -q '"result"' || exit 1
+    interval: 15s
+    timeout: 10s
+    retries: 4
+    start_period: 180s
+  labels:
+    autoheal: "true"
 
 services:
   rpc-read-1:
@@ -83,6 +104,25 @@ services:
       rpc-read-1: { condition: service_started }
       rpc-read-2: { condition: service_started }
       rpc-write:  { condition: service_started }
+
+  # Watchdog: restarts any container marked "unhealthy" that carries the
+  # autoheal=true label (the three besu nodes). This is what turns the new
+  # RPC healthcheck into actual self-healing — plain Docker won't restart on
+  # unhealthy, only on exit. A wedged JSON-RPC listener now recovers in ~1 min.
+  # Mounts docker.sock (root-equivalent) — acceptable on internal permissioned
+  # infra; if that's a concern, replace with a host systemd timer running the
+  # probe-and-restart playbook from memory:rpc-node-hang-bug.
+  autoheal:
+    image: willfarrell/autoheal:1.2.0
+    container_name: hara-autoheal
+    restart: unless-stopped
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: autoheal
+      AUTOHEAL_INTERVAL: "10"        # check every 10s
+      AUTOHEAL_START_PERIOD: "180"   # ignore health for 180s after a (re)start
+      AUTOHEAL_DEFAULT_STOP_TIMEOUT: "30"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
 
 networks:
   hara-platform:
