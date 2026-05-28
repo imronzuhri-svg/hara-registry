@@ -23,10 +23,33 @@ Three (+1 bonus) scenarios that exercise different layers of the stack. Each wor
 
 ```
 Address: 0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0   (on dev chain)
-Sender:  0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266   (Foundry anvil #0, has the 1M mint)
+Sender:  0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266   (Foundry anvil #0)
 ```
 
 If you redeploy, the address changes — set `TOKEN_ADDRESS` as an env var or update the scripts.
+
+> **⚠ Deployer key changed (2026-05-28).** Anvil #0 (`0xf39Fd6…92266`) was the
+> funded deployer for these scripts, but it was **drained to 1 wei and stripped
+> of all roles** during the platform admin rotation. Its ~9799 HARA moved to the
+> new admin. **The scripts still DEFAULT to anvil #0, which is now empty** — any
+> run without an override fails at funding/priming.
+>
+> Use a dedicated funded load-test deployer instead (keeps the admin key out of
+> test churn):
+> ```bash
+> # one-time: generate + fund a test deployer from the new admin
+> cast wallet new --json | jq 'if type=="array" then .[0] else . end' > ~/hara-ops/loadtest-deployer.json
+> chmod 600 ~/hara-ops/loadtest-deployer.json
+> LT_ADDR=$(jq -r .address ~/hara-ops/loadtest-deployer.json)
+> NEW_ADMIN_KEY=$(jq -r 'if type=="array" then .[0] else . end | .private_key' ~/hara-ops/new-admin-2026-05-27.json)
+> cast send --private-key $NEW_ADMIN_KEY --rpc-url https://rpc.ledger.haratrust.io/write/ \
+>   --chain 131216 --gas-price 0 --legacy $LT_ADDR --value 1000ether
+>
+> # each session: export the key so scripts pick it up via ${DEPLOYER_PRIVATE_KEY:-…}
+> export DEPLOYER_PRIVATE_KEY=$(jq -r .private_key ~/hara-ops/loadtest-deployer.json)
+> ```
+> All `scenario-*.ts` and `single-tx.ts` read `DEPLOYER_PRIVATE_KEY` (and
+> `RPC_WRITE_URL` / `RPC_READ_URL`) from env.
 
 ## The 3 scenarios at a glance
 

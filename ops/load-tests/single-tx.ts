@@ -1,10 +1,16 @@
-import { createWalletClient, createPublicClient, http } from "viem";
+import { createWalletClient, createPublicClient, http, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
+// DEPLOYER_PRIVATE_KEY must point at a FUNDED key. The anvil-0 default below
+// was drained to 1 wei during the 2026-05-28 admin rotation — set the env var
+// to your funded load-test deployer (see ops/load-tests/README.md).
+const RPC = process.env.RPC_WRITE_URL ?? "https://rpc.ledger.haratrust.io/write/";
+const DEPLOYER_KEY = (process.env.DEPLOYER_PRIVATE_KEY ?? "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80") as Hex;
+
 (async () => {
-  const deployer = privateKeyToAccount("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80");
-  const pub = createPublicClient({ transport: http("https://rpc.ledger.haratrust.io/write/") });
-  const w   = createWalletClient({ account: deployer, transport: http("https://rpc.ledger.haratrust.io/write/") });
+  const deployer = privateKeyToAccount(DEPLOYER_KEY);
+  const pub = createPublicClient({ transport: http(RPC) });
+  const w   = createWalletClient({ account: deployer, transport: http(RPC) });
 
   const nonce = await pub.getTransactionCount({ address: deployer.address, blockTag: "pending" });
   console.log("Nonce from pending:", nonce);
