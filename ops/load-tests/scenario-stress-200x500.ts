@@ -65,17 +65,77 @@ const wallets = Array.from({ length: HOPS }, (_, i) =>
   privateKeyToAccount(keccak256(toHex(`${SEED}-w-${i}`)) as Hex),
 );
 
-async function batchSendRawTxs(url: string, txs: Hex[]): Promise<(Hex | Error)[]> {
-  const body = txs.map((tx, i) => ({
-    jsonrpc: "2.0", id: i,
-    method: "eth_sendRawTransaction", params: [tx],
-  }));
-  const res = await fetch(url, {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const arr = await res.json() as any[];
-  return arr.sort((a, b) => a.id - b.id).map(r => r.error ? new Error(r.error.message) : r.result as Hex);
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+// Send a JSON-RPC batch of eth_sendRawTransaction, resilient to rpc-write's
+// transient states under load (2026-05-28 findings):
+//   - HAProxy 503 / HTML body  → backend briefly evicted; retry whole batch
+//   - "Transaction pool not enabled (... not yet in sync)" → rpc-write flipped
+//     out of sync for ~1 block; retry just the affected txs
+//   - "already known" / "known transaction" → tx is already in the pool from a
+//     prior attempt; treat as success (hash = keccak256 of the raw signed tx)
+// Hard errors (bad nonce, revert, etc.) are returned as Error immediately.
+async function batchSendRawTxs(
+  url: string, txs: Hex[], maxRetries = 12,
+): Promise<(Hex | Error)[]> {
+  const results: (Hex | Error | null)[] = txs.map(() => null);
+  let pending = txs.map((tx, i) => ({ tx, i }));
+
+  for (let attempt = 0; attempt <= maxRetries && pending.length > 0; attempt++) {
+    const body = pending.map(({ tx }, k) => ({
+      jsonrpc: "2.0", id: k, method: "eth_sendRawTransaction", params: [tx],
+    }));
+
+    let arr: any[];
+    try {
+      const res = await fetch(url, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const ct = res.headers.get("content-type") ?? "";
+      if (!res.ok || !ct.includes("json")) {
+        // 503 / HTML error page — whole batch transient
+        if (attempt < maxRetries) {
+          process.stderr.write(`      upstream ${res.status}; retrying batch in 3s...\n`);
+          await sleep(3000); continue;
+        }
+        throw new Error(`upstream ${res.status} ${res.statusText}`);
+      }
+      arr = await res.json() as any[];
+    } catch (e) {
+      if (attempt < maxRetries) { await sleep(3000); continue; }
+      for (const { i } of pending) results[i] = e as Error;
+      break;
+    }
+
+    const byId = new Map<number, any>(arr.map(r => [r.id, r]));
+    const retryNext: { tx: Hex; i: number }[] = [];
+    for (let k = 0; k < pending.length; k++) {
+      const { tx, i } = pending[k];
+      const r = byId.get(k);
+      if (!r) { retryNext.push({ tx, i }); continue; }
+      if (r.error) {
+        const msg = String(r.error.message ?? "");
+        if (/already known|known transaction/i.test(msg)) {
+          results[i] = keccak256(tx);                       // already pooled → ok
+        } else if (/not enabled|not yet in sync|sync target|try again/i.test(msg)) {
+          retryNext.push({ tx, i });                        // transient → retry
+        } else {
+          results[i] = new Error(msg);                      // hard error
+        }
+      } else {
+        results[i] = r.result as Hex;
+      }
+    }
+
+    pending = retryNext;
+    if (pending.length > 0 && attempt < maxRetries) {
+      process.stderr.write(`      ${pending.length} tx(s) hit transient sync state, retrying in 3s...\n`);
+      await sleep(3000);
+    }
+  }
+
+  return results.map(r => r ?? new Error("unresolved after retries"));
 }
 
 // Chunked submit: sends txs in groups of CHUNK_SIZE and waits for each chunk's
