@@ -1,0 +1,9 @@
+{
+  "name": "hara-ledger-load-tests",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "viem": "^2.21.40"
+  }
+}
