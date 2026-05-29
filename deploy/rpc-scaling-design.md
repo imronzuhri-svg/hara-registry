@@ -61,6 +61,15 @@ Yes — standard pattern (Consensys "Besu Fleet") — **but** with two caveats:
 
 ## 3. Target topology (phased)
 
+**Decision (2026-05-28): go "Good" now → "Best" later.** Phase 1 puts ALL three
+RPC nodes on one dedicated host (isolates the whole RPC/import tier from the
+spiky services/obs/Blockscout tier in a single move, and frees hara-stateless to
+shrink). Phase 2 later splits the write node onto its own host once read load or
+HA demands it. Rationale for not doing write-only-dedicated first: read load
+dominates steady-state (explorer + indexer + partner getLogs), so leaving reads
+contending with services would optimize the wrong axis. Write-on-its-own-host is
+the *next* step, not the first.
+
 ### Phase 1 — dedicated RPC host (do first; solves the wall)
 
 Move the RPC tier off `hara-stateless` onto its own VPS `hara-rpc-1`. Leaves
@@ -92,21 +101,54 @@ hara-rpc-2   — rpc-write-2, rpc-read-2, lb (backup via keepalived/VIP), rpc-ca
 
 ---
 
-## 4. Host sizing (Nevacloud)
+## 4. Host sizing — full fleet (chosen config)
 
-| Host | vCPU | RAM | Disk | Rationale |
+### Phase 1 fleet (the config we're building now)
+
+| Host | Role | vCPU | RAM | Disk | Besu heap (`-Xms=-Xmx`) | Change vs today |
+|---|---|---|---|---|---|---|
+| `hara-v1..v4` | validators (1 each) | 4 | **16 GB** | 100 GB NVMe | 8 GB | RAM 8→16 GB |
+| **`hara-rpc-1`** (NEW) | rpc-write + 2×rpc-read + lb + rpc-cache + autoheal | **8** | 16 GB | 200 GB NVMe | 6 GB ×3 | new host |
+| `hara-stateless` | signer, broadcaster, indexer, Blockscout BE/FE, obs, Caddy | **4** | **16 GB** | 200 GB NVMe | — | downsize 8→4 vCPU, 32→16 GB |
+| `hara-stateful` | Vault, Postgres, Redis, MinIO | 8 | 32 GB | 1 TB NVMe | — | unchanged |
+
+Net: **+1 VPS** (`hara-rpc-1`), partly offset by downsizing `hara-stateless`.
+
+Per-node rationale:
+- **Validators → 16 GB:** sealed fine in testing (not the bottleneck), but 8 GB
+  with a 6 GB heap is dangerously tight (OS + RocksDB off-heap + page cache).
+  16 GB + pinned 8 GB heap removes OOM/GC risk under 300M-gas blocks. NVMe stays.
+- **`hara-rpc-1` = 8 vCPU / NVMe:** 3 Besu RPC nodes each import every block in
+  parallel — that's the CPU demand. 8 vCPU keeps all three in sync with the
+  validators without fighting services. **NVMe non-negotiable** — Bonsai import
+  is disk-bound; network/HDD storage re-creates the wall regardless of CPU.
+- **`hara-stateless` downsized:** once RPC moves off, it's just steady stateless
+  services + obs + edge. 4 vCPU / 16 GB is plenty; recovers most of the new
+  host's cost. (Downsize is a *later* cost-trim, not a blocker — see §6 note.)
+- **`hara-stateful` unchanged:** Postgres (indexer + Blockscout DBs) + Vault +
+  MinIO; 1 TB for multi-year growth.
+
+### Phase 2 (Best) — when read load or HA demands it
+
+Split the RPC nodes across two hosts:
+
+| Host | Role | vCPU | RAM | Disk |
 |---|---|---|---|---|
-| `hara-rpc-1` (Phase 1) | **8** | 16 GB | 200 GB NVMe | 3 Besu nodes each import in parallel; NVMe is the real lever for Bonsai import. Heap is only 6 GB/node so 16 GB RAM is enough if not co-locating obs. |
-| `hara-rpc-2` (Phase 2) | 8 | 16 GB | 200 GB NVMe | same |
-| `hara-stateless` (post-move) | can **downsize** to 4 vCPU / 16 GB | — | RPC import burden removed; just services + obs + edge |
+| `hara-rpc-w` | rpc-write + lb (primary) | 8 | 16 GB | 200 GB NVMe |
+| `hara-rpc-r` | 2×rpc-read + rpc-cache + lb (backup VIP) | 8 | 16 GB | 200 GB NVMe |
 
-NVMe over network/HDD storage is non-negotiable for Besu — per Besu perf docs,
-disk I/O is the usual import bottleneck. Map to nearest Nevacloud SKU; prefer
-more vCPU + NVMe over RAM.
+This is the write-on-its-own-host instinct — correct as the *second* step.
 
-If a single bigger box is cheaper than two 8-vCPU hosts: a **16 vCPU / 32 GB**
-`hara-rpc-1` running all 3 nodes with CPU headroom is a valid Phase-1.5 middle
-ground before true multi-host HA.
+### Budget compromise (if a 5th VPS is hard to justify yet)
+
+Single **16 vCPU / 32 GB / 200 GB NVMe** `hara-rpc-1` running all 3 nodes with
+CPU headroom, and *don't* downsize hara-stateless. One beefy RPC box clears the
+wall and defers the HA decision. No host-level RPC redundancy, but cheapest path
+to "200×500 completes."
+
+**Nevacloud mapping:** prioritize **vCPU + local NVMe over RAM** — the wall is
+parallel import (CPU) on fast disk. Confirm storage is genuinely local NVMe, not
+network-attached block storage (the latter undoes the benefit).
 
 ---
 
@@ -201,8 +243,13 @@ old containers — they re-sync in minutes.
 
 - The 200×500 wall is **block-import CPU contention on the shared host**, not a
   software bug — the software fixes are done.
-- **Phase 1: move the RPC tier to its own VPS** (`hara-rpc-1`, 8 vCPU/NVMe).
-  Highest value, low risk, likely clears the wall on its own.
+- **Chosen path: "Good" now → "Best" later.**
+  - **Phase 1 (now):** all 3 RPC nodes → new dedicated `hara-rpc-1`
+    (8 vCPU / NVMe); hara-stateless = services only (downsizeable to 4 vCPU).
+    Fully isolates RPC/import from the spiky services tier in one move. Low
+    risk — RPC nodes re-sync from peers, no unique state. Clears the wall.
+  - **Phase 2 (later):** split write onto its own host (`hara-rpc-w`/`hara-rpc-r`)
+    with HAProxy `balance source` for HA + multi-tenant write scale.
 - **Multiple write nodes + LB** is real and worth it **for HA + multi-tenant
   write load** (Phase 2), with **`balance source` sender affinity** — but it
   does *not* substitute for per-node CPU; single-sender bursts still pin to one
