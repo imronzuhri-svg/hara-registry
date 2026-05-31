@@ -7,6 +7,33 @@ in-flight handoff during that session).
 
 ---
 
+## ⚡ UPDATE 2026-06-01 — Phase 1 RPC-host migration COMPLETE
+
+The Phase 1 migration described as priority #0 below (§17) is **done and live**.
+Executed end-to-end over SSH from the operator laptop (no WSL).
+
+**New topology (replaces the §1 / §2 "current" picture):**
+
+| Host | Role | WG IP | Public IP |
+|---|---|---|---|
+| `hara-rpc-1` (NEW) | rpc-write + 2×rpc-read + HAProxy LB + autoheal | 10.43.0.21 | 103.169.206.237 |
+| `hara-stateless-2` (NEW) | signer, broadcaster, indexer, rpc-cache, Blockscout BE/FE, obs, Caddy | 10.43.0.25 | 103.169.206.239 |
+| `hara-stateful` | Vault / PG / Redis / MinIO | 10.43.0.40 | 103.67.244.250 (unchanged) |
+| `hara-v1..v4` | validators | 10.43.0.11..14 | (unchanged) |
+| ~~`hara-stateless`~~ | **DESTROYED** (was 10.43.0.20) | — | — |
+
+- **DNS** (`rpc`/`explorer`/`grafana`) now → `103.169.206.239` (services host). `.237` is RPC-only (no public web). TTL back to 3600s.
+- **hara-did partner** migrated to `http://10.43.0.21:8545/rpc/write`; verified active on `.21`, off `.20`. Packet: [haraledger-did-rpc-migration.md](haraledger-did-rpc-migration.md).
+- Both new boxes were **bare** (cloud-init never applied) → bootstrapped from scratch; disk confirmed genuine NVMe (3.3–3.9 GB/s). Actual specs ran over plan: rpc-1 = 8 vCPU/23 GB/300 GB, stateless-2 = 6 vCPU/15 GB/200 GB.
+- **Deviation from runbook:** indexer has no advisory lock → shared-DB writers (indexer, Blockscout, anchor-worker, signer, broadcaster) were **deferred to the cutover** (clean stop-old/start-new) instead of double-writing live Postgres during the parallel window.
+- **New ops scripts (this session):** [bootstrap-newbox.sh](deploy/ops/bootstrap-newbox.sh), [wg-onboard-migration.sh](deploy/ops/wg-onboard-migration.sh), [cutover-phase-c.sh](deploy/ops/cutover-phase-c.sh), [decommission-old-stateless.sh](deploy/ops/decommission-old-stateless.sh).
+
+**Now-open (supersedes §17 ordering):** (1) re-run 200×500 on the dedicated host; (2) harden new boxes — enable `ufw` + SSH hardening (deferred during migration to avoid lockout); (3) raise validators 8→16 GB RAM. The rest of §17 stands.
+
+> Everything below this banner is the pre-migration 2026-05-28 handoff, kept for history. Where it conflicts with this banner, the banner wins.
+
+---
+
 ## 0. TL;DR
 
 - Chain still live, healthy, ~60K blocks deep on Nevacloud QBFT (chain ID **131216**, 2s blocks).
