@@ -38,6 +38,7 @@ exec besu \
   --p2p-port=30303 \
   --discovery-enabled=true \
   --bootnodes="${BOOTNODES}" \
+  --sync-mode=FULL \
   --rpc-http-enabled=true \
   --rpc-http-host=0.0.0.0 \
   --rpc-http-port=8545 \
@@ -65,3 +66,13 @@ exec besu \
 # NOTE: --sync-min-peers=2 (was default 5) — our chain only has 4 validators, so the
 # default-5 "Unable to find sync target. Waiting for 5 peers minimum" left RPC nodes
 # idle for ~11 min after restart and delayed tx-pool enablement. (Besu #6327.)
+#
+# NOTE: --sync-mode=FULL (2026-06-01) — was defaulting to SNAP. SNAP reports
+# eth_syncing=false once BLOCK sync completes but keeps healing the Bonsai state
+# trie in the background; during that window eth_call/eth_getCode silently return
+# empty/wrong results for not-yet-healed accounts (observed after the hara-rpc-1
+# migration: HaraPalmOil reads came back 0x, Blockscout showed null token metadata,
+# until heal finished). FULL re-executes every block → a node only serves state it
+# has fully built, so there's no silent-wrong-read window. Correct for a small
+# private chain and a partner-facing read tier. Applies to future node syncs/rebuilds;
+# already-healed nodes are unaffected until they next re-sync.
