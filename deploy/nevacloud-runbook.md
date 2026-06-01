@@ -555,37 +555,49 @@ transactions.
 
 ---
 
-### Step 9 — Snapshot crons (~5 minutes)
+### Step 9 — Snapshot timers (~5 minutes)
 
-Set up nightly snapshots on hara-stateful via systemd timers:
+All three nightly snapshot timers are installed by one role-aware script,
+`deploy/ops/install-backup-timers.sh`. It detects the host's role from the
+hostname, writes the `*.service`/`*.timer` units, and enables the timer. Run it
+**on each host** with sudo:
 
 ```bash
-ssh hara@hara-stateful
-sudo tee /etc/systemd/system/hara-postgres-snapshot.service > /dev/null <<EOF
-[Unit]
-Description=Nightly Postgres backup to object storage
-[Service]
-Type=oneshot
-WorkingDirectory=/opt/hara-registry
-ExecStart=/opt/hara-registry/deploy/ops/snapshot-postgres.sh
-User=hara
-EOF
-sudo tee /etc/systemd/system/hara-postgres-snapshot.timer > /dev/null <<EOF
-[Unit]
-Description=Run postgres snapshot nightly at 02:00 local
-[Timer]
-OnCalendar=*-*-* 02:00:00
-Persistent=true
-[Install]
-WantedBy=timers.target
-EOF
-sudo systemctl daemon-reload
-sudo systemctl enable --now hara-postgres-snapshot.timer
+# hara-stateful: Postgres (02:00) + Vault Raft (04:00)
+ssh hara@hara-stateful 'cd /opt/hara-registry && \
+  sudo ./deploy/ops/install-backup-timers.sh postgres && \
+  sudo ./deploy/ops/install-backup-timers.sh vault'
 
-# Repeat for vault-raft-snapshot.sh at 04:00
+# each validator: chain-data snapshot, auto-staggered 03:00/03:15/03:30/03:45
+for v in hara-v1 hara-v2 hara-v3 hara-v4; do
+  ssh hara@$v 'cd /opt/hara-registry && sudo ./deploy/ops/install-backup-timers.sh'
+done
 ```
 
-On each validator VPS, schedule `snapshot-validator.sh` nightly at staggered times (03:00 for v1, 03:15 for v2, etc.) so only one validator is briefly offline at a time.
+Each unit reads its config from `deploy/ops/backup.env` (referenced as an
+optional `EnvironmentFile`). Populate it **before** the first run:
+
+- `BACKUP_AGE_RECIPIENT=age1…` — required on every host (from `backup-setup.sh`).
+- **hara-stateful (vault):** `RCLONE_TARGET=nevacloud-s3:hara-backups-vault`,
+  `SNAPSHOT_DIR=/var/backups/hara/vault` (keeps snapshots out of the repo dir,
+  alongside the Postgres backups), plus the **non-root snapshotter** AppRole from
+  `vault-approle-bootstrap.sh`: `VAULT_APPROLE_ID=…` / `VAULT_APPROLE_SECRET=…`
+  (the `[vault-snapshot]` pair). `vault-raft-snapshot.sh` logs in with it per
+  run — the root token is never used.
+
+Validator timers stagger by index so only one validator is briefly stopped at a
+time (QBFT keeps quorum with 3 of 4). Verify on any host:
+
+```bash
+systemctl list-timers 'hara-*-snapshot.timer'
+# dry-run one immediately and read the log:
+sudo systemctl start hara-vault-snapshot.service
+journalctl -u hara-vault-snapshot.service -n 40 --no-pager
+```
+
+> Note: the script auto-detects the repo path (`/opt/hara-registry`,
+> `/opt/hara/hara-registry`, or the legacy `/opt/hara/hara-ledger`); override
+> with `REPO=` if your checkout is elsewhere.
 
 ---
 
@@ -595,24 +607,22 @@ This isn't a VPS step but it should happen before any non-maintainer pushes to m
 
 1. https://github.com/imronzuhri-svg/hara-registry/settings/branches → Add rule.
 2. Pattern: `main`.
-3. Required status checks:
-   - `secret-scan`
-   - `services / docker build + scan + sign (anchor-worker)`
-   - `services / docker build + scan + sign (broadcaster)`
-   - `services / docker build + scan + sign (indexer)`
-   - `services / docker build + scan + sign (migrate)`
-   - `services / docker build + scan + sign (rpc-cache)`
-   - `services / docker build + scan + sign (signer)`
-   - `services / typecheck + build (anchor-worker)`
-   - `services / typecheck + build (broadcaster)`
-   - `services / typecheck + build (indexer)`
-   - `services / typecheck + build (migrate)`
-   - `services / typecheck + build (rpc-cache)`
-   - `services / typecheck + build (shared)`
-   - `services / typecheck + build (signer)`
-   - `contracts / forge build + test`
-   - `slither / Slither static analysis`
-   - `echidna / HaraPalmOilFuzz`
+3. Required status checks — use the **stable per-workflow gate jobs**. Each
+   gate always runs on every PR (even when its area is untouched) and reports a
+   single conclusion, so a path-filtered PR no longer hangs forever "waiting"
+   for a check that never starts:
+   - `Gitleaks` (the secret-scan workflow's job — already required)
+   - `Analyze (actions)` + `Analyze (javascript-typescript)` (CodeQL — already required)
+   - `contracts-gate`
+   - `services-gate`
+   - `slither-gate`
+   - `echidna-gate`
+
+   > Do **not** add the individual matrix jobs (`services / typecheck + build
+   > (signer)`, `contracts / forge build + test`, etc.) to the required set —
+   > they're path-gated and skip silently when their area is untouched, which
+   > would block unrelated PRs. The `*-gate` jobs aggregate them: a gate is green
+   > when its underlying jobs passed **or** were skipped, red when any failed.
 4. Require linear history: ON.
 5. Require PR before merge with 1 approval: ON (raise to 2 when team grows).
 6. Allow force pushes: OFF. Allow deletions: OFF.

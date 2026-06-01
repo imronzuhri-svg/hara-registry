@@ -1,30 +1,42 @@
 name: services
 
+# Always runs on every PR so `services-gate` always reports (required-checkable).
+# The expensive typecheck/build/scan/sign matrix stays path-gated via `changes`.
 on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths:
-      - "services/**"
-      - ".github/workflows/services.yml"
   pull_request:
-    paths:
-      - "services/**"
-      - ".github/workflows/services.yml"
 
 permissions:
   contents: read
   packages: write       # push images to GHCR
   id-token: write       # cosign keyless OIDC
 
-defaults:
-  run:
-    working-directory: services
-
 jobs:
+  changes:
+    name: detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.f.outputs.services }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: f
+        with:
+          filters: |
+            services:
+              - "services/**"
+              - ".github/workflows/services.yml"
+
   typecheck:
     name: typecheck + build
+    needs: changes
+    if: needs.changes.outputs.services == 'true'
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services
 
     strategy:
       matrix:
@@ -58,8 +70,12 @@ jobs:
 
   docker:
     name: docker build + scan + sign
+    needs: [changes, typecheck]
+    if: needs.changes.outputs.services == 'true'
     runs-on: ubuntu-latest
-    needs: typecheck
+    defaults:
+      run:
+        working-directory: services
     strategy:
       fail-fast: false
       matrix:
@@ -146,3 +162,25 @@ jobs:
           REPO="ghcr.io/${{ github.repository_owner }}/hara-registry-${{ matrix.package }}"
           cosign sign --yes "${REPO}@${DIGEST}"
           echo "✓ signed ${REPO}@${DIGEST}"
+
+  # Stable, always-reporting status for branch protection. Passes when both the
+  # typecheck and docker jobs succeeded OR were skipped (services/ untouched);
+  # fails if either failed.
+  services-gate:
+    name: services-gate
+    needs: [changes, typecheck, docker]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gate on service job results
+        run: |
+          tc="${{ needs.typecheck.result }}"
+          dk="${{ needs.docker.result }}"
+          echo "typecheck: $tc  docker: $dk  (services changed: ${{ needs.changes.outputs.services }})"
+          for r in "$tc" "$dk"; do
+            if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then
+              echo "::error::services pipeline failed"
+              exit 1
+            fi
+          done
+          echo "services-gate passed"

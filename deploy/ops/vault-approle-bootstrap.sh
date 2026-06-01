@@ -8,9 +8,12 @@
 #   • Policy `haraledger-validator`  → read secret/data/haraledger/validators/*
 #   • Policy `haraledger-signer`     → read secret/data/haraledger/signer-keys/*
 #   • Policy `haraledger-anchor`     → read+write secret/data/haraledger/anchor/*
+#   • Policy `haraledger-snapshot`   → take Raft snapshots (sys/storage/raft/snapshot)
 #   • AppRole `validator`            → bound to validator policy
 #   • AppRole `signer`               → bound to signer policy
 #   • AppRole `anchor-worker`        → bound to anchor policy
+#   • AppRole `vault-snapshot`       → bound to snapshot policy (for the nightly
+#                                      backup timer on hara-stateful; NOT root)
 #
 # For each AppRole, prints role_id + secret_id pair to STDOUT. Operator
 # copies these into the per-VPS .env file (no token sprawl; each VPS only
@@ -98,6 +101,19 @@ path "secret/data/haraledger/anchor/*" {
 }
 EOF
 
+log "Writing policy haraledger-snapshot"
+vault policy write haraledger-snapshot - <<'EOF'
+# Snapshotter: the ONLY capability is taking a Raft snapshot. Deliberately
+# scoped so the nightly backup timer on hara-stateful never needs the root
+# token (state-4 §8 open item). `vault operator raft snapshot save` reads
+# this path. No secret/* access, no write to storage — a leaked snapshotter
+# token can copy the encrypted Raft state (already age-encrypted before it
+# leaves the box) but cannot read KV secrets or mutate Vault.
+path "sys/storage/raft/snapshot" {
+  capabilities = ["read"]
+}
+EOF
+
 ok "Policies written"
 
 # ── AppRoles ─────────────────────────────────────────────────────────────────
@@ -112,9 +128,11 @@ create_approle() {
     secret_id_num_uses="0" >/dev/null
 }
 
-create_approle validator     haraledger-validator
-create_approle signer        haraledger-signer
-create_approle anchor-worker haraledger-anchor
+create_approle validator      haraledger-validator
+create_approle signer         haraledger-signer
+create_approle anchor-worker  haraledger-anchor
+# Snapshotter logs in once per nightly run; a short token TTL is plenty.
+create_approle vault-snapshot haraledger-snapshot
 
 ok "AppRoles created"
 
@@ -123,7 +141,7 @@ echo
 echo "════════════════════════════════════════════════════════════════════════"
 echo "  AppRole credentials — copy into each VPS's chain/.env or service env"
 echo "════════════════════════════════════════════════════════════════════════"
-for role in validator signer anchor-worker; do
+for role in validator signer anchor-worker vault-snapshot; do
   role_id=$(vault read -format=json "auth/approle/role/$role/role-id" | jq -r '.data.role_id')
   secret_id=$(vault write -f -format=json "auth/approle/role/$role/secret-id" | jq -r '.data.secret_id')
   echo
@@ -138,4 +156,7 @@ echo
 echo "Next step:"
 echo "  • Distribute role/secret pairs to validator VPSes + hara-stateless"
 echo "  • Bring up validators (they will authenticate via AppRole on first boot)"
+echo "  • Put the [vault-snapshot] role/secret in hara-stateful's backup env"
+echo "    (VAULT_APPROLE_ID / VAULT_APPROLE_SECRET) — vault-raft-snapshot.sh"
+echo "    logs in with it instead of the root token. See install-backup-timers.sh."
 echo "  • Consider running this script periodically to rotate secret_ids"
