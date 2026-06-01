@@ -42,6 +42,10 @@ secrets/
 *.pem
 *.crt
 
+# Plaintext secret dumps — NEVER commit
+*secrets*.txt
+ops/secrets.txt
+
 # ─── IDE / OS ─────────────────────────────────────────────────
 .vscode/
 .idea/
