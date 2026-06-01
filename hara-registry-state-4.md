@@ -146,13 +146,9 @@ Sources in `contracts/src/`. Platform admin (DEFAULT_ADMIN_ROLE) = `0x944b237097
 
 - **Postgres (automated, off-host, restore-verified):** systemd `hara-postgres-snapshot.{service,timer}` on hara-stateful, nightly **02:00**, runs `deploy/ops/snapshot-postgres.sh` → `pg_dump` (hara_indexer + blockscout) → zstd → **age-encrypt** → local `/var/backups/hara/postgres` (7-day retention) → **rclone upload to `nevacloud-s3:hara-backups/postgres`**. Restore drill `snapshot-restore-drill.sh` **PASSED**. age recipient `age1fcdr3qk0wuzxy0ynmzj3d28d8m8pfe489wpk6udstzcyccj7l45sjla6e3`; rclone remote `nevacloud-s3` (endpoint `https://s3.nevaobjects.id`) configured for the `hara` user on hara-stateful.
 - **Vault Raft + validator timers — INSTALLED on hosts (2026-06-01, session #5).** `deploy/ops/install-backup-timers.sh` (role-aware, idempotent) was run on all hosts; `deploy/ops/backup.env` written per host (age recipient public; rclone copied to validators). Live `systemctl list-timers` confirmed: **postgres 02:00, validator v1 03:01 / v2 03:15 / v3 03:31 / v4 03:45 (±2 min RandomizedDelaySec), vault 04:00** (all WIB / UTC+7). Validators got the `nevacloud-s3` rclone remote copied from hara-stateful so off-host upload works. The non-root snapshotter is wired in code: `vault-approle-bootstrap.sh` creates policy `haraledger-snapshot` (cap = read `sys/storage/raft/snapshot` only) + AppRole `vault-snapshot`; `vault-raft-snapshot.sh` logs in via it (falls back to `VAULT_TOKEN`).
-  - **⚠ ONE operator step remains:** mint the `vault-snapshot` AppRole and append its creds to `hara-stateful:/opt/hara/hara-ledger/deploy/ops/backup.env`. The agent is **credential-gated** out of reading the root token from `ops/secrets.txt`, so this must be operator-run:
-    ```
-    ssh hara-stateful "cd /opt/hara/hara-ledger && VAULT_TOKEN=<root from secrets.txt §1> ./deploy/ops/vault-approle-bootstrap.sh" | sed -n '/\[vault-snapshot\]/,/SECRET/p'
-    # append the printed VAULT_APPROLE_ID / VAULT_APPROLE_SECRET to backup.env, then dry-run:
-    ssh hara-stateful "sudo systemctl start hara-vault-snapshot.service && journalctl -u hara-vault-snapshot.service -n 40 --no-pager"
-    ```
-    Until then the vault timer is installed+enabled but will fail at 04:00 (clean "no auth" error; no risk). The validator dry-run was intentionally **not** run by the agent (classifier-gated — it briefly stops a prod validator the partner depends on); validators self-prove on the 03:xx schedule. Postgres restore drill already passed.
+  - **Vault snapshot — COMPLETE & verified (session #5).** `vault-snapshot` AppRole minted (operator-authorized root-token read; token passed via stdin, never written to disk/args/log); creds appended to `hara-stateful:.../deploy/ops/backup.env`. **Dry-run passed end-to-end:** AppRole login → Raft snapshot → age-encrypt (55 KB) → upload; `.age` confirmed in `nevacloud-s3:hara-backups-vault`. `hara-vault-snapshot.service` result=success.
+  - **Validator dry-run NOT agent-run** (classifier-gated — briefly stops a prod validator the partner depends on). Validators self-prove on the 03:xx staggered schedule; rclone remote + age recipient confirmed in place. Postgres restore drill already passed.
+  - Minor housekeeping: re-running `vault-approle-bootstrap.sh` regenerated (unused) secret_ids for the validator/signer/anchor-worker roles — harmless (additive, old ones still valid); revoke stale secret_ids at next rotation if desired.
 
 ---
 
@@ -197,7 +193,7 @@ The dedicated RPC host cleared the old import-CPU wall: chunks confirmed in stea
 |---|---|
 | Rotate Vault root token + GitHub PAT | **open (do first)** — leaked in session |
 | New-box hardening (ufw + SSH root/password off) | open — deferred to avoid lockout |
-| Vault Raft + validator snapshot timers | **units written** — `install-backup-timers.sh` + non-root `vault-snapshot` AppRole done; pending operator install on hosts (runbook Step 9) |
+| Vault Raft + validator snapshot timers | **DONE (session #5)** — all timers installed on hosts; vault snapshot dry-run verified off-host (non-root AppRole). Validators self-prove on 03:xx schedule. |
 | Admin multisig (Gnosis Safe) | open — single-key today |
 | Real alerting (Alertmanager→Slack/PagerDuty/email) | open — stdout only |
 | Validator RAM 8→16 GB | open |
@@ -244,7 +240,7 @@ The dedicated RPC host cleared the old import-CPU wall: chunks confirmed in stea
 
 0. **Rotate Vault root token + GitHub PAT**; `secrets.txt` → password manager.
 1. **Harden new boxes** — ufw (allow 22/51820/WG-subnet + public ports; Docker bypasses ufw for published ports) + SSH `PermitRootLogin no` / `PasswordAuthentication no`. Do one box at a time, verify access.
-2. **Backups round-out** — ✅ units + non-root snapshotter written (`install-backup-timers.sh`, `vault-snapshot` AppRole). **Remaining = operator install:** run `vault-approle-bootstrap.sh`, populate `deploy/ops/backup.env` per host, run the installer (runbook Step 9), verify `systemctl list-timers`.
+2. **Backups round-out** — ✅ **DONE (session #5).** All timers installed + scheduled (postgres 02:00, validators 03:01/15/31/45, vault 04:00 WIB); non-root `vault-snapshot` AppRole minted; vault snapshot dry-run verified off-host to `nevacloud-s3:hara-backups-vault`. Validators self-prove on schedule (dry-run skipped to avoid stopping a prod validator).
 3. **Admin multisig** (Gnosis Safe) for `0x944b237…`.
 4. **Real alerting** (Alertmanager → Slack/PagerDuty/email).
 5. **Validator RAM 8→16 GB** (Nevacloud panel resize; pin heap 8 GB). **Prod image rebuild** under `hara-registry-*` (recreate containers — needs a window; also rename `/opt` dir + host `git remote`s to hara-registry).
