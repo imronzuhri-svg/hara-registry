@@ -81,7 +81,7 @@ This is equivalent to today's local dev setup, just on a real VPS. Useful as a P
 | `hara-v4` | validator4 | same (VALIDATOR_ID=4) |
 | `hara-app` | Everything else | `platform/` + `rpc/` + `data/` + `services/` |
 
-**Networking**: 5 VPS connected via a WireGuard mesh on `10.42.0.0/24`. Container IPs already match this subnet (validators `10.42.0.11–14`, services `10.42.0.40–47`, platform `10.42.0.2–8`). Docker Swarm overlay or a Docker network created as `attachable` allows cross-VPS container DNS.
+**Networking**: VPSes are connected via a **WireGuard mesh on `10.43.0.0/24`** (host IPs: validators `10.43.0.11–14`, `hara-rpc-1` `.21`, `hara-stateless-2` `.25`, `hara-stateful` `.40`). Each host *also* keeps its own local Docker bridge `hara-platform` on `10.42.0.0/24` for same-host container DNS (validators `10.42.0.11–14`, services `10.42.0.40–47`, platform `10.42.0.2–8`). **Cross-host traffic uses the `10.43.0.x` mesh IPs** — there is no Docker Swarm / overlay in production (see "How the network works across hosts").
 
 ### P1b — 8 VPS (sustained load)
 
@@ -103,23 +103,30 @@ Multiple instances of each compose file across regions. See `doc/hara-registry-r
 
 Inside a single host, the `hara-platform` Docker bridge network gives every container DNS via service name (`vault:8200`, `postgres:5432`, `rpc-read-1:8545`).
 
-Across hosts, two options:
+Across hosts, **production uses plain Compose + the WireGuard mesh** (the Docker
+Swarm overlay option below was evaluated and **not** adopted — it added a control
+plane and failure mode we didn't want for a fixed handful of VPSes):
 
-**Option A — Docker Swarm overlay** (recommended for production)
+**Production approach — plain Compose + WireGuard mesh IPs**
+
+Each host runs its own `docker compose` with its own local `hara-platform`
+bridge. Cross-host service references are set per host in the `.env` to the
+peer's `10.43.0.x` mesh IP — e.g. on `hara-stateless-2`, the services point at
+`RPC_*_URL=http://10.43.0.21:8545/...` (the RPC tier on `hara-rpc-1`) and Vault/
+Postgres at `http://10.43.0.40:...`. Compose env defaults use docker-DNS names
+for local sim and are overridden to mesh IPs in the prod `.env`. No Swarm, no
+overlay network — the WireGuard tunnel is the only cross-host transport.
+
+<details><summary>Not used: Docker Swarm overlay (evaluated, rejected)</summary>
+
 ```bash
-# On hara-app: init swarm
-docker swarm init --advertise-addr <wireguard-ip-of-hara-app>
-# It prints a join token. Then on each other VPS:
-docker swarm join --token <token> <hara-app-wireguard-ip>:2377
-# Create the overlay network ONCE (auto-replicates to all nodes):
+docker swarm init --advertise-addr <wireguard-ip>
+docker swarm join --token <token> <manager-wireguard-ip>:2377
 docker network create --driver overlay --attachable --subnet 10.42.0.0/24 hara-platform
 ```
-
-All compose files in this folder declare `hara-platform` as an `external` network — they'll join the overlay regardless of which host they run on. DNS works across hosts.
-
-**Option B — Plain Compose + WireGuard with `extra_hosts`**
-
-Less flexible but simpler — define each cross-host service's IP explicitly via `extra_hosts:` in your compose overrides. Tolerable for fixed 5–8 VPS deployments.
+Would have given cross-host container DNS, but the split topology reaches peers
+by mesh IP instead, which is simpler to reason about and debug.
+</details>
 
 ## Bring-up order
 
@@ -149,7 +156,7 @@ See `ops/secrets-bootstrap.sh` for the rotation procedure.
 | | `chain/docker-compose.yml` (dev) | `deploy/` (production) |
 |---|---|---|
 | Number of compose files | 2 (chain + _platform) | 5 (platform, chain, rpc, services, data) |
-| Network | bridge `hara-platform` | overlay `hara-platform` (Swarm) |
+| Network | bridge `hara-platform` (single host) | per-host bridge `hara-platform` (`10.42.0.0/24`) + WireGuard mesh (`10.43.0.0/24`) for cross-host; no Swarm |
 | Host port mappings | All services bind to `0.0.0.0:*` | Only LB + Grafana + Vault UI exposed; everything else internal-only |
 | TLS | None | Required at platform/grafana, rpc/lb (planned — see audit doc) |
 | Vault mode | dev (`-dev`, root token in env) | Raft HA + AppRole auth (P1 hardening) |

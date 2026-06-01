@@ -19,19 +19,40 @@ This is the single source of truth for "what to type and in what order" when goi
 
 ---
 
-## 1. VPS inventory (Option B — recommended)
+## 1. VPS inventory
 
-Order these from the Nevacloud panel. Total ~Rp 7.3M / month.
+> **Current production topology (post RPC-host split, 2026-06-01).** The single
+> `hara-stateless` host below was later split into a dedicated RPC tier
+> (`hara-rpc-1`) and a services/observability/edge host (`hara-stateless-2`) — see
+> `deploy/runbook-rpc-host-migration.md` for that migration and
+> `deploy/topology.md` for the authoritative current map. The table below reflects
+> the **current** split. The WireGuard mesh is **`10.43.0.0/24`** (each host also
+> has a local `10.42.0.0/24` Docker bridge for same-host container DNS).
+>
+> ⚠ **The step-by-step bring-up below (Steps 4–9) was written for the original
+> single `hara-stateless` host and still names it.** When provisioning the current
+> split, map the **RPC nodes + HAProxy/LB** steps onto `hara-rpc-1` and the
+> **signer / broadcaster / indexer / rpc-cache / Blockscout / observability /
+> Caddy / anchor-worker** steps onto `hara-stateless-2` — or bring up the single
+> host as written and then apply `deploy/runbook-rpc-host-migration.md`.
 
-| # | Hostname | Role | vCPU | RAM | Disk | Monthly | WireGuard IP |
-|---|---|---|---|---|---|---|---|
-| 1 | `hara-v1` | Besu validator 1 | 4 | 8 GB | 100 GB NVMe | Rp 700K | `10.42.0.11` |
-| 2 | `hara-v2` | Besu validator 2 | 4 | 8 GB | 100 GB NVMe | Rp 700K | `10.42.0.12` |
-| 3 | `hara-v3` | Besu validator 3 | 4 | 8 GB | 100 GB NVMe | Rp 700K | `10.42.0.13` |
-| 4 | `hara-v4` | Besu validator 4 | 4 | 8 GB | 100 GB NVMe | Rp 700K | `10.42.0.14` |
-| 5 | `hara-stateful` | Vault Raft + Postgres + Redis + MinIO + chain init | 8 | 32 GB | **1 TB NVMe** | Rp 2.5M | `10.42.0.40` |
-| 6 | `hara-stateless` | RPC nodes + LB + signer + broadcaster + indexer + rpc-cache + Blockscout + observability + Caddy + anchor-worker | 8 | 32 GB | 500 GB NVMe | Rp 1.7M | `10.42.0.20` |
-| — | (object storage) | Snapshots (Postgres + Vault Raft + validator data) | — | — | 300 GB | Rp 300K | — |
+Order these from the Nevacloud panel.
+
+| # | Hostname | Role | vCPU | RAM | Disk | WireGuard IP |
+|---|---|---|---|---|---|---|
+| 1 | `hara-v1` | Besu validator 1 | 4 | 8 GB | 100 GB NVMe | `10.43.0.11` |
+| 2 | `hara-v2` | Besu validator 2 | 4 | 8 GB | 100 GB NVMe | `10.43.0.12` |
+| 3 | `hara-v3` | Besu validator 3 | 4 | 8 GB | 100 GB NVMe | `10.43.0.13` |
+| 4 | `hara-v4` | Besu validator 4 | 4 | 8 GB | 100 GB NVMe | `10.43.0.14` |
+| 5 | `hara-rpc-1` | RPC tier: rpc-write + 2× rpc-read + HAProxy LB + autoheal | 8 | 23 GB | 300 GB NVMe | `10.43.0.21` |
+| 6 | `hara-stateless-2` | signer + broadcaster + indexer + rpc-cache + Blockscout + observability + Caddy + anchor-worker | 6 | 15 GB | 200 GB NVMe | `10.43.0.25` |
+| 7 | `hara-stateful` | Vault Raft + Postgres + Redis + MinIO + chain init | 8 | 32 GB | **1 TB NVMe** | `10.43.0.40` |
+| — | (object storage) | Snapshots (Postgres + Vault Raft + validator data), off-host via rclone | — | — | 300 GB | — |
+
+> Partner host `hara-did-stg` (`10.43.0.50`) also joins the mesh but is operated
+> by the partner (not our SSH). For the original single-`hara-stateless`
+> (8 vCPU / 32 GB / 500 GB, `10.43.0.20`, **now destroyed**) bring-up, see git
+> history of this file before 2026-06-01.
 
 **OS for all VPSes:** Ubuntu 24.04 LTS (the `cloud-init.yaml` is written against it). Ubuntu 22.04 also works.
 
@@ -43,13 +64,15 @@ Order these from the Nevacloud panel. Total ~Rp 7.3M / month.
 
 ## 2. DNS records required (before TLS step)
 
-Three A records, all pointing at `hara-stateless`'s public IP:
+Three (now four) A records, all pointing at the **services/edge host's** public
+IP — `hara-stateless-2` (`103.169.206.239`), where Caddy runs:
 
 | Hostname | Type | Value |
 |---|---|---|
-| `rpc.ledger.haratrust.io` | A | `<hara-stateless public IP>` |
-| `explorer.ledger.haratrust.io` | A | `<hara-stateless public IP>` |
-| `grafana.platform.haratrust.io` | A | `<hara-stateless public IP>` |
+| `rpc.ledger.haratrust.io` | A | `<hara-stateless-2 public IP>` |
+| `explorer.ledger.haratrust.io` | A | `<hara-stateless-2 public IP>` |
+| `trace.ledger.haratrust.io` | A | `<hara-stateless-2 public IP>` |
+| `grafana.platform.haratrust.io` | A | `<hara-stateless-2 public IP>` |
 
 Caddy needs port 80 reachable for the Let's Encrypt HTTP-01 challenge. If you're testing on Indonesian DNS, propagation is usually ≤ 10 min.
 
@@ -444,8 +467,8 @@ From operator laptop (or any host with foundry installed):
 
 ```bash
 cd hara-registry
-# Tunnel through the WG mesh:
-ssh -L 8545:10.42.0.20:8545 hara@hara-stateless &
+# Tunnel through the WG mesh to the RPC tier's HAProxy on hara-rpc-1:
+ssh -L 8545:10.43.0.21:8545 hara@hara-rpc-1 &
 
 # CRITICAL: ANCHOR_WORKER_ADDRESS must match the address you seeded into
 # Vault in step 6c. Without it, the PQAnchorRegistry deploys WITHOUT the
