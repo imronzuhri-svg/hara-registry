@@ -1,20 +1,37 @@
 name: slither
 
+# Always runs on every PR so `slither-gate` always reports (required-checkable).
+# The analysis itself stays path-gated via `changes`.
 on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["contracts/**", ".github/workflows/slither.yml"]
   pull_request:
-    paths: ["contracts/**", ".github/workflows/slither.yml"]
 
 permissions:
   contents: read
   security-events: write
 
 jobs:
+  changes:
+    name: detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      contracts: ${{ steps.f.outputs.contracts }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: f
+        with:
+          filters: |
+            contracts:
+              - "contracts/**"
+              - ".github/workflows/slither.yml"
+
   analyze:
     name: Slither static analysis
+    needs: changes
+    if: needs.changes.outputs.contracts == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -55,3 +72,19 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: slither.sarif
+
+  slither-gate:
+    name: slither-gate
+    needs: [changes, analyze]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gate on slither result
+        run: |
+          r="${{ needs.analyze.result }}"
+          echo "analyze result: $r (contracts changed: ${{ needs.changes.outputs.contracts }})"
+          if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then
+            echo "::error::slither analysis failed"
+            exit 1
+          fi
+          echo "slither-gate passed"

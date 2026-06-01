@@ -4,10 +4,14 @@ name: echidna
 # violations Slither cannot reason about — specifically HaraPalmOil's
 # mass-balance invariant across arbitrary transfer chains.
 #
+# Always runs on every PR so `echidna-gate` always reports (required-checkable).
+# The fuzz job stays path-gated on PRs/pushes via `changes`, but ALWAYS runs on
+# the weekly schedule and on manual dispatch (deep runs).
+#
 # Runs:
-#   • on every push touching contracts/**
-#   • on PRs touching contracts/**
-#   • weekly cron (Sunday 06:00 UTC) at a higher iteration budget
+#   • on PRs/pushes touching contracts/**  (10k iterations)
+#   • weekly cron (Sunday 06:00 UTC)       (200k iterations)
+#   • manual dispatch                      (operator-chosen budget)
 
 on:
   workflow_dispatch:
@@ -18,13 +22,7 @@ on:
         default: "10000"
   push:
     branches: [main]
-    paths:
-      - "contracts/**"
-      - ".github/workflows/echidna.yml"
   pull_request:
-    paths:
-      - "contracts/**"
-      - ".github/workflows/echidna.yml"
   schedule:
     # Sunday 06:00 UTC — nightly-ish deep run with longer test budget
     - cron: "0 6 * * 0"
@@ -33,8 +31,29 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      contracts: ${{ steps.f.outputs.contracts }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: f
+        with:
+          filters: |
+            contracts:
+              - "contracts/**"
+              - ".github/workflows/echidna.yml"
+
   fuzz:
     name: ${{ matrix.harness }}
+    needs: changes
+    # Path-gated on PRs/pushes; always run for scheduled + manual deep runs.
+    if: >-
+      needs.changes.outputs.contracts == 'true' ||
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -91,3 +110,19 @@ jobs:
           config: contracts/echidna.config.yaml
           test-limit: ${{ steps.budget.outputs.limit }}
           solc-version: 0.8.26
+
+  echidna-gate:
+    name: echidna-gate
+    needs: [changes, fuzz]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gate on fuzz result
+        run: |
+          r="${{ needs.fuzz.result }}"
+          echo "fuzz result: $r (contracts changed: ${{ needs.changes.outputs.contracts }})"
+          if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then
+            echo "::error::echidna fuzz failed"
+            exit 1
+          fi
+          echo "echidna-gate passed"

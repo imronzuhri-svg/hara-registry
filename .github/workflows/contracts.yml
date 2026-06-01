@@ -1,28 +1,42 @@
 name: contracts
 
+# Always runs on every PR so the `contracts-gate` check ALWAYS reports a
+# conclusion (required-checkable in branch protection). The expensive forge
+# work stays path-gated via the `changes` job — when contracts/ is untouched
+# the forge job is skipped and the gate passes immediately. See state-4 §10/§17.6.
 on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths:
-      - "contracts/**"
-      - ".github/workflows/contracts.yml"
   pull_request:
-    paths:
-      - "contracts/**"
-      - ".github/workflows/contracts.yml"
 
 permissions:
   contents: read
 
-defaults:
-  run:
-    working-directory: contracts
-
 jobs:
+  changes:
+    name: detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      contracts: ${{ steps.f.outputs.contracts }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: f
+        with:
+          filters: |
+            contracts:
+              - "contracts/**"
+              - ".github/workflows/contracts.yml"
+
   forge:
     name: forge build + test
+    needs: changes
+    if: needs.changes.outputs.contracts == 'true'
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts
     steps:
       - uses: actions/checkout@v4
         with:
@@ -59,3 +73,21 @@ jobs:
 
       - name: Gas snapshot diff
         run: forge snapshot --diff || true
+
+  # Stable, always-reporting status for branch protection. Passes when forge
+  # succeeded OR was skipped (contracts/ untouched); fails when forge failed.
+  contracts-gate:
+    name: contracts-gate
+    needs: [changes, forge]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gate on forge result
+        run: |
+          r="${{ needs.forge.result }}"
+          echo "forge result: $r (contracts changed: ${{ needs.changes.outputs.contracts }})"
+          if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then
+            echo "::error::contracts build/test failed"
+            exit 1
+          fi
+          echo "contracts-gate passed"

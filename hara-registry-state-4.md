@@ -145,7 +145,7 @@ Sources in `contracts/src/`. Platform admin (DEFAULT_ADMIN_ROLE) = `0x944b237097
 ## 8. Backups & DR
 
 - **Postgres (automated, off-host, restore-verified):** systemd `hara-postgres-snapshot.{service,timer}` on hara-stateful, nightly **02:00**, runs `deploy/ops/snapshot-postgres.sh` → `pg_dump` (hara_indexer + blockscout) → zstd → **age-encrypt** → local `/var/backups/hara/postgres` (7-day retention) → **rclone upload to `nevacloud-s3:hara-backups/postgres`**. Restore drill `snapshot-restore-drill.sh` **PASSED**. age recipient `age1fcdr3qk0wuzxy0ynmzj3d28d8m8pfe489wpk6udstzcyccj7l45sjla6e3`; rclone remote `nevacloud-s3` (endpoint `https://s3.nevaobjects.id`) configured for the `hara` user on hara-stateful.
-- **NOT yet done:** Vault Raft snapshot timer (needs a dedicated snapshotter token — *not* root); validator snapshot timers (lower priority — validators resync from peers). `deploy/ops/vault-raft-snapshot.sh` + `snapshot-validator.sh` exist.
+- **Vault Raft + validator timers — units written (2026-06-01), pending install on hosts:** `deploy/ops/install-backup-timers.sh` is a role-aware installer (auto-detects host → installs `hara-{postgres,vault,validator}-snapshot.{service,timer}`; validators auto-stagger 03:00/15/30/45; vault 04:00). The dedicated **non-root snapshotter** is wired: `vault-approle-bootstrap.sh` now creates policy `haraledger-snapshot` (cap = read `sys/storage/raft/snapshot` only) + AppRole `vault-snapshot`, and `vault-raft-snapshot.sh` logs in via that AppRole (falls back to `VAULT_TOKEN`). Config comes from `deploy/ops/backup.env` (`BACKUP_AGE_RECIPIENT`, `RCLONE_TARGET`, `VAULT_APPROLE_ID/SECRET`). **Operator still needs to:** run `vault-approle-bootstrap.sh` (to mint the snapshotter creds), drop `backup.env` on each host, and run the installer per-host (runbook Step 9). Restore drills already passed.
 
 ---
 
@@ -190,12 +190,12 @@ The dedicated RPC host cleared the old import-CPU wall: chunks confirmed in stea
 |---|---|
 | Rotate Vault root token + GitHub PAT | **open (do first)** — leaked in session |
 | New-box hardening (ufw + SSH root/password off) | open — deferred to avoid lockout |
-| Vault Raft + validator snapshot timers | open — Postgres done; these pending |
+| Vault Raft + validator snapshot timers | **units written** — `install-backup-timers.sh` + non-root `vault-snapshot` AppRole done; pending operator install on hosts (runbook Step 9) |
 | Admin multisig (Gnosis Safe) | open — single-key today |
 | Real alerting (Alertmanager→Slack/PagerDuty/email) | open — stdout only |
 | Validator RAM 8→16 GB | open |
 | Prod image rebuild under `hara-registry-*` + rename `/opt` dir + host git remotes | open — code identity renamed, runtime not yet |
-| Add contract/service CI checks to required set | open — path-filter/always-report needed |
+| Add contract/service CI checks to required set | **workflows done** — each now emits a stable always-reporting `*-gate` job (`contracts-gate`/`services-gate`/`slither-gate`/`echidna-gate`); pending operator adding them to branch protection (runbook Step 10) |
 | trace-api `/v1/holders` case-sensitivity | minor bug |
 
 ---
@@ -237,11 +237,11 @@ The dedicated RPC host cleared the old import-CPU wall: chunks confirmed in stea
 
 0. **Rotate Vault root token + GitHub PAT**; `secrets.txt` → password manager.
 1. **Harden new boxes** — ufw (allow 22/51820/WG-subnet + public ports; Docker bypasses ufw for published ports) + SSH `PermitRootLogin no` / `PasswordAuthentication no`. Do one box at a time, verify access.
-2. **Backups round-out** — Vault Raft snapshot timer (dedicated snapshotter token) + validator snapshot timers (staggered).
+2. **Backups round-out** — ✅ units + non-root snapshotter written (`install-backup-timers.sh`, `vault-snapshot` AppRole). **Remaining = operator install:** run `vault-approle-bootstrap.sh`, populate `deploy/ops/backup.env` per host, run the installer (runbook Step 9), verify `systemctl list-timers`.
 3. **Admin multisig** (Gnosis Safe) for `0x944b237…`.
 4. **Real alerting** (Alertmanager → Slack/PagerDuty/email).
 5. **Validator RAM 8→16 GB** (Nevacloud panel resize; pin heap 8 GB). **Prod image rebuild** under `hara-registry-*` (recreate containers — needs a window; also rename `/opt` dir + host `git remote`s to hara-registry).
-6. Add contract/service/slither/echidna to branch-protection required checks (after always-report).
+6. ✅ Always-report done — `contracts/services/slither/echidna` workflows now run on every PR and expose stable `*-gate` checks. **Remaining = operator:** add `contracts-gate`, `services-gate`, `slither-gate`, `echidna-gate` to `main` branch protection (runbook Step 10).
 7. (optional) 400×500 valid stress re-run for a headline number.
 
 ---
