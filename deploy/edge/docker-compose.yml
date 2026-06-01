@@ -22,6 +22,7 @@ services:
       - "443:443/udp"  # HTTP/3
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./trace-site:/srv/trace:ro        # traceability DAG viewer (served by the trace.* site)
       - caddy-data:/data        # Issued certs + ACME account key — KEEP THIS
       - caddy-config:/config    # Caddy's own runtime state
       - caddy-logs:/var/log/caddy

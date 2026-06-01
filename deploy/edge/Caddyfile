@@ -93,3 +93,32 @@ grafana.platform.haratrust.io {
         format json
     }
 }
+
+# ── Traceability DAG viewer (separate from Blockscout, basic-auth gated) ─────
+# Static cytoscape/dagre viewer (deploy/edge/trace-site/) + same-origin proxy to
+# the indexer trace-api. Point trace.ledger.haratrust.io at this host's public IP.
+#
+# Set the basic-auth credential ON-HOST (not committed):
+#   PW=$(openssl rand -hex 12)
+#   docker exec hara-caddy caddy hash-password --plaintext "$PW"   # paste hash below
+# NOTE: edit the Caddyfile in place (truncate+write) or recreate the container —
+# a new inode from sed -i/mv won't be seen by the running single-file bind mount.
+trace.ledger.haratrust.io {
+    basic_auth {
+        hara REPLACE_WITH_BCRYPT_HASH
+    }
+    handle /v1/* {
+        reverse_proxy http://hara-indexer:9100
+    }
+    handle /healthz {
+        reverse_proxy http://hara-indexer:9100
+    }
+    handle {
+        root * /srv/trace
+        file_server
+    }
+    log {
+        output file /var/log/caddy/trace.access.log
+        format json
+    }
+}
