@@ -28,7 +28,9 @@ Executed end-to-end over SSH from the operator laptop (no WSL).
 - **Deviation from runbook:** indexer has no advisory lock → shared-DB writers (indexer, Blockscout, anchor-worker, signer, broadcaster) were **deferred to the cutover** (clean stop-old/start-new) instead of double-writing live Postgres during the parallel window.
 - **New ops scripts (this session):** [bootstrap-newbox.sh](deploy/ops/bootstrap-newbox.sh), [wg-onboard-migration.sh](deploy/ops/wg-onboard-migration.sh), [cutover-phase-c.sh](deploy/ops/cutover-phase-c.sh), [decommission-old-stateless.sh](deploy/ops/decommission-old-stateless.sh).
 
-**Now-open (supersedes §17 ordering):** (1) re-run 200×500 on the dedicated host; (2) harden new boxes — enable `ufw` + SSH hardening (deferred during migration to avoid lockout); (3) raise validators 8→16 GB RAM. The rest of §17 stands.
+**Stress tests 2026-06-01 — INVALID (all reverted), re-run pending.** 200×500 and 400×500 *appeared* to pass (527/648 TPS, "800/800 confirmed") but receipt inspection showed **every Phase C tx status=0x0, 0 logs, ~121k gas** (real executeChain ≈6.4M). Cause: the deployer key used derived to `0xc9064736…b408bf5`, which lacks `MINTER_ROLE` on HaraPalmOil (NOT the load-test deployer `0x6A1E6cd7…570C`). Zero transfers occurred; indexer correctly empty. **The dedicated-host import-CPU question is still UNVALIDATED under real load.** Re-run needs a MINTER_ROLE deployer (real key, or grant the role to the key in hand). Lesson: verify receipt status+gas before reporting TPS. See [[stress-test-results]].
+
+**Now-open (supersedes §17 ordering):** (1) harden new boxes — enable `ufw` + SSH hardening (deferred during migration to avoid lockout); (2) raise validators 8→16 GB RAM. The rest of §17 stands.
 
 > Everything below this banner is the pre-migration 2026-05-28 handoff, kept for history. Where it conflicts with this banner, the banner wins.
 
