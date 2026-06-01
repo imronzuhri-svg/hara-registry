@@ -18,7 +18,7 @@
 # Next step after this: run vault-approle-bootstrap.sh to create policies
 # + AppRoles for validators and signer roles.
 #
-# Usage: ssh hara@hara-stateful && cd /opt/hara-ledger && ./deploy/ops/vault-raft-init.sh
+# Usage: ssh hara@hara-stateful && cd /opt/hara-registry && ./deploy/ops/vault-raft-init.sh
 
 set -euo pipefail
 

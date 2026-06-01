@@ -1,7 +1,7 @@
 # Deploy Topology — 6-VPS Nevacloud (Option B)
 
 **Audience:** the person provisioning Nevacloud VPSes and bringing the stack up.
-**Authoritative cross-refs:** `doc/nevacloud-proposal.md` §"Option B (6 VPS) — REKOMENDASI"; `doc/hara-ledger state 2.md` §2 (architecture), §11 (priorities).
+**Authoritative cross-refs:** `doc/nevacloud-proposal.md` §"Option B (6 VPS) — REKOMENDASI"; `doc/hara-registry state 2.md` §2 (architecture), §11 (priorities).
 
 This is the missing link between "we have docker-compose files" and "we can fan out across 6 hosts." It maps every container in `deploy/` to exactly one VPS, names the network plan, and gives a bring-up sequence that respects the cross-host dependencies.
 
@@ -43,7 +43,7 @@ This is the missing link between "we have docker-compose files" and "we can fan 
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-Per `nevacloud-proposal.md` Option B, total ~Rp 7.7M/month for hara-ledger alone (validators ×4 + 2 app VPSes + 300 GB object storage). Stateful + stateless tiers are explicitly separated so you can scale the stateless tier horizontally without touching data.
+Per `nevacloud-proposal.md` Option B, total ~Rp 7.7M/month for hara-registry alone (validators ×4 + 2 app VPSes + 300 GB object storage). Stateful + stateless tiers are explicitly separated so you can scale the stateless tier horizontally without touching data.
 
 ---
 
@@ -206,7 +206,7 @@ Hard ordering — the cross-host dependencies are real.
 **Step 2: hara-stateful first.**
 ```bash
 ssh hara@hara-stateful
-cd /opt/hara-ledger
+cd /opt/hara-registry
 ./deploy/ops/secrets-bootstrap.sh init     # generates .env files locally
 docker compose -f deploy/platform/docker-compose.secrets.yml --env-file deploy/platform/.env up -d
 # Vault boots SEALED. Initialise + unseal:
@@ -238,7 +238,7 @@ Verify block production: `curl -s -X POST -H 'Content-Type: application/json' --
 **Step 5: hara-stateless.**
 ```bash
 ssh hara@hara-stateless
-cd /opt/hara-ledger
+cd /opt/hara-registry
 docker compose -f deploy/rpc/docker-compose.yml --env-file deploy/rpc/.env up -d
 docker compose -f deploy/services/docker-compose.yml --env-file deploy/services/.env up -d
 docker compose -f deploy/platform/docker-compose.obs.yml up -d   # Prom/Graf/Loki/AM

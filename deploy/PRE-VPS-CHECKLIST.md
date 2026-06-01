@@ -97,7 +97,7 @@ point. The MinIO instance is for the `hara-pq-anchors` audit bucket only.
 ### Things you do **not** need to decide pre-purchase
 
 - **Registry / image pulls:** all 6 service images are public on
-  `ghcr.io/imronzuhri-svg/hara-ledger-*` and pull anonymously. Set
+  `ghcr.io/imronzuhri-svg/hara-registry-*` and pull anonymously. Set
   `IMAGE_REGISTRY=ghcr.io/imronzuhri-svg/` in each VPS's `.env`.
 - **Secrets:** `deploy/ops/secrets-bootstrap.sh init` generates all
   passwords + tokens. Run once on the operator workstation, scp
@@ -110,7 +110,7 @@ point. The MinIO instance is for the `hara-pq-anchors` audit bucket only.
 
 ### Known follow-up (not blocking first boot)
 
-- `hara-ledger-node` (Besu validator) and `hara-alert-sink` are not yet
+- `hara-registry-node` (Besu validator) and `hara-alert-sink` are not yet
   built in CI. Each VPS will `docker compose build` them locally on
   first boot (~2 min each). A CI extension to push these to GHCR is
   tracked as a follow-up task.

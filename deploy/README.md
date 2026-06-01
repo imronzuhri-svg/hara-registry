@@ -97,7 +97,7 @@ Same chain hosts. The app host gets split into 4 more:
 
 ### P2+ — multi-region + Huawei DR
 
-Multiple instances of each compose file across regions. See `doc/hara-ledger-roadmap.md` Phase 2.
+Multiple instances of each compose file across regions. See `doc/hara-registry-roadmap.md` Phase 2.
 
 ## How the network works across hosts
 

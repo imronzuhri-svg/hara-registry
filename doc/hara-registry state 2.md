@@ -1,7 +1,7 @@
 # HaraLedger — Project State 2
 
 **Snapshot date:** 2026-05-14
-**Repo:** https://github.com/imronzuhri-svg/hara-ledger
+**Repo:** https://github.com/imronzuhri-svg/hara-registry
 **Branch:** `main` @ `6dac91c`
 **Purpose:** Compact carry-on document. Read this first to resume work without re-deriving context.
 
@@ -51,7 +51,7 @@ Forty-five-month target workload: 25,000 palm-oil batches × ~7,000 transfers ea
 
 ### Storage / coord
 - **Postgres** (shared): `hara_ledger` DB, planned `hara_did` and `hara_passport` DBs in same instance.
-- **Redis** (shared): DBs 0–5 used by hara-ledger; DBs **6–8 reserved for hara-did**, 9–11 for passport.
+- **Redis** (shared): DBs 0–5 used by hara-registry; DBs **6–8 reserved for hara-did**, 9–11 for passport.
 - **Vault** (dev mode now; planned Raft HA + AppRole for prod). Namespace convention:
   - `secret/haraledger/...`
   - `secret/haradid/...`
@@ -167,12 +167,12 @@ Migrations are sequential numbered files in `services/migrate/migrations/`; **00
 
 ### Docs (`doc/`)
 - `haraledger_ecosystem_development_blueprint.md` — original blueprint.
-- `hara-ledger-roadmap.md` — staged roadmap (L0 → L5+).
+- `hara-registry-roadmap.md` — staged roadmap (L0 → L5+).
 - `haradid-pathway.md` — hara-did product pathway (anchored + ZK).
 - `audit-security-quantum-performance.md` — full security + PQ rationale.
 - `nevacloud-proposal.md` — VPS sizing (5/6/8 options).
-- `hara-ledger integration manual.md` — drop-in for hara-did (1,362 lines).
-- **`hara-ledger state 2.md`** — this file.
+- `hara-registry integration manual.md` — drop-in for hara-did (1,362 lines).
+- **`hara-registry state 2.md`** — this file.
 
 ### Deploy (`deploy/`)
 ```
@@ -219,7 +219,7 @@ All compose files reference external network `hara-platform`.
 2. **Vault is dev-mode.** Migration to Raft HA + AppRole still pending for prod.
 3. **5 vs 6 VPS Nevacloud decision** — math shows 5-VPS host disk (500 GB) overflows around month 18 at projected event volume; **6 VPS recommended** but not yet ordered. Monthly billing confirmed available.
 4. **rpc-cache warmup tuning** — works, but TTLs not yet load-tuned against real read mix.
-5. **Cross-project port collisions** identified (11 conflicts across hara-ledger / hara-did / hara-xchange / hara-halal-passport / erudio_flow). Phase 1 platform consolidation drafted — Vault + observability moved to `_platform/` — not yet executed across sibling repos.
+5. **Cross-project port collisions** identified (11 conflicts across hara-registry / hara-did / hara-xchange / hara-halal-passport / erudio_flow). Phase 1 platform consolidation drafted — Vault + observability moved to `_platform/` — not yet executed across sibling repos.
 6. **Indexer cursor reset workflow** — currently manual (truncate `indexed_events`, reset cursor) when chain wipes. Needs a `make reset-indexer` target.
 7. **Mempool ordering** — Besu QBFT block builder does not preserve mempool order. **Mitigation in place** (TraceabilityBatchRelay), but anyone writing chained-tx flows needs to know.
 8. **Off-chain PQ signature storage** — schema/location not finalised. Candidates: Postgres BYTEA, object store, IPFS. Pick before hara-did GA.
@@ -245,7 +245,7 @@ All compose files reference external network `hara-platform`.
 1. **Apply GitHub branch protection** (5 min UI task) once CI has run once and populated check names.
 2. **Place Nevacloud order** for the 6-VPS plan; provision first VPS to smoke-test before fanning out.
 3. **Vault Raft HA migration** ahead of any prod data.
-4. **Build `deploy/` for hara-did** mirroring hara-ledger's deploy layout — reserved IPs 10.42.0.50–69 are waiting.
+4. **Build `deploy/` for hara-did** mirroring hara-registry's deploy layout — reserved IPs 10.42.0.50–69 are waiting.
 5. **Pick off-chain PQ signature store** and write the migration.
 6. **`make reset-indexer`** target + docs.
 7. **Tune rpc-cache TTLs** against a representative read trace.
@@ -272,7 +272,7 @@ All compose files reference external network `hara-platform`.
 ## 13. Reference Card
 
 ```
-Repo:           https://github.com/imronzuhri-svg/hara-ledger
+Repo:           https://github.com/imronzuhri-svg/hara-registry
 Chain ID:       131216
 Native token:   HARA (gas price 0)
 Block time:     ~2 s

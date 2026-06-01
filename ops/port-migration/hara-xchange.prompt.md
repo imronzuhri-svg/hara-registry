@@ -6,9 +6,9 @@ I need you to resolve host-port collisions with other Docker projects on this ma
 
 ## Context
 
-This machine runs five Docker compose projects (hara-ledger, erudio_flow, hara-halal-passport, hara-did, hara-xchange) that share a Docker host. Several bind the same host port and only the first one to start works — the rest fail silently. I'm migrating the conflicting ports in 4 of the 5 projects (hara-ledger stays canonical because it's the largest cluster).
+This machine runs five Docker compose projects (hara-registry, erudio_flow, hara-halal-passport, hara-did, hara-xchange) that share a Docker host. Several bind the same host port and only the first one to start works — the rest fail silently. I'm migrating the conflicting ports in 4 of the 5 projects (hara-registry stays canonical because it's the largest cluster).
 
-This project has 2 collisions with hara-ledger:
+This project has 2 collisions with hara-registry:
 - **Vault :8200**
 - **Prometheus :9090**
 
@@ -59,14 +59,14 @@ ports: ["9091:9090"]   # Prometheus
 
 | Service | Cross-project port plan |
 |---|---|
-| Vault | hara-ledger 8200 (canonical) / **hara-xchange 8201** |
-| Prometheus | hara-ledger 9090 (canonical) / **hara-xchange 9091** |
+| Vault | hara-registry 8200 (canonical) / **hara-xchange 8201** |
+| Prometheus | hara-registry 9090 (canonical) / **hara-xchange 9091** |
 
 8201 and 9091 are confirmed not used elsewhere on this host.
 
 ## Why hara-xchange is keeping most of its ports
 
-hara-xchange's port allocation already uses a distinctive 7xxx scheme that doesn't collide with anything. Only 8200 and 9090 are common-name ports that conflicted with hara-ledger.
+hara-xchange's port allocation already uses a distinctive 7xxx scheme that doesn't collide with anything. Only 8200 and 9090 are common-name ports that conflicted with hara-registry.
 
 ## Verification after edits
 

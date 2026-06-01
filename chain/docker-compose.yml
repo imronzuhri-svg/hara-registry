@@ -1,4 +1,4 @@
-name: hara-ledger
+name: hara-registry
 
 # Hara-ledger cluster (validators + RPC mesh + LB + app services).
 #
@@ -12,7 +12,7 @@ x-besu-common: &besu-common
   build:
     context: ./node
     dockerfile: Dockerfile
-  image: hara-ledger-node:latest
+  image: hara-registry-node:latest
   restart: unless-stopped
   networks:
     - hara-platform
@@ -233,7 +233,7 @@ services:
     build:
       context: ../services
       dockerfile: migrate/Dockerfile
-    image: hara-ledger-migrate:latest
+    image: hara-registry-migrate:latest
     container_name: hara-migrate
     networks:
       - hara-platform
@@ -253,7 +253,7 @@ services:
     build:
       context: ../services
       dockerfile: signer/Dockerfile
-    image: hara-ledger-signer:latest
+    image: hara-registry-signer:latest
     container_name: hara-signer
     restart: unless-stopped
     networks:
@@ -284,7 +284,7 @@ services:
     build:
       context: ../services
       dockerfile: rpc-cache/Dockerfile
-    image: hara-ledger-rpc-cache:latest
+    image: hara-registry-rpc-cache:latest
     container_name: hara-rpc-cache
     restart: unless-stopped
     networks:
@@ -309,7 +309,7 @@ services:
     build:
       context: ../services
       dockerfile: indexer/Dockerfile
-    image: hara-ledger-indexer:latest
+    image: hara-registry-indexer:latest
     container_name: hara-indexer
     restart: unless-stopped
     networks:
@@ -399,7 +399,7 @@ services:
     build:
       context: ../services
       dockerfile: broadcaster/Dockerfile
-    image: hara-ledger-broadcaster:latest
+    image: hara-registry-broadcaster:latest
     container_name: hara-broadcaster
     restart: unless-stopped
     networks:

@@ -13,7 +13,7 @@
 # Idempotent — safe to re-run.
 #
 # Usage:
-#   ssh hara-stateful "VAULT_TOKEN=hvs.XXX cd /opt/hara/hara-ledger && bash deploy/ops/bringup-stateful.sh"
+#   ssh hara-stateful "VAULT_TOKEN=hvs.XXX cd /opt/hara/hara-registry && bash deploy/ops/bringup-stateful.sh"
 #
 # Prints AppRole credentials (role_id + secret_id) at the end — SAVE THESE.
 # They go into per-VPS .env files in Phase 5 (validators) and Phase 6 (stateless).
@@ -21,7 +21,7 @@
 set -euo pipefail
 
 : "${VAULT_TOKEN:?VAULT_TOKEN required — set to root_token from vault-init-keys.json}"
-REPO_ROOT="${REPO_ROOT:-/opt/hara/hara-ledger}"
+REPO_ROOT="${REPO_ROOT:-/opt/hara/hara-registry}"
 cd "$REPO_ROOT"
 
 log()  { printf '\n\033[1;36m▶ %s\033[0m\n' "$*" >&2; }

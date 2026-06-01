@@ -1,4 +1,4 @@
-name: hara-ledger-services
+name: hara-registry-services
 
 # Application services: signer, broadcaster, indexer, rpc-cache, Blockscout (BE + FE).
 # In production runs on its own VPS, or co-locates with rpc/ on smaller deployments.
@@ -13,7 +13,7 @@ services:
     build:
       context: ../../services
       dockerfile: migrate/Dockerfile
-    image: ${IMAGE_REGISTRY:-}hara-ledger-migrate:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-}hara-registry-migrate:${IMAGE_TAG:-latest}
     container_name: hara-migrate
     networks: [hara-platform]
     environment:
@@ -28,7 +28,7 @@ services:
     build:
       context: ../../services
       dockerfile: signer/Dockerfile
-    image: ${IMAGE_REGISTRY:-}hara-ledger-signer:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-}hara-registry-signer:${IMAGE_TAG:-latest}
     container_name: hara-signer
     restart: unless-stopped
     networks:
@@ -56,7 +56,7 @@ services:
     build:
       context: ../../services
       dockerfile: broadcaster/Dockerfile
-    image: ${IMAGE_REGISTRY:-}hara-ledger-broadcaster:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-}hara-registry-broadcaster:${IMAGE_TAG:-latest}
     container_name: hara-broadcaster
     restart: unless-stopped
     networks:
@@ -80,7 +80,7 @@ services:
     build:
       context: ../../services
       dockerfile: indexer/Dockerfile
-    image: ${IMAGE_REGISTRY:-}hara-ledger-indexer:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-}hara-registry-indexer:${IMAGE_TAG:-latest}
     container_name: hara-indexer
     restart: unless-stopped
     networks:
@@ -107,7 +107,7 @@ services:
     build:
       context: ../../services
       dockerfile: rpc-cache/Dockerfile
-    image: ${IMAGE_REGISTRY:-}hara-ledger-rpc-cache:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-}hara-registry-rpc-cache:${IMAGE_TAG:-latest}
     container_name: hara-rpc-cache
     restart: unless-stopped
     networks:
@@ -139,7 +139,7 @@ services:
     build:
       context: ../../services
       dockerfile: anchor-worker/Dockerfile
-    image: ${IMAGE_REGISTRY:-}hara-ledger-anchor-worker:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-}hara-registry-anchor-worker:${IMAGE_TAG:-latest}
     container_name: hara-anchor-worker
     restart: unless-stopped
     networks:

@@ -1,12 +1,12 @@
 # Usulan VPS Nevacloud — Hara Ecosystem Pilot
 
-Dokumen ini menjabarkan kebutuhan VPS untuk **hara-ledger** (Option A: 5 VPS dan Option B: 6 VPS), serta usulan terpisah untuk **hara-did** dan **hara-passport** sebagai dua produk yang berdiri di atas chain.
+Dokumen ini menjabarkan kebutuhan VPS untuk **hara-registry** (Option A: 5 VPS dan Option B: 6 VPS), serta usulan terpisah untuk **hara-did** dan **hara-passport** sebagai dua produk yang berdiri di atas chain.
 
 Semua angka dalam Rupiah, **estimasi bulanan**, **belum termasuk PPN 11%**. Diskon prepay tahunan biasanya 10–20% (perlu konfirmasi langsung ke Nevacloud).
 
 ---
 
-## Bagian 1 — hara-ledger Option A (5 VPS)
+## Bagian 1 — hara-registry Option A (5 VPS)
 
 Konfigurasi paling hemat yang masih mempertahankan BFT (Byzantine Fault Tolerance) QBFT 4 validator. Cocok untuk pilot fase awal dengan 1–2 mitra friendly, beban masih rendah, dan budget ketat.
 
@@ -25,7 +25,7 @@ Konfigurasi paling hemat yang masih mempertahankan BFT (Byzantine Fault Toleranc
 
 ---
 
-## Bagian 2 — hara-ledger Option B (6 VPS) — REKOMENDASI
+## Bagian 2 — hara-registry Option B (6 VPS) — REKOMENDASI
 
 Tambahkan 1 VPS sehingga stateful tier (Postgres + Vault + Redis) terpisah dari stateless tier (semua aplikasi). Konfigurasi ini muat 45 bulan penuh tanpa perlu migrasi.
 
@@ -49,9 +49,9 @@ Tambahkan 1 VPS sehingga stateful tier (Postgres + Vault + Redis) terpisah dari 
 
 ## Bagian 3 — hara-did (DID + Verifiable Credentials)
 
-Layanan identitas terdesentralisasi: IssuerRegistry on-chain (di hara-ledger), Sidetree batcher off-chain, resolver API, witness service untuk ZK proofs, dan beberapa frontend portal.
+Layanan identitas terdesentralisasi: IssuerRegistry on-chain (di hara-registry), Sidetree batcher off-chain, resolver API, witness service untuk ZK proofs, dan beberapa frontend portal.
 
-Asumsi pilot: ~10.000 issuer DID terdaftar (BPJPH, LPH, MUI, eksportir besar, dll.) + ~1 juta holder DID via Sidetree batching dalam 45 bulan. Mostly anchored on hara-ledger chain — **tidak butuh validator sendiri**.
+Asumsi pilot: ~10.000 issuer DID terdaftar (BPJPH, LPH, MUI, eksportir besar, dll.) + ~1 juta holder DID via Sidetree batching dalam 45 bulan. Mostly anchored on hara-registry chain — **tidak butuh validator sendiri**.
 
 | Hostname | Peran | vCPU | RAM | Storage | Estimasi/bulan |
 |---|---|---:|---:|---|---:|
@@ -61,13 +61,13 @@ Asumsi pilot: ~10.000 issuer DID terdaftar (BPJPH, LPH, MUI, eksportir besar, dl
 | – | Outbound bandwidth allowance | – | – | – | Rp 100.000 |
 | **Subtotal** | | | | | **Rp 2.500.000** |
 
-**Yang dipakai bareng dari hara-ledger**:
+**Yang dipakai bareng dari hara-registry**:
 - Chain RPC endpoint (untuk anchor + resolve) → via `hara-stateless` LB
 - Vault → via `hara-stateful` (path `secret/haradid/...`)
 - Postgres → via `hara-stateful` (database terpisah: `hara_did`)
 - Observability (Prometheus + Grafana + Loki) → via `hara-stateless`
 
-Jadi hara-did **hanya butuh 2 VPS sendiri**, semua infra dasar di-share dengan hara-ledger.
+Jadi hara-did **hanya butuh 2 VPS sendiri**, semua infra dasar di-share dengan hara-registry.
 
 **Scaling roadmap** (ringkas):
 - Bulan 1–6: 2 VPS cukup
@@ -90,7 +90,7 @@ Asumsi target Anda: **4 juta passport dalam 45 bulan** = rata-rata ~2.900 mintin
 | – | Outbound bandwidth allowance (heavy: setiap scan QR = ~50 KB response × jutaan/bulan) | – | – | – | Rp 300.000 |
 | **Subtotal** | | | | | **Rp 2.900.000** |
 
-**Yang dipakai bareng dari hara-ledger**:
+**Yang dipakai bareng dari hara-registry**:
 - Chain RPC (minting → `/rpc/write`, verification → `/rpc/read` via rpc-cache!)
 - Vault (signer keys untuk BPJPH/LPH/MUI roles)
 - Postgres (database terpisah: `hara_passport`)
@@ -110,7 +110,7 @@ Asumsi target Anda: **4 juta passport dalam 45 bulan** = rata-rata ~2.900 mintin
 
 | Komponen | Rp/bulan |
 |---|---:|
-| hara-ledger Option A (5 VPS) | 4.600.000 |
+| hara-registry Option A (5 VPS) | 4.600.000 |
 | hara-did (2 VPS) | 2.500.000 |
 | hara-passport (2 VPS) | 2.900.000 |
 | **TOTAL** | **Rp 10.000.000/bulan** (~$640) |
@@ -119,7 +119,7 @@ Asumsi target Anda: **4 juta passport dalam 45 bulan** = rata-rata ~2.900 mintin
 
 | Komponen | Rp/bulan |
 |---|---:|
-| hara-ledger Option B (6 VPS) | 7.500.000 |
+| hara-registry Option B (6 VPS) | 7.500.000 |
 | hara-did (2 VPS) | 2.500.000 |
 | hara-passport (2 VPS) | 2.900.000 |
 | **TOTAL** | **Rp 12.900.000/bulan** (~$830) |
@@ -128,7 +128,7 @@ Asumsi target Anda: **4 juta passport dalam 45 bulan** = rata-rata ~2.900 mintin
 
 | Skenario | Total 45 bulan | Catatan |
 |---|---:|---|
-| Minimal (Opsi A) | Rp 450 juta | Plus biaya migrasi bulan ke-12 untuk upgrade hara-ledger ke Option B (~setengah hari kerja + Rp 2.9M/bulan tambahan setelah migrasi) |
+| Minimal (Opsi A) | Rp 450 juta | Plus biaya migrasi bulan ke-12 untuk upgrade hara-registry ke Option B (~setengah hari kerja + Rp 2.9M/bulan tambahan setelah migrasi) |
 | Rekomendasi (Opsi B) | Rp 581 juta | Tanpa migrasi sama sekali sepanjang 45 bulan |
 | Selisih total | **Rp 131 juta** (~$8.400) | Tradeoff: simplicity & no-migration vs hemat ~22% |
 
@@ -180,7 +180,7 @@ Item-item ini **tidak perlu di bulan 1**. Bisa di-budget bertahap saat product m
 
 | Pertanyaan | Jawaban |
 |---|---|
-| Mulai dengan berapa VPS? | **6 VPS (Option B hara-ledger) + 2 VPS hara-did + 2 VPS hara-passport = 10 VPS total** |
+| Mulai dengan berapa VPS? | **6 VPS (Option B hara-registry) + 2 VPS hara-did + 2 VPS hara-passport = 10 VPS total** |
 | Total biaya bulan pertama? | **~Rp 13 juta/bulan** (~$830) |
 | Total biaya tahun pertama? | **~Rp 155 juta** (atau ~Rp 132 juta dengan prepay tahunan) |
 | Total biaya 45 bulan? | **~Rp 581 juta** (~$37.000) |
@@ -199,7 +199,7 @@ Item-item ini **tidak perlu di bulan 1**. Bisa di-budget bertahap saat product m
    - Konfirmasi inclusivity PPN, bandwidth fair use, dan SLA uptime
 2. **Provision 1 VPS dulu** sebagai smoke test untuk validasi aktual performa Nevacloud (CPU benchmark, disk I/O, network latency)
 3. **Setelah smoke test OK**, provision sisanya secara bertahap mengikuti urutan di `deploy/README.md`
-4. **Bulan 1–2**: bring up hara-ledger Option B
+4. **Bulan 1–2**: bring up hara-registry Option B
 5. **Bulan 2–3**: bring up hara-did (issuer registry first)
 6. **Bulan 3–4**: bring up hara-passport (after hara-did issuers exist)
 

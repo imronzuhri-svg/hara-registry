@@ -1,4 +1,4 @@
-name: hara-ledger-validator
+name: hara-registry-validator
 
 # Single-validator deploy — for P1a+ where each validator runs on its own VPS.
 #
@@ -16,7 +16,7 @@ services:
       # Host networking for build to avoid the wg-mesh-vs-docker-bridge
       # 10.42.0.0/24 subnet conflict on Nevacloud VPSes.
       network: host
-    image: ${IMAGE_REGISTRY:-}hara-ledger-node:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-}hara-registry-node:${IMAGE_TAG:-latest}
     container_name: hara-validator${VALIDATOR_ID:?VALIDATOR_ID required, 1-4}
     restart: unless-stopped
     environment:

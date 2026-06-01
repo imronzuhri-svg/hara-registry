@@ -39,10 +39,10 @@ Browser
 
 ## Bring-up
 
-The L5 services were added to the existing hara-ledger compose, so a regular `make up` brings them up alongside everything else:
+The L5 services were added to the existing hara-registry compose, so a regular `make up` brings them up alongside everything else:
 
 ```bash
-cd "C:/Projects/claude projects/hara-ledger"
+cd "C:/Projects/claude projects/hara-registry"
 docker compose -f chain/docker-compose.yml --env-file chain/.env up -d \
     blockscout-db-init blockscout blockscout-fe
 ```

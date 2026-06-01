@@ -38,7 +38,7 @@ AGE_RECIPIENT="${BACKUP_AGE_RECIPIENT:-age1fcdr3qk0wuzxy0ynmzj3d28d8m8pfe489wpk6
 log "Step 0 — uploading static-nodes.json to MinIO (from hara-stateful)"
 ssh hara-stateful 'bash -s' <<'REMOTE'
 set -euo pipefail
-cd /opt/hara/hara-ledger
+cd /opt/hara/hara-registry
 MUSER=$(grep MINIO_ROOT_USER deploy/data/.env | cut -d= -f2)
 MPASS=$(grep MINIO_ROOT_PASSWORD deploy/data/.env | cut -d= -f2)
 
@@ -75,7 +75,7 @@ for ID in 1 2 3 4; do
   # SSH in, prepare files + start
   ssh $HOST "VID=$ID WG_IP=$WG_IP ROOT='$ROOT' AGE_RECIP='$AGE_RECIPIENT' bash -s" <<'REMOTE'
     set -euo pipefail
-    cd /opt/hara/hara-ledger
+    cd /opt/hara/hara-registry
     git stash 2>/dev/null || true
     git pull origin main >/dev/null
 
@@ -114,11 +114,11 @@ EOF
         hara-platform
     fi
 
-    # Pre-pull the validator image. NOTE: hara-ledger-node is NOT in GHCR
+    # Pre-pull the validator image. NOTE: hara-registry-node is NOT in GHCR
     # (no CI workflow builds it yet). The pull will fail with "denied" —
     # then docker compose builds locally from deploy/chain/node/Dockerfile.
     # That's expected; we want to suppress the noise but not abort.
-    docker pull ghcr.io/imronzuhri-svg/hara-ledger-node:latest 2>&1 | tail -1 || true
+    docker pull ghcr.io/imronzuhri-svg/hara-registry-node:latest 2>&1 | tail -1 || true
 
     # Bring up (will build the image if not present locally)
     docker compose -f deploy/chain/docker-compose.validator-only.yml \

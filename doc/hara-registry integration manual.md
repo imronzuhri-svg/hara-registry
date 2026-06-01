@@ -1,19 +1,19 @@
-# hara-ledger Integration Manual
+# hara-registry Integration Manual
 
-> **Audience**: hara-did developers (and any other product that needs to integrate with hara-ledger as the trust anchor).
+> **Audience**: hara-did developers (and any other product that needs to integrate with hara-registry as the trust anchor).
 >
-> **Goal**: enable you to (a) bring up hara-ledger locally for development, (b) connect hara-did services to it, (c) deploy contracts onto the chain, (d) anchor DID operations, (e) follow the operational conventions so you inherit our observability, secrets, and deployment story.
+> **Goal**: enable you to (a) bring up hara-registry locally for development, (b) connect hara-did services to it, (c) deploy contracts onto the chain, (d) anchor DID operations, (e) follow the operational conventions so you inherit our observability, secrets, and deployment story.
 >
 > Drop this file into `hara-did/docs/` or similar. Pair it with `haradid-pathway.md` and `haradid-roadmap.md`.
 
-**hara-ledger repo**: https://github.com/imronzuhri-svg/hara-ledger
+**hara-registry repo**: https://github.com/imronzuhri-svg/hara-registry
 **Last verified against commit**: `f843fb5` (May 2026)
 
 ---
 
 ## Table of contents
 
-1. [What hara-ledger gives you](#1-what-hara-ledger-gives-you)
+1. [What hara-registry gives you](#1-what-hara-registry-gives-you)
 2. [10-minute quick start](#2-10-minute-quick-start)
 3. [Network topology — joining the platform](#3-network-topology--joining-the-platform)
 4. [Chain RPC interfaces](#4-chain-rpc-interfaces)
@@ -34,9 +34,9 @@
 
 ---
 
-## 1. What hara-ledger gives you
+## 1. What hara-registry gives you
 
-hara-ledger is the **trust anchor and execution environment** for everything in the HARA ecosystem. For hara-did specifically, you get:
+hara-registry is the **trust anchor and execution environment** for everything in the HARA ecosystem. For hara-did specifically, you get:
 
 - A **private permissioned EVM chain** (Besu QBFT, 4 validators, ~2-second instant finality) — your `did:hara` operations end up here.
 - A **Vault instance** to store signing keys (validator keys, issuer keys, future PQ keys). Centralized so you don't reinvent secret management.
@@ -49,7 +49,7 @@ hara-ledger is the **trust anchor and execution environment** for everything in 
 - A **proven service architecture** (signer, broadcaster, indexer, rpc-cache) you can copy the patterns from.
 - A **deployment layout** (`deploy/` folder) you can extend.
 
-What hara-ledger does NOT do for you:
+What hara-registry does NOT do for you:
 
 - Implement the Sidetree protocol — that's hara-did's job
 - Hold DID documents — those live in hara-did's own CAS/MinIO buckets
@@ -60,7 +60,7 @@ What hara-ledger does NOT do for you:
 
 ## 2. 10-minute quick start
 
-Get hara-ledger running locally, deploy a test contract, and verify hara-did can call it.
+Get hara-registry running locally, deploy a test contract, and verify hara-did can call it.
 
 ### 2.1 Prerequisites
 
@@ -72,15 +72,15 @@ Get hara-ledger running locally, deploy a test contract, and verify hara-did can
 ### 2.2 Bring up the platform + chain
 
 ```bash
-# Clone hara-ledger alongside hara-did
-git clone https://github.com/imronzuhri-svg/hara-ledger.git
-cd hara-ledger
+# Clone hara-registry alongside hara-did
+git clone https://github.com/imronzuhri-svg/hara-registry.git
+cd hara-registry
 
 # 1. Bring up shared platform (Vault, Prometheus, Grafana, Loki)
 cd ../_platform && cp .env.example .env && docker compose --env-file .env up -d
-cd ../hara-ledger
+cd ../hara-registry
 
-# 2. Bring up hara-ledger chain + services
+# 2. Bring up hara-registry chain + services
 make platform-up   # confirms platform is healthy
 make bootstrap      # generates validator keys → Vault, writes genesis
 make up             # starts 4 validators + RPC mesh + LB + signer + broadcaster + indexer + rpc-cache + Blockscout
@@ -106,7 +106,7 @@ From hara-did's compose file, declare the `hara-platform` network as external:
 networks:
   hara-platform:
     name: hara-platform
-    external: true   # created by hara-ledger's platform stack
+    external: true   # created by hara-registry's platform stack
 
 services:
   did-services:
@@ -124,11 +124,11 @@ services:
       POSTGRES_DB: hara_did                       # your dedicated DB (see §6)
       REDIS_HOST: redis
       REDIS_DB: 6                                 # claim a logical DB (see §6)
-      SIGNER_URL: http://signer:7000             # if you want to use hara-ledger's signer
+      SIGNER_URL: http://signer:7000             # if you want to use hara-registry's signer
       INDEXER_API_URL: http://indexer:9100
 ```
 
-After `docker compose up`, your services live on the same Docker network as hara-ledger's. DNS names like `vault`, `postgres`, `lb` Just Work.
+After `docker compose up`, your services live on the same Docker network as hara-registry's. DNS names like `vault`, `postgres`, `lb` Just Work.
 
 ---
 
@@ -136,7 +136,7 @@ After `docker compose up`, your services live on the same Docker network as hara
 
 ### 3.1 The shared network
 
-All HARA services live on one Docker network named `hara-platform` (subnet `10.42.0.0/24`). Each cluster (hara-ledger, hara-did, hara-passport, hara-xchange) joins as an `external: true` network in its compose file. Inside the network, every container resolves every other container by service name via Docker's embedded DNS.
+All HARA services live on one Docker network named `hara-platform` (subnet `10.42.0.0/24`). Each cluster (hara-registry, hara-did, hara-passport, hara-xchange) joins as an `external: true` network in its compose file. Inside the network, every container resolves every other container by service name via Docker's embedded DNS.
 
 In production, this network becomes a **Docker Swarm overlay** spanning multiple VPS — same DNS names, same Just Works behaviour.
 
@@ -147,7 +147,7 @@ We've reserved IP blocks per project:
 | Range | Project | Used by |
 |---|---|---|
 | 10.42.0.2–10 | hara-platform | vault (2), prometheus (3), alertmanager (4), alert-sink (5), loki (6), grafana (7), promtail (8) |
-| 10.42.0.11–49 | hara-ledger | validators (11–14), rpc-read (21–22), rpc-write (23), lb (30), signer (40), broadcaster (41), indexer (42), blockscout (43), blockscout-fe (44), postgres (45), redis (46), rpc-cache (47) |
+| 10.42.0.11–49 | hara-registry | validators (11–14), rpc-read (21–22), rpc-write (23), lb (30), signer (40), broadcaster (41), indexer (42), blockscout (43), blockscout-fe (44), postgres (45), redis (46), rpc-cache (47) |
 | **10.42.0.50–69** | **hara-did (reserved for you)** | Suggested: did-batcher (50), did-resolver (51), did-witness (52), did-wallet-api (53), did-issuer-portal (54), did-admin-console (55), did-verifier-demo (56), did-indexer (57), did-zk-prover (58) |
 | 10.42.0.70–89 | hara-xchange | reserved |
 | 10.42.0.100–119 | hara-halal-passport | reserved |
@@ -270,7 +270,7 @@ The Vault tree is partitioned by project:
 
 ```
 secret/
-├── haraledger/                       # hara-ledger's keys
+├── haraledger/                       # hara-registry's keys
 │   ├── validators/{1..4}             # Besu validator keys
 │   └── signer-keys/deployer          # The signer service's default key
 │
@@ -288,7 +288,7 @@ secret/
 ### 5.3 Reading a key
 
 ```typescript
-// From services/shared/src/vault.ts — already implemented in hara-ledger
+// From services/shared/src/vault.ts — already implemented in hara-registry
 export async function fetchSignerKey(vaultPath: string): Promise<SignerKey> {
   const apiPath = vaultPath.replace(/^secret\//, "secret/data/");
   const url = `${VAULT_ADDR}/v1/${apiPath}`;
@@ -303,7 +303,7 @@ export async function fetchSignerKey(vaultPath: string): Promise<SignerKey> {
 
 You can import this directly:
 ```typescript
-import { fetchSignerKey } from "@hara/shared/vault";   // if you publish hara-ledger's shared as a package
+import { fetchSignerKey } from "@hara/shared/vault";   // if you publish hara-registry's shared as a package
 // OR copy-paste the function — it's 15 lines
 ```
 
@@ -357,7 +357,7 @@ User:     hara
 Password: hara_dev_password (dev only)
 ```
 
-**Carve out your own database**. Don't share `hara_indexer` (which is hara-ledger's). Create `hara_did`:
+**Carve out your own database**. Don't share `hara_indexer` (which is hara-registry's). Create `hara_did`:
 
 ```sql
 -- Run this once during your hara-did's bootstrap (via a migration runner like ours)
@@ -382,7 +382,7 @@ const pool = new pg.Pool({
 
 ### 6.2 Postgres production tuning
 
-hara-ledger's production Postgres (`deploy/data/docker-compose.yml`) is tuned for NVMe with these settings:
+hara-registry's production Postgres (`deploy/data/docker-compose.yml`) is tuned for NVMe with these settings:
 
 ```
 max_connections = 300
@@ -556,7 +556,7 @@ We use **Fastify** for all our HTTP services — fast, type-safe, plays well wit
 
 ### 8.3 Reference: signer service architecture
 
-The hara-ledger signer (`services/signer/src/index.ts`) is the model service. It:
+The hara-registry signer (`services/signer/src/index.ts`) is the model service. It:
 
 1. Receives `POST /v1/tx { from, to, data, value, gasLimit? }`
 2. Resolves the wallet → Vault key path lookup from `wallets` table in Postgres
@@ -566,10 +566,10 @@ The hara-ledger signer (`services/signer/src/index.ts`) is the model service. It
 6. Pushes to Redis Stream `hara:tx:outbound` for the broadcaster to pick up
 7. Returns `{ txId, status: "QUEUED" }`
 
-You don't have to use hara-ledger's signer for hara-did — but you can. If hara-did issues thousands of transactions per day on behalf of issuers, plug into our signer:
+You don't have to use hara-registry's signer for hara-did — but you can. If hara-did issues thousands of transactions per day on behalf of issuers, plug into our signer:
 
 ```typescript
-// hara-did service uses hara-ledger's signer
+// hara-did service uses hara-registry's signer
 async function submitDidOperation(from: Address, to: Address, data: Hex) {
   const res = await fetch("http://signer:7000/v1/tx", {
     method: "POST",
@@ -592,7 +592,7 @@ The indexer (`services/indexer/src/`) polls the chain via `eth_getLogs`, decodes
 - Insert in one DB transaction (block + events + cursor advance)
 - Expose `/v1/...` REST endpoints over the indexed data
 
-Critically: **add your contract addresses to the `watched_contracts` table** in the indexer's DB. The hara-ledger indexer will then index your events too — or you can run a separate hara-did-only indexer if you want isolation.
+Critically: **add your contract addresses to the `watched_contracts` table** in the indexer's DB. The hara-registry indexer will then index your events too — or you can run a separate hara-did-only indexer if you want isolation.
 
 To add your contract to the shared indexer:
 
@@ -624,7 +624,7 @@ const publicClient = createPublicClient({ transport: http(RPC_CACHE) });
 
 ### 9.1 Foundry project setup
 
-Use the same Foundry conventions as hara-ledger:
+Use the same Foundry conventions as hara-registry:
 
 ```toml
 # hara-did/contracts/foundry.toml
@@ -704,9 +704,9 @@ The Blockscout UI at `http://localhost:4010/address/<addr>` will then show sourc
 
 You have three options for indexing your DID events:
 
-### 10.1 Option A — Use hara-ledger's indexer (recommended for shared events)
+### 10.1 Option A — Use hara-registry's indexer (recommended for shared events)
 
-If your DID events are simple (mints, transfers, status changes) and don't need a custom projection, just add them to hara-ledger's indexer:
+If your DID events are simple (mints, transfers, status changes) and don't need a custom projection, just add them to hara-registry's indexer:
 
 1. Edit `services/indexer/src/abis.ts` and add your contract:
    ```typescript
@@ -721,11 +721,11 @@ If your DID events are simple (mints, transfers, status changes) and don't need 
 3. Restart the indexer
 4. Your events appear in `indexed_events` table, decoded into JSONB
 
-Pro: zero new services. Con: tight coupling between hara-ledger and hara-did codebases.
+Pro: zero new services. Con: tight coupling between hara-registry and hara-did codebases.
 
 ### 10.2 Option B — Run a separate hara-did indexer
 
-Clone `services/indexer/` into hara-did, change its connection to a separate Postgres DB (`hara_did`), point at hara-ledger's RPC. Two indexer instances, fully independent.
+Clone `services/indexer/` into hara-did, change its connection to a separate Postgres DB (`hara_did`), point at hara-registry's RPC. Two indexer instances, fully independent.
 
 Pro: full isolation, your team owns its indexer. Con: 2× memory cost, separate observability.
 
@@ -753,7 +753,7 @@ WebSocket subscriptions are LB-routed (`/ws` → `rpc-read-1/2` with leastconn b
 
 ### 10.4 Derived views (custody_hops pattern)
 
-The hara-ledger indexer has SQL views layered on `indexed_events`:
+The hara-registry indexer has SQL views layered on `indexed_events`:
 
 - `custody_hops` — flat normalized hop view for traceability queries
 - `batch_summary` — current state per batch
@@ -912,7 +912,7 @@ Sidetree anchor batches need to submit thousands of operations cheaply. Two patt
 
 **Pattern A — Single relay tx per batch (recommended)**
 
-Mirror hara-ledger's `TraceabilityBatchRelay.executeChain()`:
+Mirror hara-registry's `TraceabilityBatchRelay.executeChain()`:
 
 ```solidity
 contract SidetreeBatchAnchorRelay {
@@ -940,7 +940,7 @@ If you have many independent transactions (e.g. mass DID-method-document publish
 
 ## 13. Production deployment — joining deploy/
 
-When hara-did is ready for production, mirror hara-ledger's `deploy/` structure:
+When hara-did is ready for production, mirror hara-registry's `deploy/` structure:
 
 ```
 hara-did/deploy/
@@ -986,7 +986,7 @@ services:
       RPC_READ_URL: http://rpc-cache:8080
       LOG_LEVEL: info
 
-# hara-platform created by hara-ledger's platform stack — external
+# hara-platform created by hara-registry's platform stack — external
 networks:
   hara-platform:
     name: hara-platform
@@ -995,7 +995,7 @@ networks:
 
 ### 13.2 Required environment variables
 
-`${VAULT_TOKEN}` and `${POSTGRES_PASSWORD}` should be **inherited from the platform's .env** (because they have to match what the platform created). hara-did's `secrets-bootstrap.sh` should read those values from hara-ledger's `.env` files or directly from Vault.
+`${VAULT_TOKEN}` and `${POSTGRES_PASSWORD}` should be **inherited from the platform's .env** (because they have to match what the platform created). hara-did's `secrets-bootstrap.sh` should read those values from hara-registry's `.env` files or directly from Vault.
 
 ### 13.3 VPS sizing (from `doc/nevacloud-proposal.md`)
 
@@ -1011,7 +1011,7 @@ Total: ~Rp 2.5M/mo for hara-did (P1a phase). See `doc/nevacloud-proposal.md` for
 
 ### 13.4 Cloud-init pattern
 
-Same as hara-ledger's `deploy/ops/cloud-init.yaml` — clone hara-did repo, install Docker, set up WireGuard mesh node, then bring up compose.
+Same as hara-registry's `deploy/ops/cloud-init.yaml` — clone hara-did repo, install Docker, set up WireGuard mesh node, then bring up compose.
 
 ---
 
@@ -1021,7 +1021,7 @@ Before going to production, verify:
 
 ### 14.1 Secrets
 
-- [ ] No `.env` file committed (use `.gitignore` from hara-ledger as template)
+- [ ] No `.env` file committed (use `.gitignore` from hara-registry as template)
 - [ ] Vault is in production mode (Raft HA + AppRole auth, not dev/root-token)
 - [ ] Each hara-did service has its own Vault AppRole with minimal scope
 - [ ] Issuer signing keys live in Vault, never on disk or in env vars
@@ -1062,7 +1062,7 @@ See `SECURITY.md` at the repo root for the full responsible-disclosure policy.
 
 ## 15. API contracts you may need
 
-### 15.1 hara-ledger's signer API
+### 15.1 hara-registry's signer API
 
 ```
 POST /v1/tx
@@ -1076,7 +1076,7 @@ GET /v1/tx/:txId
 
 Status progression: DRAFT → QUEUED → BROADCASTED → CONFIRMED (or REVERTED / FAILED / RETRYING).
 
-### 15.2 hara-ledger's indexer API (traceability)
+### 15.2 hara-registry's indexer API (traceability)
 
 ```
 GET /v1/batches?limit=50&offset=0
@@ -1105,7 +1105,7 @@ GET /v1/credentials/:vcId       → credential status (revoked/active/expired)
 GET /v1/holders/:did/credentials → all credentials issued to this DID
 ```
 
-### 15.3 hara-ledger's rpc-cache
+### 15.3 hara-registry's rpc-cache
 
 ```
 POST /                           Same body as Besu JSON-RPC, returns cached or proxied
@@ -1120,7 +1120,7 @@ GET /healthz
 
 ### 16.1 Chain migrations (P3+)
 
-hara-ledger plans to migrate from Besu QBFT to Avalanche Subnet around P3 (per `doc/hara-ledger-roadmap.md`). For your contracts to survive that:
+hara-registry plans to migrate from Besu QBFT to Avalanche Subnet around P3 (per `doc/hara-registry-roadmap.md`). For your contracts to survive that:
 
 1. **Never use chain-id-specific assumptions** (chainId from a runtime call, not a constant)
 2. **Use UUPS upgradeable pattern** for any long-lived contract — you'll redeploy on the new chain and point a proxy at fresh logic
@@ -1154,7 +1154,7 @@ If you change an API endpoint, version it: `/v1/...` → `/v2/...`. Don't break 
 
 ### 17.1 "Network hara-platform not found"
 
-You started hara-did before hara-ledger's platform stack. Run `make platform-up` in hara-ledger first. The network is created by `_platform/docker-compose.yml`.
+You started hara-did before hara-registry's platform stack. Run `make platform-up` in hara-registry first. The network is created by `_platform/docker-compose.yml`.
 
 ### 17.2 "Transaction reverted with no reason"
 
@@ -1162,7 +1162,7 @@ Most likely cause: contract compiled with Shanghai EVM (uses PUSH0 opcode) — o
 
 ### 17.3 "eth_sendRawTransaction returns nonce too low"
 
-Your local nonce is behind the chain. Either restart your service (it'll re-fetch from chain) or use hara-ledger's signer service which manages this automatically via Postgres.
+Your local nonce is behind the chain. Either restart your service (it'll re-fetch from chain) or use hara-registry's signer service which manages this automatically via Postgres.
 
 ### 17.4 "Tx submitted but never confirmed"
 
@@ -1335,7 +1335,7 @@ db 8    RESERVED for hara-did
 ### 18.8 Postgres databases
 
 ```
-hara_indexer           hara-ledger's indexer + signer + blockscout app schemas
+hara_indexer           hara-registry's indexer + signer + blockscout app schemas
 blockscout             Blockscout's own DB
 hara_did               RESERVED — create this for hara-did
 hara_passport          RESERVED for hara-passport
@@ -1346,16 +1346,16 @@ hara_xchange           RESERVED for hara-xchange
 
 ## Closing
 
-This manual is the integration contract between hara-ledger and hara-did. If something in here is wrong, ambiguous, or missing, **open an issue or PR against hara-ledger** — keep the manual living.
+This manual is the integration contract between hara-registry and hara-did. If something in here is wrong, ambiguous, or missing, **open an issue or PR against hara-registry** — keep the manual living.
 
 For deeper context:
 
-- `doc/hara-ledger-roadmap.md` — phases P0–P3 deployment plan
+- `doc/hara-registry-roadmap.md` — phases P0–P3 deployment plan
 - `doc/haradid-pathway.md` — hara-did architecture decisions
 - `doc/haradid-roadmap.md` — hara-did development roadmap
 - `doc/haraledger_ecosystem_development_blueprint.md` — overall blueprint
 - `doc/audit-security-quantum-performance.md` — security + quantum strategy
-- `doc/nevacloud-proposal.md` — VPS proposal across hara-ledger + hara-did + hara-passport
+- `doc/nevacloud-proposal.md` — VPS proposal across hara-registry + hara-did + hara-passport
 - `deploy/README.md` — production deployment layout
 - `SECURITY.md` — responsible disclosure policy
 

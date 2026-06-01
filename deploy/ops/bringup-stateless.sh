@@ -54,10 +54,10 @@ TMPDIR=$(mktemp -d)
 trap "rm -rf $TMPDIR" EXIT
 
 # Pull .env files from hara-stateful via operator laptop's ssh
-ssh hara-stateful 'cat /opt/hara/hara-ledger/deploy/platform/.env' > "$TMPDIR/platform.env"
-ssh hara-stateful 'cat /opt/hara/hara-ledger/deploy/services/.env' > "$TMPDIR/services.env"
-ssh hara-stateful 'cat /opt/hara/hara-ledger/deploy/rpc/.env'      > "$TMPDIR/rpc.env"
-ssh hara-stateful 'cat /opt/hara/hara-ledger/deploy/data/.env'     > "$TMPDIR/data.env"
+ssh hara-stateful 'cat /opt/hara/hara-registry/deploy/platform/.env' > "$TMPDIR/platform.env"
+ssh hara-stateful 'cat /opt/hara/hara-registry/deploy/services/.env' > "$TMPDIR/services.env"
+ssh hara-stateful 'cat /opt/hara/hara-registry/deploy/rpc/.env'      > "$TMPDIR/rpc.env"
+ssh hara-stateful 'cat /opt/hara/hara-registry/deploy/data/.env'     > "$TMPDIR/data.env"
 
 # Replace dev token placeholder with the real Vault root token. The .env on
 # hara-stateful has a random 48-char string under VAULT_DEV_ROOT_TOKEN (left
@@ -86,18 +86,18 @@ grep -q ^PQ_ANCHOR_REGISTRY_ADDRESS "$TMPDIR/services.env" \
   || echo "PQ_ANCHOR_REGISTRY_ADDRESS=0x0000000000000000000000000000000000000000" >> "$TMPDIR/services.env"
 
 # Upload to hara-stateless
-scp "$TMPDIR/platform.env" hara-stateless:/opt/hara/hara-ledger/deploy/platform/.env >/dev/null
-scp "$TMPDIR/services.env" hara-stateless:/opt/hara/hara-ledger/deploy/services/.env >/dev/null
-scp "$TMPDIR/rpc.env"      hara-stateless:/opt/hara/hara-ledger/deploy/rpc/.env      >/dev/null
+scp "$TMPDIR/platform.env" hara-stateless:/opt/hara/hara-registry/deploy/platform/.env >/dev/null
+scp "$TMPDIR/services.env" hara-stateless:/opt/hara/hara-registry/deploy/services/.env >/dev/null
+scp "$TMPDIR/rpc.env"      hara-stateless:/opt/hara/hara-registry/deploy/rpc/.env      >/dev/null
 
 # Blockscout env files are gitignored (they contain SECRET_KEY_BASE +
 # hardcoded passwords). Scp them from the operator laptop's local copy.
 SCRIPT_REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 BS_ENVS="$SCRIPT_REPO_ROOT/deploy/services/blockscout/envs"
 if [ -d "$BS_ENVS" ]; then
-  ssh hara-stateless 'mkdir -p /opt/hara/hara-ledger/deploy/services/blockscout/envs'
-  scp -q "$BS_ENVS"/common-blockscout.env hara-stateless:/opt/hara/hara-ledger/deploy/services/blockscout/envs/
-  scp -q "$BS_ENVS"/common-frontend.env   hara-stateless:/opt/hara/hara-ledger/deploy/services/blockscout/envs/
+  ssh hara-stateless 'mkdir -p /opt/hara/hara-registry/deploy/services/blockscout/envs'
+  scp -q "$BS_ENVS"/common-blockscout.env hara-stateless:/opt/hara/hara-registry/deploy/services/blockscout/envs/
+  scp -q "$BS_ENVS"/common-frontend.env   hara-stateless:/opt/hara/hara-registry/deploy/services/blockscout/envs/
   ok ".env files + blockscout configs uploaded to hara-stateless (5 files)"
 else
   warn "Blockscout envs missing at $BS_ENVS — Blockscout will fail to start. Skipping."
@@ -108,7 +108,7 @@ fi
 log "Step 4-6: bring up RPC + services + obs on hara-stateless"
 ssh hara-stateless "STATEFUL='$HARA_STATEFUL_WG' bash -s" <<'REMOTE'
 set -euo pipefail
-cd /opt/hara/hara-ledger
+cd /opt/hara/hara-registry
 git stash 2>/dev/null || true
 git pull origin main >/dev/null
 
@@ -132,11 +132,11 @@ ls -la deploy/chain/genesis/genesis.json deploy/chain/shared/static-nodes.json
 chmod 600 deploy/{platform,services,rpc}/.env
 
 # 4. RPC tier (LB + 3 read RPC nodes)
-# Pre-build the hara-ledger-node image. GHCR doesn't have it yet (no CI
+# Pre-build the hara-registry-node image. GHCR doesn't have it yet (no CI
 # workflow builds it), so the pull would fail and fall back to build —
 # but the fallback is racy with multi-replica startup. Build first.
 echo ""
-echo "▶ Building hara-ledger-node image (not in GHCR)"
+echo "▶ Building hara-registry-node image (not in GHCR)"
 docker compose -f deploy/rpc/docker-compose.yml \
                --env-file deploy/rpc/.env build rpc-read-1 2>&1 | tail -3
 
@@ -192,7 +192,7 @@ read -p "DNS looks right? Continue with edge bring-up? [y/N] " ans
 # ── Step 9: Edge (Caddy + Let's Encrypt) ────────────────────────────────────
 log "Bringing up edge (Caddy + LE cert issuance)"
 ssh hara-stateless '
-  cd /opt/hara/hara-ledger
+  cd /opt/hara/hara-registry
   docker compose -f deploy/edge/docker-compose.yml up -d
   echo ""
   echo "Watching Caddy for cert issuance (Ctrl+C to detach — Caddy stays up)..."
@@ -222,7 +222,7 @@ cat <<'EOF'
 
   Next: Phase 7 — deploy contracts + start anchor-worker
     1. From operator laptop with anvil-funded or production deployer key:
-       cd hara-ledger
+       cd hara-registry
        ANCHOR_WORKER_ADDRESS=<address> \
          DEPLOYER_PRIVATE_KEY=<key> \
          RPC_URL=https://rpc.ledger.haratrust.io/write \

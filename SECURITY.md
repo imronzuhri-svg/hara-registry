@@ -6,7 +6,7 @@ If you believe you've found a security vulnerability in HaraLedger, **please do 
 
 Instead, report it privately through one of these channels:
 
-- **GitHub Security Advisories** (preferred): [Open a security advisory →](https://github.com/imronzuhri-svg/hara-ledger/security/advisories/new) — encrypted by default, only visible to repo maintainers.
+- **GitHub Security Advisories** (preferred): [Open a security advisory →](https://github.com/imronzuhri-svg/hara-registry/security/advisories/new) — encrypted by default, only visible to repo maintainers.
 - **Email** (fallback): `security@hara.id` (PGP key fingerprint pending — request the current key by email first).
 
 Please include:

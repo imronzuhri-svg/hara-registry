@@ -1,5 +1,5 @@
 {
-  "name": "hara-ledger-load-tests",
+  "name": "hara-registry-load-tests",
   "version": "0.0.0",
   "private": true,
   "type": "module",

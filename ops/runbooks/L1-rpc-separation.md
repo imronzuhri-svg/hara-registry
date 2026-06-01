@@ -163,4 +163,4 @@ The LB adds ~1ms overhead per request — should be invisible. If it's significa
 
 ## Next stage
 
-When all L1 exit criteria pass: **L2 — Signer service + nonce manager + queue + broadcaster**. See `doc/hara-ledger-roadmap.md`.
+When all L1 exit criteria pass: **L2 — Signer service + nonce manager + queue + broadcaster**. See `doc/hara-registry-roadmap.md`.

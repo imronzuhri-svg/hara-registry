@@ -1,7 +1,7 @@
 apiVersion: 1
 
 providers:
-  - name: hara-ledger
+  - name: hara-registry
     folder: HaraLedger
     type: file
     disableDeletion: false

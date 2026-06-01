@@ -80,12 +80,12 @@ jobs:
           if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
             echo "push=true"  >> "$GITHUB_OUTPUT"
             echo "load=false" >> "$GITHUB_OUTPUT"
-            echo "tag=ghcr.io/${{ github.repository_owner }}/hara-ledger-${{ matrix.package }}:${{ github.sha }}" >> "$GITHUB_OUTPUT"
-            echo "tag_latest=ghcr.io/${{ github.repository_owner }}/hara-ledger-${{ matrix.package }}:latest" >> "$GITHUB_OUTPUT"
+            echo "tag=ghcr.io/${{ github.repository_owner }}/hara-registry-${{ matrix.package }}:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+            echo "tag_latest=ghcr.io/${{ github.repository_owner }}/hara-registry-${{ matrix.package }}:latest" >> "$GITHUB_OUTPUT"
           else
             echo "push=false" >> "$GITHUB_OUTPUT"
             echo "load=true"  >> "$GITHUB_OUTPUT"
-            echo "tag=hara-ledger-${{ matrix.package }}:ci" >> "$GITHUB_OUTPUT"
+            echo "tag=hara-registry-${{ matrix.package }}:ci" >> "$GITHUB_OUTPUT"
             echo "tag_latest=" >> "$GITHUB_OUTPUT"
           fi
 
@@ -143,6 +143,6 @@ jobs:
           COSIGN_EXPERIMENTAL: "1"
         run: |
           DIGEST="${{ steps.build.outputs.digest }}"
-          REPO="ghcr.io/${{ github.repository_owner }}/hara-ledger-${{ matrix.package }}"
+          REPO="ghcr.io/${{ github.repository_owner }}/hara-registry-${{ matrix.package }}"
           cosign sign --yes "${REPO}@${DIGEST}"
           echo "✓ signed ${REPO}@${DIGEST}"

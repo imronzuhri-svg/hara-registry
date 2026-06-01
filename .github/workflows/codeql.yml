@@ -30,7 +30,7 @@ jobs:
     # cadence than the weekly default — opt in by setting the repo variable:
     #
     #   gh variable set HARA_ADVANCED_CODEQL --body "true" \
-    #     --repo imronzuhri-svg/hara-ledger
+    #     --repo imronzuhri-svg/hara-registry
     #
     # AND disable default setup in the same Settings page. Without both,
     # this job is a no-op.

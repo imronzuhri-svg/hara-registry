@@ -1,5 +1,5 @@
 # hara-platform — Promtail
-# Scrapes Docker container logs from every project (hara-ledger, hara-did,
+# Scrapes Docker container logs from every project (hara-registry, hara-did,
 # hara-xchange, ...) and ships to Loki. Per-project filtering happens via the
 # `project` label, derived from the compose project name.
 

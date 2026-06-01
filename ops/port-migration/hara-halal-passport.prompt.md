@@ -6,10 +6,10 @@ I need you to resolve host-port collisions with other Docker projects on this ma
 
 ## Context
 
-This machine runs five Docker compose projects. Several share host ports, which means only the first to start works — the rest silently fail. I am migrating the conflicting ports in 4 of the 5 projects (hara-ledger stays canonical).
+This machine runs five Docker compose projects. Several share host ports, which means only the first to start works — the rest silently fail. I am migrating the conflicting ports in 4 of the 5 projects (hara-registry stays canonical).
 
 This project's collisions:
-- **Postgres :5432** conflicts with hara-ledger + erudio_flow + hara-did
+- **Postgres :5432** conflicts with hara-registry + erudio_flow + hara-did
 - **MinIO :9000 + :9001** conflict with hara-did
 
 The local app port `3001` is unique to this project and stays as-is.
@@ -51,7 +51,7 @@ Container-side ports stay the same. Only host bindings change. So compose mappin
 The port-allocation plan across the 5 projects:
 
 **Postgres**:
-- hara-ledger: 5432 (canonical, unchanged)
+- hara-registry: 5432 (canonical, unchanged)
 - erudio_flow: 5433
 - hara-halal-passport: **5434** ← this project
 - hara-did: 5435

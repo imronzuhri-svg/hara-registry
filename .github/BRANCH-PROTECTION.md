@@ -4,7 +4,7 @@ Branch protection on `main` enforces code-review and CI-pass requirements before
 
 ## Quick setup via UI (5 minutes)
 
-1. Open https://github.com/imronzuhri-svg/hara-ledger/settings/branches
+1. Open https://github.com/imronzuhri-svg/hara-registry/settings/branches
 2. Click **"Add classic branch protection rule"** (or "Add rule" depending on UI version)
 3. **Branch name pattern**: `main`
 4. Enable the following:
@@ -61,7 +61,7 @@ Until step 4, branch protection works but doesn't enforce CI.
 If you've installed `gh` CLI later, you can set the entire policy with one command:
 
 ```bash
-gh api -X PUT "repos/imronzuhri-svg/hara-ledger/branches/main/protection" \
+gh api -X PUT "repos/imronzuhri-svg/hara-registry/branches/main/protection" \
   -F required_status_checks='{"strict":true,"contexts":["forge build + test","typecheck + build"]}' \
   -F enforce_admins=true \
   -F required_pull_request_reviews='{"required_approving_review_count":1,"dismiss_stale_reviews":true}' \

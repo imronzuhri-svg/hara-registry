@@ -6,12 +6,12 @@ I need you to resolve host-port collisions with other Docker projects on this ma
 
 ## Context
 
-This machine runs five Docker compose projects (hara-ledger, erudio_flow, hara-halal-passport, hara-did, hara-xchange) that share a single Docker host. Several bind the same host port and the second one to start fails silently. I'm migrating the conflicting ports in 4 of the 5 projects (hara-ledger stays canonical because it's the largest infra cluster).
+This machine runs five Docker compose projects (hara-registry, erudio_flow, hara-halal-passport, hara-did, hara-xchange) that share a single Docker host. Several bind the same host port and the second one to start fails silently. I'm migrating the conflicting ports in 4 of the 5 projects (hara-registry stays canonical because it's the largest infra cluster).
 
 This project has 5 collisions:
-- **Postgres :5432** with hara-ledger + erudio_flow + hara-halal-passport
-- **Redis :6379** with hara-ledger
-- **EVM RPC :8545** (Anvil/Hardhat or similar) with hara-ledger
+- **Postgres :5432** with hara-registry + erudio_flow + hara-halal-passport
+- **Redis :6379** with hara-registry
+- **EVM RPC :8545** (Anvil/Hardhat or similar) with hara-registry
 - **MinIO :9000 + :9001** with hara-halal-passport
 
 The local app ports `3002`, `3010`, `3011` are unique to this project — leave them alone.
@@ -81,13 +81,13 @@ Container-side ports stay the same. Only host bindings change. Resulting compose
 
 | Service | Cross-project port plan |
 |---|---|
-| Postgres | hara-ledger 5432 (canonical) / erudio_flow 5433 / hara-halal-passport 5434 / **hara-did 5435** |
-| Redis | hara-ledger 6379 (canonical) / **hara-did 6380** |
-| EVM RPC | hara-ledger 8545 (canonical, Besu) / **hara-did 8547** (Anvil/Hardhat) |
+| Postgres | hara-registry 5432 (canonical) / erudio_flow 5433 / hara-halal-passport 5434 / **hara-did 5435** |
+| Redis | hara-registry 6379 (canonical) / **hara-did 6380** |
+| EVM RPC | hara-registry 8545 (canonical, Besu) / **hara-did 8547** (Anvil/Hardhat) |
 | MinIO API | hara-halal-passport 9010 / **hara-did 9012** |
 | MinIO Console | hara-halal-passport 9011 / **hara-did 9013** |
 
-Note: 8546 is hara-ledger's WebSocket RPC, so hara-did's RPC skips to 8547.
+Note: 8546 is hara-registry's WebSocket RPC, so hara-did's RPC skips to 8547.
 
 ## Verification after edits
 

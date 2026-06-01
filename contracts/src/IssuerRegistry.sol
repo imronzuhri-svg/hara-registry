@@ -19,7 +19,7 @@ pragma solidity ^0.8.26;
 ///         "HalalAccreditationRegistry" contract referencing this base, deferred
 ///         to a future vertical track.
 ///
-///         Schema match: events mirror the names the hara-ledger indexer manual
+///         Schema match: events mirror the names the hara-registry indexer manual
 ///         §10.1 documents, so the shared indexer can pick our events up by
 ///         adding our address to `watched_contracts` with no schema changes.
 contract IssuerRegistry {
@@ -75,7 +75,7 @@ contract IssuerRegistry {
     // ── Events ─────────────────────────────────────────────────────────────
 
     /// Event name + topic shape align with integration manual §10.1 so the
-    /// shared hara-ledger indexer decodes them with zero hara-did-specific code.
+    /// shared hara-registry indexer decodes them with zero hara-did-specific code.
     event IssuerRegistered(bytes32 indexed issuerId, uint8 role, address controller, bytes32 publicKeyHash);
     event IssuerStatusChanged(bytes32 indexed issuerId, uint8 oldStatus, uint8 newStatus);
     event IssuerKeyRotated(bytes32 indexed issuerId, bytes32 oldKeyHash, bytes32 newKeyHash);

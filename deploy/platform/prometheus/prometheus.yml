@@ -2,7 +2,7 @@ global:
   scrape_interval: 10s
   evaluation_interval: 10s
   external_labels:
-    cluster: hara-ledger-local
+    cluster: hara-registry-local
     phase: P0
 
 rule_files:
@@ -76,7 +76,7 @@ scrape_configs:
         labels:
           role: blockscout
           tier: services
-          project: hara-ledger
+          project: hara-registry
 
   # RPC read cache — hit/miss rate, upstream latency, key count
   - job_name: rpc-cache
@@ -87,7 +87,7 @@ scrape_configs:
         labels:
           role: rpc-cache
           tier: services
-          project: hara-ledger
+          project: hara-registry
 
   - job_name: prometheus
     static_configs:

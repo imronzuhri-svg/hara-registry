@@ -15,7 +15,7 @@ set -euo pipefail
 OLD=hara-stateless
 NEW=hara-stateless-2
 NEW_PUB_IP=103.169.206.239
-REPO=/opt/hara/hara-ledger
+REPO=/opt/hara/hara-registry
 SVC="docker compose -f deploy/services/docker-compose.yml --env-file deploy/services/.env"
 EDGE="docker compose -f deploy/edge/docker-compose.yml"
 

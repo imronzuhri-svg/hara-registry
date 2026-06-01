@@ -1,4 +1,4 @@
-name: hara-ledger-rpc
+name: hara-registry-rpc
 
 # RPC mesh — read replicas, write node, and the HAProxy LB in front of them.
 # In production this can run on its own VPS or co-locate with services/.
@@ -11,9 +11,9 @@ x-besu-common: &besu-common
     # the full rationale (wg-mesh / docker-bridge subnet conflict on
     # Nevacloud VPSes that breaks BuildKit's default network).
     network: host
-  image: ${IMAGE_REGISTRY:-}hara-ledger-node:${IMAGE_TAG:-latest}
+  image: ${IMAGE_REGISTRY:-}hara-registry-node:${IMAGE_TAG:-latest}
   # When IMAGE_REGISTRY=ghcr.io/imronzuhri-svg/ is set, compose tries to pull
-  # first; GHCR doesn't have hara-ledger-node yet, pull fails with "denied",
+  # first; GHCR doesn't have hara-registry-node yet, pull fails with "denied",
   # then falls through to the build above. Falls through cleanly with
   # `docker compose up --build` or after a one-time `docker compose build`.
   restart: unless-stopped

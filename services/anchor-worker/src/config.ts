@@ -25,7 +25,7 @@ export const config = {
   databaseUrl: requireEnv("DATABASE_URL"),
   // Algorithm label committed alongside the anchor. Matches FIPS 204.
   algorithm: process.env.PQ_ALGORITHM ?? "ML-DSA-65",
-  // Anchor-chain tag — keccak256("hara-ledger") for self-anchoring; replace
+  // Anchor-chain tag — keccak256("hara-registry") for self-anchoring; replace
   // when adding IOTA / Ethereum L1 anchor confirmation.
   anchorChainTag:
     (process.env.ANCHOR_CHAIN_TAG as `0x${string}`) ??

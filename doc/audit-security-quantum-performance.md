@@ -126,7 +126,7 @@ Besu QBFT uses ECDSA for validator signatures, just like Ethereum. There's no pr
 |---|---|---|
 | **Now (P0–P2)** | Hybrid PQ at application layer (audit anchors, DID ops, certificates). Validator keys stay ECDSA. | Today |
 | **P2 (2027–2029)** | Watch EVM PQ standardization (EIP for ML-DSA precompiles is in discussion). | 1–3 years |
-| **P3 (2030+)** | Hard-fork to PQ-aware EVM when standardized + audited. The chain-portability rules in `hara-ledger-roadmap.md` (no chain-specific assumptions, all state reconstructible from events) make this migration mechanical. | 4–8 years |
+| **P3 (2030+)** | Hard-fork to PQ-aware EVM when standardized + audited. The chain-portability rules in `hara-registry-roadmap.md` (no chain-specific assumptions, all state reconstructible from events) make this migration mechanical. | 4–8 years |
 
 The risk this leaves: a CRQC could forge **validator** signatures on historical blocks. **Mitigation**: anchor Merkle roots periodically to a PQ-signed external commitment (the `PQAnchorRegistry`). Even if validator sigs become forgeable, the off-chain ML-DSA signature over the same Merkle root is independently verifiable evidence. **You can't fake history that's been quantum-anchored.**
 

@@ -87,7 +87,7 @@ runcmd:
 
   # Clone the repo (read-only deploy key — generate per host with `ssh-keygen`)
   - mkdir -p /opt/hara && chown hara:hara /opt/hara
-  - su - hara -c "git clone https://github.com/YOUR_ORG/hara-ledger.git /opt/hara/hara-ledger"
+  - su - hara -c "git clone https://github.com/YOUR_ORG/hara-registry.git /opt/hara/hara-registry"
 
   # Reload daemon, start docker
   - systemctl daemon-reload

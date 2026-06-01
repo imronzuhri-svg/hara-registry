@@ -127,7 +127,7 @@ This is enforced through code (Vault AppRole policies are role-scoped, Postgres 
 Three motivations:
 
 1. **Operational economy.** One Vault, one Prometheus, one log pipeline. The marginal cost of adding a new product is the product itself, not its infrastructure.
-2. **Cross-product correlation.** Every metric, every log line, every alert flows through the same observability stack. Grafana shows a hara-did failure correlated with a hara-ledger validator hiccup on a single dashboard.
+2. **Cross-product correlation.** Every metric, every log line, every alert flows through the same observability stack. Grafana shows a hara-did failure correlated with a hara-registry validator hiccup on a single dashboard.
 3. **Single source of cryptographic truth.** Every signing key in the ecosystem lives in one Vault, under one AppRole policy framework. Audits inspect one place.
 
 ### 3.4 Companion-product independence
@@ -159,7 +159,7 @@ Status: in design. Reserved infrastructure: IPs `10.42.0.70–89`, Redis DBs 9�
 ### 4.3 hara-xchange
 Tokenised palm-oil credits + carbon credits exchange / market layer. Outside P0/P1 scope.
 
-### 4.4 hara-ledger (this product)
+### 4.4 hara-registry (this product)
 The chain itself + the contract suite + the service tier that runs against it. Section 5 enumerates all features.
 
 ---
@@ -427,7 +427,7 @@ Both keypairs are under the same AppRole policy. Rotation: generate new keypair,
 | **BPJPH halal certification rules** | Halal product certification | `IssuerRegistry` role-gates BPJPH/LPH/MUI as the only authorities that can mint a `HalalPassport` NFT. |
 | **RSPO chain-of-custody (mass balance)** | Sustainable palm oil | `HaraPalmOil` ERC-1155 enforces transfer ≤ balance mechanically. Every batch carries `rspoCertificateHash`. |
 | **EU CSDDD + EUDR** | EU due-diligence + deforestation regulations | Plantation-to-export traceability via the indexer + `/trace/*` API. Exportable audit trails. |
-| **ISO 27001** | Information security management | P1 audit prep. Vault HSM at L4+ per `hara-ledger-roadmap.md` Decision 10. |
+| **ISO 27001** | Information security management | P1 audit prep. Vault HSM at L4+ per `hara-registry-roadmap.md` Decision 10. |
 | **SOC 2 Type II** | Service organisation controls | P2 audit prep. Slither + CodeQL + secret-scan + gitleaks in CI; immutable on-chain audit trail; documented access controls. |
 | **W3C DID-Core 1.0** | Decentralised Identifiers | `did:hara` method (in hara-did). Spec-compliant resolver. |
 | **NIST FIPS 204** | Module-Lattice Digital Signature (ML-DSA) | ML-DSA-65 = Dilithium 3; via `@noble/post-quantum`. |
@@ -572,7 +572,7 @@ QR-scan a product, see:
 | `hara-stateful` (8 vCPU / 32 GB / 1 TB) — Vault + Postgres + Redis + MinIO | Rp 2.5 M | Rp 112.5 M |
 | `hara-stateless` (8 vCPU / 32 GB / 500 GB) — apps + obs + LB | Rp 1.7 M | Rp 76.5 M |
 | Object storage (300 GB) | Rp 0.3 M | Rp 13.5 M |
-| **hara-ledger subtotal** | **Rp 7.3 M** | **Rp 328.5 M** |
+| **hara-registry subtotal** | **Rp 7.3 M** | **Rp 328.5 M** |
 
 ### 12.2 P2 — adding Huawei DR
 
@@ -684,7 +684,7 @@ QR-scan a product, see:
 - All architecture decisions live in `doc/`.
 - ADRs in `doc/adr/` (per hara-did pattern).
 - Runbooks in `ops/runbooks/L*-*.md`.
-- State snapshots in `doc/hara-ledger state N.md`.
+- State snapshots in `doc/hara-registry state N.md`.
 
 ---
 
@@ -768,6 +768,6 @@ PQ:                 ML-DSA-65 (FIPS 204) via @noble/post-quantum
 Companion repos:    hara-did, hara-halal-passport, hara-xchange
 Shared platform:    sibling _platform/ dir (Vault + obs)
 
-Repo:               https://github.com/imronzuhri-svg/hara-ledger
+Repo:               https://github.com/imronzuhri-svg/hara-registry
 Maintainer:         @imronzuhri-svg
 ```

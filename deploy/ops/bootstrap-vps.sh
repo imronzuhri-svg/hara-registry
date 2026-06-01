@@ -121,16 +121,16 @@ warn "   sudo ufw allow hara-rpc hara-explorer hara-grafana   # hara-stateless o
 warn "   sudo ufw --force enable"
 
 # ── 5. Repo clone (public — no deploy key needed) ───────────────────────────
-log "Cloning hara-ledger repo to /opt/hara/hara-ledger"
+log "Cloning hara-registry repo to /opt/hara/hara-registry"
 mkdir -p /opt/hara
 chown hara:hara /opt/hara
-if [ ! -d /opt/hara/hara-ledger/.git ]; then
-  sudo -u hara git clone https://github.com/imronzuhri-svg/hara-ledger.git \
-    /opt/hara/hara-ledger
+if [ ! -d /opt/hara/hara-registry/.git ]; then
+  sudo -u hara git clone https://github.com/imronzuhri-svg/hara-registry.git \
+    /opt/hara/hara-registry
 else
-  sudo -u hara git -C /opt/hara/hara-ledger pull --ff-only
+  sudo -u hara git -C /opt/hara/hara-registry pull --ff-only
 fi
-ok "repo at /opt/hara/hara-ledger ($(sudo -u hara git -C /opt/hara/hara-ledger rev-parse --short HEAD))"
+ok "repo at /opt/hara/hara-registry ($(sudo -u hara git -C /opt/hara/hara-registry rev-parse --short HEAD))"
 
 # ── 6. System services ──────────────────────────────────────────────────────
 log "Enabling system services"
@@ -158,7 +158,7 @@ cat <<EOF
   Hara VPS bootstrap complete on $(hostname)
 
   • Docker:        $(docker --version | head -c 60)...
-  • Repo:          /opt/hara/hara-ledger
+  • Repo:          /opt/hara/hara-registry
   • Operator SSH:  ssh hara@<this-vps-public-ip>
                    (using ~/.ssh/hara_ops_ed25519)
   • UFW staged but not enabled — enable after WireGuard mesh is up.

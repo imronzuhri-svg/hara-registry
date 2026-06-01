@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# vault-approle-bootstrap.sh — create policies + AppRoles for hara-ledger.
+# vault-approle-bootstrap.sh — create policies + AppRoles for hara-registry.
 #
 # Run this AFTER vault-raft-init.sh has put Vault in an unsealed state.
 # Idempotent — safe to re-run; existing roles are updated, not duplicated.

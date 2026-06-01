@@ -13,7 +13,7 @@ CMD="${1:?pass a command - check, grant or revoke - plus a target address}"
 TARGET="${2:?target address required}"
 : "${VAULT_TOKEN:?export VAULT_TOKEN=<root token> first}"
 VADDR="${VAULT_ADDR:-http://10.43.0.40:8200}"
-REPO="${REPO:-/opt/hara/hara-ledger}"
+REPO="${REPO:-/opt/hara/hara-registry}"
 
 echo "▶ reading admin key from Vault (not printed)…"
 AK=$(curl -s -H "X-Vault-Token: $VAULT_TOKEN" "$VADDR/v1/secret/data/haraledger/admin-keys/admin-2026-05-27" \

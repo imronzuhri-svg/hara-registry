@@ -78,7 +78,7 @@ ops/load-tests/
 
 ### Prerequisites
 
-The whole hara-ledger stack must be up:
+The whole hara-registry stack must be up:
 ```bash
 make platform-up
 make bootstrap
@@ -277,7 +277,7 @@ ops/load-tests/scenario-palm-oil-batch-relay.ts   Approach 2 (verified working)
 
 ## Running them yourself
 
-After the platform + hara-ledger stacks are up and contracts are deployed:
+After the platform + hara-registry stacks are up and contracts are deployed:
 
 ```bash
 # Sequential (~7 min for 100 hops)

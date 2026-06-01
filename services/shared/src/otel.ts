@@ -90,7 +90,7 @@ if (endpoint) {
       [ATTR_SERVICE_VERSION]: serviceVersion,
       // Helpful tags for filtering in Tempo / Grafana when multiple stacks
       // share a Tempo backend.
-      "hara.stack": process.env.HARA_STACK ?? "hara-ledger",
+      "hara.stack": process.env.HARA_STACK ?? "hara-registry",
       "hara.env": process.env.HARA_ENV ?? "dev",
     }),
     traceExporter: new OTLPTraceExporter({

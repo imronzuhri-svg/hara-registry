@@ -54,7 +54,7 @@ it's not required; nothing hardcodes .20 except the old host's own wg0.)
    deploy/ops/wg-add-peer.sh finalize hara-stateless-2 10.43.0.25 <pubip> <pubkey>
    ```
    Verify both can ping validators (10.43.0.11-14) and hara-stateful (10.43.0.40).
-4. **Clone the repo** on both: `sudo git clone … /opt/hara/hara-ledger` (or rsync).
+4. **Clone the repo** on both: `sudo git clone … /opt/hara/hara-registry` (or rsync).
 
 ---
 
@@ -62,7 +62,7 @@ it's not required; nothing hardcodes .20 except the old host's own wg0.)
 
 ```bash
 ssh hara-rpc-1
-cd /opt/hara/hara-ledger
+cd /opt/hara/hara-registry
 # .env for the rpc stack — same as old hara-stateless's deploy/rpc/.env
 #   (cross-host bindings already point at validators + stateful by WG IP)
 sudo docker compose -f deploy/rpc/docker-compose.yml --env-file deploy/rpc/.env up -d
@@ -91,7 +91,7 @@ The one real edit: point the services + Blockscout + Caddy at the **new LB**
 
 ```bash
 ssh hara-stateless-2
-cd /opt/hara/hara-ledger
+cd /opt/hara/hara-registry
 
 # Regenerate per-role .env files (or copy from old host and edit the RPC endpoint).
 # secrets-bootstrap.sh bakes WG-IP bindings; run it for this host's roles:
@@ -130,7 +130,7 @@ This is the only step with user-visible impact. Do it fast.
    (TTL is 300s from prep, so propagation is quick.)
 3. **Start Caddy on hara-stateless-2:**
    ```bash
-   ssh hara-stateless-2 'cd /opt/hara/hara-ledger && docker compose -f deploy/edge/docker-compose.yml up -d'
+   ssh hara-stateless-2 'cd /opt/hara/hara-registry && docker compose -f deploy/edge/docker-compose.yml up -d'
    ```
    ACME HTTP-01 re-issues certs once DNS resolves to the new IP (needs :80 reachable).
 
@@ -202,8 +202,8 @@ Raise DNS TTL back to a normal value (e.g. 3600s) once stable.
    won't carry it. **Copy it from old hara-stateless** and re-apply the
    `INDEXER_DISABLE_INTERNAL_TRANSACTIONS_FETCHER=true` line + the new RPC URL:
    ```bash
-   scp hara-stateless:/opt/hara/hara-ledger/deploy/services/blockscout/envs/common-blockscout.env \
-       hara-stateless-2:/opt/hara/hara-ledger/deploy/services/blockscout/envs/
+   scp hara-stateless:/opt/hara/hara-registry/deploy/services/blockscout/envs/common-blockscout.env \
+       hara-stateless-2:/opt/hara/hara-registry/deploy/services/blockscout/envs/
    # then edit ETHEREUM_JSONRPC_*_URL → 10.43.0.21, confirm the FETCHER flag is present
    ```
 2. **Obs history is lost** on the fresh box — Prometheus/Loki/Grafana volumes

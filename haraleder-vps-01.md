@@ -292,8 +292,8 @@ ssh hara-stateful "docker exec hara-postgres psql -U hara -d hara_indexer -c \
 
 # MinIO listing (use MC_HOST_h URL form — `mc alias set` has an auth bug)
 ssh hara-stateful '
-  MUSER=$(grep MINIO_ROOT_USER /opt/hara/hara-ledger/deploy/data/.env | cut -d= -f2)
-  MPASS=$(grep MINIO_ROOT_PASSWORD /opt/hara/hara-ledger/deploy/data/.env | cut -d= -f2)
+  MUSER=$(grep MINIO_ROOT_USER /opt/hara/hara-registry/deploy/data/.env | cut -d= -f2)
+  MPASS=$(grep MINIO_ROOT_PASSWORD /opt/hara/hara-registry/deploy/data/.env | cut -d= -f2)
   docker run --rm --network hara-platform \
     -e MC_HOST_h="http://$MUSER:$MPASS@hara-minio:9000" \
     --entrypoint mc minio/mc:RELEASE.2025-08-13T08-35-41Z \
@@ -304,7 +304,7 @@ ssh hara-stateful '
 ## 18. Repository layout (key paths)
 
 ```
-hara-ledger/
+hara-registry/
 ├── chain/                      # legacy single-host compose (kept for local make up)
 ├── contracts/                  # Solidity sources + Foundry config
 │   ├── src/

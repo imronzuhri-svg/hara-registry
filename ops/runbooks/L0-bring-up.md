@@ -146,4 +146,4 @@ These are intentionally deferred to later stages — do not try to add them in L
 
 ## Next step
 
-Once all L0 exit criteria are ticked, move to L1 — RPC read/write separation. See `doc/hara-ledger-roadmap.md`.
+Once all L0 exit criteria are ticked, move to L1 — RPC read/write separation. See `doc/hara-registry-roadmap.md`.

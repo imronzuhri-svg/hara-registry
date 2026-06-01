@@ -1,4 +1,4 @@
-name: hara-ledger-minio
+name: hara-registry-minio
 
 # MinIO + bucket pre-creator. Lives on the hara-stateful VPS alongside
 # Postgres + Redis + Vault (see deploy/topology.md §2.2).

@@ -109,7 +109,7 @@ docker logs hara-alert-sink   # expect a "resolved" event
 ```bash
 # All errors anywhere in the last 15m
 curl -G "http://localhost:3201/loki/api/v1/query_range" \
-  --data-urlencode 'query={cluster="hara-ledger-local"} |~ "(?i)error|fail"' \
+  --data-urlencode 'query={cluster="hara-registry-local"} |~ "(?i)error|fail"' \
   --data-urlencode "start=$(date -d '15 min ago' +%s)000000000" \
   --data-urlencode "end=$(date +%s)000000000" \
   --data-urlencode 'limit=20' | python -m json.tool
@@ -153,7 +153,7 @@ curl http://localhost:9093/api/v2/alerts/groups
 
 ### "Loki shows no logs from container X"
 
-Promtail's Docker discovery uses the `com.docker.compose.project=hara-ledger` label. If you started a container manually (without compose) it won't appear. Restart it via compose.
+Promtail's Docker discovery uses the `com.docker.compose.project=hara-registry` label. If you started a container manually (without compose) it won't appear. Restart it via compose.
 
 ## What L4 does NOT include
 

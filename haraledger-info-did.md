@@ -89,7 +89,7 @@ Other contracts on-chain that hara-did probably doesn't need but for completenes
 
 Vault is HashiCorp Vault 1.17, Raft backend, 5/3 unseal quorum.
 
-### What we'll provide (action on hara-ledger side)
+### What we'll provide (action on hara-registry side)
 
 A scoped AppRole `haradid` with a policy granting:
 - `read,create,update,delete` on `secret/data/haradid/signer-keys/*`
@@ -274,7 +274,7 @@ Turnaround on our side once we have those five answers: same business day for on
 
 ## Contact
 
-Ops: HaraLedger team (this session). Drop questions / blockers in the project Slack or open an issue against the `hara-ledger` repo.
+Ops: HaraLedger team (this session). Drop questions / blockers in the project Slack or open an issue against the `hara-registry` repo.
 
 The HaraLedger source for everything above is in this repo:
 - Contract addresses: deployed via [deploy/ops/](deploy/ops/) bring-up scripts

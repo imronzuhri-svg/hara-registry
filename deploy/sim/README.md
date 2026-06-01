@@ -88,7 +88,7 @@ sed -i "s|^PQ_ANCHOR_REGISTRY_ADDRESS=.*|PQ_ANCHOR_REGISTRY_ADDRESS=$ADDR|" depl
 ## Switching between local-build and GHCR-pull
 
 Default (`IMAGE_REGISTRY=`): on first `sim-up`, docker builds each
-`hara-ledger-*` image from your local source tree. Slower but reflects
+`hara-registry-*` image from your local source tree. Slower but reflects
 your uncommitted changes.
 
 To pull production images instead (faster, validates exactly what CI

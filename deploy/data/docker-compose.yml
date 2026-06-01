@@ -1,4 +1,4 @@
-name: hara-ledger-data
+name: hara-registry-data
 
 # Data tier — Postgres + Redis. In production runs on its own VPS with
 # dedicated NVMe storage and daily backups to off-host object storage.

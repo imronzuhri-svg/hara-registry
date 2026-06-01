@@ -6,9 +6,9 @@ I need you to resolve a host-port collision with another Docker project on this 
 
 ## Context
 
-This machine runs five Docker compose projects. Several of them currently bind the same host port, which means only the first one to start works — the rest silently fail. I am migrating the conflicting ports in 4 of the 5 projects (hara-ledger stays canonical).
+This machine runs five Docker compose projects. Several of them currently bind the same host port, which means only the first one to start works — the rest silently fail. I am migrating the conflicting ports in 4 of the 5 projects (hara-registry stays canonical).
 
-This project's collision: **Postgres on host port 5432** conflicts with `hara-ledger`, `hara-halal-passport`, and `hara-did`.
+This project's collision: **Postgres on host port 5432** conflicts with `hara-registry`, `hara-halal-passport`, and `hara-did`.
 
 ## The change
 
@@ -37,7 +37,7 @@ The **container-side** port stays 5432 — only the host-side changes. So in doc
 
 The port-allocation plan across the 5 projects is:
 
-- hara-ledger: 5432 (canonical, unchanged)
+- hara-registry: 5432 (canonical, unchanged)
 - erudio_flow: **5433** ← this project
 - hara-halal-passport: 5434
 - hara-did: 5435

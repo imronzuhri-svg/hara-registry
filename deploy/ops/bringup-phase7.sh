@@ -85,7 +85,7 @@ ok "Continuing with anchor-worker address: $ANCHOR_ADDR"
 # ── Step 2 — Seed key into Vault ─────────────────────────────────────────────
 log "2/7  Seeding key into Vault (via hara-stateful)"
 ssh hara-stateful "
-  cd /opt/hara/hara-ledger
+  cd /opt/hara/hara-registry
   ANCHOR_ADDRESS='$ANCHOR_ADDR' ANCHOR_PRIVATE_KEY='$ANCHOR_KEY' \\
     VAULT_TOKEN='$ROOT' VAULT_ADDR=http://10.43.0.40:8200 \\
     bash deploy/ops/seed-anchor-key.sh
@@ -159,15 +159,15 @@ ok "PQAnchorRegistry deployed at: $PQ_ADDR"
 log "6/7  Updating services/.env on hara-stateless"
 ssh hara-stateless "
   sed -i 's|^PQ_ANCHOR_REGISTRY_ADDRESS=.*|PQ_ANCHOR_REGISTRY_ADDRESS=$PQ_ADDR|' \\
-    /opt/hara/hara-ledger/deploy/services/.env
-  grep PQ_ANCHOR_REGISTRY_ADDRESS /opt/hara/hara-ledger/deploy/services/.env
+    /opt/hara/hara-registry/deploy/services/.env
+  grep PQ_ANCHOR_REGISTRY_ADDRESS /opt/hara/hara-registry/deploy/services/.env
 "
 ok "PQ_ANCHOR_REGISTRY_ADDRESS=$PQ_ADDR set"
 
 # Register all the watched_contracts so the indexer picks them up
 log "  6b  Registering deployed contracts in indexer's watched_contracts"
 ssh hara-stateless "
-  cd /opt/hara/hara-ledger
+  cd /opt/hara/hara-registry
   for s in Deploy.s.sol DeployPalmOil.s.sol DeployPQAnchor.s.sol; do
     f=contracts/broadcast/\$s/131216/run-latest.json
     if [ -f \"\$f\" ]; then
@@ -187,7 +187,7 @@ fi
 # ── Step 7 — Start anchor-worker ────────────────────────────────────────────
 log "7/7  Starting hara-anchor-worker on hara-stateless"
 ssh hara-stateless "
-  cd /opt/hara/hara-ledger
+  cd /opt/hara/hara-registry
   docker compose -f deploy/services/docker-compose.yml \\
                  --env-file deploy/services/.env up -d anchor-worker
   sleep 10

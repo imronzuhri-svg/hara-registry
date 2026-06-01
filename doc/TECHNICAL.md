@@ -1,7 +1,7 @@
 # HaraLedger — Technical Reference
 
 **Audience:** engineers building on or operating HaraLedger; auditors reviewing the platform.
-**Companion docs:** `PRODUCT.md` for product-level overview, `deploy/topology.md` for the 6-VPS deployment plan, `doc/hara-ledger state 2.md` for the carry-on context snapshot, `doc/audit-security-quantum-performance.md` for the full security rationale.
+**Companion docs:** `PRODUCT.md` for product-level overview, `deploy/topology.md` for the 6-VPS deployment plan, `doc/hara-registry state 2.md` for the carry-on context snapshot, `doc/audit-security-quantum-performance.md` for the full security rationale.
 **Snapshot date:** 2026-05-15.
 
 This document is the consolidated technical reference. It is intentionally redundant with the more focused docs above; if you need to know one thing about HaraLedger, look here first.
@@ -60,7 +60,7 @@ HaraLedger is a layered system. Each layer has a clear contract with the layers 
 ║      • tx pipeline tables                                              ║
 ║                                                                        ║
 ║    Redis (Streams + KV)                                                ║
-║      • DBs 0–5 hara-ledger  • DBs 6–8 hara-did  • DBs 9–11 hara-passport║
+║      • DBs 0–5 hara-registry  • DBs 6–8 hara-did  • DBs 9–11 hara-passport║
 ╠════════════════════════════════════════════════════════════════════════╣
 ║  Chain layer (Besu QBFT, chain ID 131216)                              ║
 ║                                                                        ║
@@ -845,7 +845,7 @@ Both passed 2026-05-15.
 ## 15. Reference card
 
 ```
-Repo:                https://github.com/imronzuhri-svg/hara-ledger
+Repo:                https://github.com/imronzuhri-svg/hara-registry
 Chain ID:            131216
 Native token:        HARA (gas price 0)
 Block time:          ~2 s

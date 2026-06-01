@@ -6,7 +6,7 @@ Five compose projects share the same Docker host:
 
 | Project | Compose file |
 |---|---|
-| hara-ledger | `C:/Projects/claude projects/hara-ledger/chain/docker-compose.yml` |
+| hara-registry | `C:/Projects/claude projects/hara-registry/chain/docker-compose.yml` |
 | erudio_flow | `C:/Projects/claude projects/erudio_flow/docker-compose.yml` |
 | hara-halal-passport | `C:/Projects/claude projects/hara-halal-passport/docker-compose.yml` |
 | hara-did | `C:/Projects/claude projects/hara-did/docker-compose.dev.yml` |
@@ -16,13 +16,13 @@ Five compose projects share the same Docker host:
 
 ## Authoritative project
 
-**hara-ledger keeps all its current host ports.** It is the largest piece of infrastructure (chain + RPC + signer + broadcaster + indexer + monitoring) and other clusters reference its endpoints. Moving its ports would force changes in 4 other repos.
+**hara-registry keeps all its current host ports.** It is the largest piece of infrastructure (chain + RPC + signer + broadcaster + indexer + monitoring) and other clusters reference its endpoints. Moving its ports would force changes in 4 other repos.
 
 The 4 other projects move their conflicting ports.
 
 ## Final port allocation (host side)
 
-### hara-ledger (UNCHANGED)
+### hara-registry (UNCHANGED)
 - Chain P2P: 30303 (tcp+udp)
 - Grafana: **3200** (was 3000 — moved earlier in this session)
 - Loki: **3201** (was 3100 — moved earlier in this session)

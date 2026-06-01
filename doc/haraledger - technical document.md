@@ -74,7 +74,7 @@ HaraLedger is a five-tier system. Each tier has explicit contracts with the tier
 ║      IssuerRegistry, TestToken                                       ║
 ╠══════════════════════════════════════════════════════════════════════╣
 ║  Tier 2 — HARA Platform — shared infrastructure                      ║
-║    (sibling repo `_platform/`; not part of hara-ledger codebase)     ║
+║    (sibling repo `_platform/`; not part of hara-registry codebase)     ║
 ║                                                                      ║
 ║    Vault          (Raft in prod, dev-mode locally)                   ║
 ║    Prometheus, Alertmanager, alert-sink, Loki, Promtail, Grafana,    ║
@@ -130,7 +130,7 @@ The most important architectural fact: **HaraLedger does not own Vault, observab
 │   ├── promtail/
 │   └── alert-sink/
 │
-├── hara-ledger/            ← this repo
+├── hara-registry/            ← this repo
 ├── hara-did/
 ├── hara-halal-passport/
 └── hara-xchange/
@@ -160,13 +160,13 @@ The most important architectural fact: **HaraLedger does not own Vault, observab
 1. make platform-up     (in sibling _platform/ dir)
    ↳ creates the hara-platform network, brings up Vault, obs
 
-2. make bootstrap       (in hara-ledger/)
+2. make bootstrap       (in hara-registry/)
    ↳ runs the chain init container; writes keys to Vault, writes genesis
 
-3. make up              (in hara-ledger/)
+3. make up              (in hara-registry/)
    ↳ brings up 4 validators + 3 RPC nodes + LB + signer + broadcaster + indexer + cache
 
-4. make deploy-all      (in hara-ledger/)
+4. make deploy-all      (in hara-registry/)
    ↳ deploys 7 system contracts, registers with indexer
 
 5. (other product) cd ../hara-did && ./dev.ps1 up
@@ -177,7 +177,7 @@ In production (P1+), step 1 is the very first thing the operator runs on `hara-s
 
 ### 2.5 Local-dev convenience deviation
 
-`deploy/platform/docker-compose.yml` (the local-dev variant inside hara-ledger) **bundles** Vault + observability in one stack for single-host smoke tests where the operator doesn't want to maintain the sibling `_platform/` repo. This is local convenience only. Production splits into `docker-compose.secrets.yml` (Vault Raft) on hara-stateful and `docker-compose.obs.yml` (Prom/Graf/Loki/AM/Tempo) on hara-stateless — per `deploy/topology.md` §5.
+`deploy/platform/docker-compose.yml` (the local-dev variant inside hara-registry) **bundles** Vault + observability in one stack for single-host smoke tests where the operator doesn't want to maintain the sibling `_platform/` repo. This is local convenience only. Production splits into `docker-compose.secrets.yml` (Vault Raft) on hara-stateful and `docker-compose.obs.yml` (Prom/Graf/Loki/AM/Tempo) on hara-stateless — per `deploy/topology.md` §5.
 
 ---
 
@@ -718,7 +718,7 @@ What ML-DSA-65 signs. Auditors reconstruct from the on-chain Anchor record + the
 [8 bytes BE] blockFrom uint64
 [8 bytes BE] blockTo uint64
 [8 bytes BE] eventCount uint64
-[32 bytes ]  anchorChain tag (keccak256("hara-ledger") for self-anchoring)
+[32 bytes ]  anchorChain tag (keccak256("hara-registry") for self-anchoring)
 ```
 
 **Total 90 + algo-len bytes.** Stable, trivially recomputable from on-chain data.
@@ -775,7 +775,7 @@ ANCHOR_MIN_EVENTS            1 (skip cycle if fewer)
 ANCHOR_MAX_EVENTS            200000 (Merkle root sanity bound)
 DATABASE_URL                 required — hara_indexer DB
 PQ_ALGORITHM                 "ML-DSA-65"
-ANCHOR_CHAIN_TAG             keccak256("hara-ledger")
+ANCHOR_CHAIN_TAG             keccak256("hara-registry")
 MINIO_ENDPOINT               host:port
 MINIO_ACCESS_KEY, _SECRET    required
 PQ_BUCKET                    "hara-pq-anchors"
@@ -1198,12 +1198,12 @@ Single host (developer laptop or VPS) running:
 
 - Docker Desktop / Docker Engine
 - Sibling `_platform/` repo for shared Vault + obs (one-time setup)
-- `hara-ledger/` checkout
+- `hara-registry/` checkout
 
 Bring-up:
 ```
 cd _platform && make platform-up
-cd ../hara-ledger && make bootstrap && make up && make deploy-all
+cd ../hara-registry && make bootstrap && make up && make deploy-all
 ```
 
 Everything on the `hara-platform` Docker network at `10.42.0.0/24`.
@@ -1244,7 +1244,7 @@ Beyond P0.5 / P1, the deployment evolves to multi-cloud.
 
 ### 14.1 P1 → P2 — Adding Huawei DR (month ~12)
 
-Per `nevacloud-proposal.md` §Skenario "Lengkap" and `hara-ledger-roadmap.md` Decision 4:
+Per `nevacloud-proposal.md` §Skenario "Lengkap" and `hara-registry-roadmap.md` Decision 4:
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
@@ -1376,7 +1376,7 @@ Alertmanager → `alert-sink` webhook → Slack (P0). At P1+, alert-sink fans ou
 
 ### 16.1 Prometheus metric naming
 
-All hara-ledger metrics prefixed `hara_`:
+All hara-registry metrics prefixed `hara_`:
 
 - `hara_ledger_*` — chain-level metrics (block production, validator status)
 - `hara_indexer_*` — indexer
@@ -1620,7 +1620,7 @@ Cloud
   Future (P3+):       Multi-cloud + sovereign + bare-metal
 
 Repos
-  hara-ledger:        https://github.com/imronzuhri-svg/hara-ledger
+  hara-registry:        https://github.com/imronzuhri-svg/hara-registry
   hara-did:           sibling repo
   hara-halal-passport: sibling repo
   hara-xchange:       sibling repo
