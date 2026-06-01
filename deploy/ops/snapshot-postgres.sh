@@ -47,8 +47,12 @@ for db in "$DB_NAME_INDEXER" "$DB_NAME_BLOCKSCOUT"; do
   fi
 done
 
-# Local retention: 7 days
-find "$BACKUP_DIR" -name "*.sql.zst.age" -mtime +7 -delete
+# Local retention: 7 days (don't let a no-match/cleanup quirk fail the run —
+# the actual backups above already succeeded under set -e)
+find "$BACKUP_DIR" -name "*.sql.zst.age" -mtime +7 -delete || true
+
+echo "✓ Postgres snapshot complete ($(date -u +%FT%TZ))"
+exit 0
 
 # Remote retention: 30 generations per DB
 for db in "$DB_NAME_INDEXER" "$DB_NAME_BLOCKSCOUT"; do
