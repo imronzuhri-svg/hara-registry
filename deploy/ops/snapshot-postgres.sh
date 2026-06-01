@@ -37,8 +37,14 @@ for db in "$DB_NAME_INDEXER" "$DB_NAME_BLOCKSCOUT"; do
     > "$OUT"
   chmod 600 "$OUT"
   SIZE=$(du -h "$OUT" | cut -f1)
-  echo "  Uploading $SIZE → $REMOTE/$db/"
-  rclone copy "$OUT" "$REMOTE/$db/" --quiet
+  # Upload only if the rclone remote is configured; otherwise keep local-only
+  # so automated backups still run before the off-host target is wired.
+  if rclone listremotes 2>/dev/null | grep -q "^${REMOTE%%:*}:"; then
+    echo "  Uploading $SIZE → $REMOTE/$db/"
+    rclone copy "$OUT" "$REMOTE/$db/" --quiet
+  else
+    echo "  ⚠ rclone remote '${REMOTE%%:*}' not configured — LOCAL-ONLY at $OUT ($SIZE). Add the Nevacloud S3 endpoint to enable off-host upload."
+  fi
 done
 
 # Local retention: 7 days
