@@ -7,7 +7,22 @@
 > Drop this file into `hara-did/docs/` or similar. Pair it with `haradid-pathway.md` and `haradid-roadmap.md`.
 
 **hara-registry repo**: https://github.com/imronzuhri-svg/hara-registry
-**Last verified against commit**: `f843fb5` (May 2026)
+**Last verified**: 2026-06-01 (post RPC-host split + production-final).
+
+> **Dev vs production.** This guide is written around the **local development**
+> stack (single `docker compose` host, `localhost`, Docker bridge `10.42.0.0/24`,
+> service-name DNS) — that part is current and correct. **Production has since
+> moved to a split, multi-VPS topology** over a WireGuard mesh (`10.43.0.0/24`):
+> a dedicated RPC host (`hara-rpc-1`, rpc-write + 2× rpc-read + HAProxy), a
+> services/observability/edge host (`hara-stateless-2`, signer/broadcaster/
+> indexer/rpc-cache/Blockscout/obs/Caddy), a data host (`hara-stateful`,
+> Vault/Postgres/Redis/MinIO), and the 4 validators on their own hosts. There is
+> **no Docker Swarm** — cross-host traffic rides the WireGuard mesh; each host
+> still has its own local `10.42.0.0/24` Docker bridge.
+> For **live production** endpoints, canonical contract addresses, and the public
+> API surface, use **`doc/hara-registry-technical-manual.md`** and
+> **`PRODUCTION-READINESS.md`** (the production source of truth); the dev
+> addresses/URLs below are for local work only.
 
 ---
 
@@ -138,7 +153,7 @@ After `docker compose up`, your services live on the same Docker network as hara
 
 All HARA services live on one Docker network named `hara-platform` (subnet `10.42.0.0/24`). Each cluster (hara-registry, hara-did, hara-passport, hara-xchange) joins as an `external: true` network in its compose file. Inside the network, every container resolves every other container by service name via Docker's embedded DNS.
 
-In production, this network becomes a **Docker Swarm overlay** spanning multiple VPS — same DNS names, same Just Works behaviour.
+In production the per-host `hara-platform` bridge stays exactly as it is (still `10.42.0.0/24`, same service-name DNS **within** a host), but **cross-host** traffic does **not** use a Docker Swarm overlay. Instead every VPS joins a **WireGuard mesh on `10.43.0.0/24`** and services reach off-host dependencies by the peer's mesh IP (e.g. services on `hara-stateless-2` reach the RPC tier at `http://10.43.0.21:8545`, and Vault/Postgres at `http://10.43.0.40:...`). So: service-name DNS for same-host containers, WireGuard mesh IPs for cross-host.
 
 ### 3.2 IP allocation (avoid collisions)
 
@@ -158,10 +173,10 @@ You don't have to use static IPs — DNS by service name works perfectly. But if
 
 In dev mode, every container can talk to every other. In production (P1b+) we recommend:
 
-- hara-did services may connect to: `vault:8200`, `postgres:5432`, `redis:6379`, `lb:8545`, `lb:8546`, `rpc-cache:8080`
-- hara-did services may **not** directly connect to: validators (use the LB), signer (unless explicitly permitted)
+- hara-did services may connect to: `vault:8200`, `postgres:5432`, `redis:6379`, the RPC HAProxy `:8545`/`:8546`, `rpc-cache:8080` (same-host by service name, or the WireGuard mesh IP cross-host)
+- hara-did services may **not** directly connect to: validators (use the RPC tier), signer (unless explicitly permitted)
 
-Enforcement: Docker Swarm or eventual k8s NetworkPolicy. We'll provide the policy templates in `deploy/networks/` once they're written for P1b.
+Enforcement today is at the **WireGuard mesh + host firewall (ufw)** layer — only mesh peers can reach a host, and per-host rules restrict which ports are exposed (see `deploy/networks/wireguard/`). A k8s NetworkPolicy layer may come later if/when the platform moves to Kubernetes.
 
 ---
 
