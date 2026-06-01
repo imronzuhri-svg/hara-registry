@@ -24,11 +24,11 @@ rpc.ledger.haratrust.io {
     # Default route is read.
     handle /write/* {
         uri strip_prefix /write
-        reverse_proxy http://hara-lb:8545
+        reverse_proxy http://10.43.0.21:8545
     }
 
     handle /ws {
-        reverse_proxy http://hara-lb:8546
+        reverse_proxy http://10.43.0.21:8546
     }
 
     handle /read/* {

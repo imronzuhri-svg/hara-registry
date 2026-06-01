@@ -45,7 +45,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
       POSTGRES_DB: ${POSTGRES_DB:-hara_indexer}
       REDIS_HOST: ${REDIS_HOST:-redis}
-      RPC_READ_URL: http://lb:8545/rpc/read
+      RPC_READ_URL: http://10.43.0.21:8545/rpc/read
       LOG_LEVEL: info
     ports:
       - "${SIGNER_BIND:-127.0.0.1:7000}:7000"
@@ -69,8 +69,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
       POSTGRES_DB: ${POSTGRES_DB:-hara_indexer}
       REDIS_HOST: ${REDIS_HOST:-redis}
-      RPC_WRITE_URL: http://lb:8545/rpc/write
-      RPC_READ_URL: http://lb:8545/rpc/read
+      RPC_WRITE_URL: http://10.43.0.21:8545/rpc/write
+      RPC_READ_URL: http://10.43.0.21:8545/rpc/read
       LOG_LEVEL: info
     depends_on:
       migrate: { condition: service_completed_successfully }
@@ -92,7 +92,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:?required}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
       POSTGRES_DB: ${POSTGRES_DB:-hara_indexer}
-      RPC_READ_URL: http://lb:8545/rpc/read
+      RPC_READ_URL: http://10.43.0.21:8545/rpc/read
       METRICS_PORT: 9100
       POLL_INTERVAL_MS: 1000
       BATCH_SIZE: 500
@@ -116,7 +116,7 @@ services:
     environment:
       SERVICE_NAME: rpc-cache
       PORT: 8080
-      UPSTREAM_RPC: http://lb:8545/rpc/read
+      UPSTREAM_RPC: http://10.43.0.21:8545/rpc/read
       REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_DB: 5
       WARMUP_ON_START: "true"
@@ -151,8 +151,8 @@ services:
       VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN:?required}
       ANCHOR_VAULT_PATH: secret/haraledger/signer-keys/anchor-worker
       DATABASE_URL: postgresql://${POSTGRES_USER:?required}:${POSTGRES_PASSWORD:?required}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-hara_indexer}
-      RPC_READ_URL: http://lb:8545/rpc/read
-      RPC_WRITE_URL: http://lb:8545/rpc/write
+      RPC_READ_URL: http://10.43.0.21:8545/rpc/read
+      RPC_WRITE_URL: http://10.43.0.21:8545/rpc/write
       CHAIN_ID: ${HARA_CHAIN_ID:-131216}
       PQ_ANCHOR_REGISTRY_ADDRESS: ${PQ_ANCHOR_REGISTRY_ADDRESS:?required — set after PQAnchorRegistry deploy}
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-hara-minio:9000}
