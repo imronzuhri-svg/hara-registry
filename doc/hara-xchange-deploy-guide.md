@@ -34,9 +34,15 @@ cast wallet new
 # Private key: 0x... ← keep secret
 ```
 
-> The chain is free-gas (`gasPrice = 0`), so your deployer needs **no HARA
-> balance** to deploy. If a transaction from your address is rejected before it
-> reaches a block, send the address to HARA ops to be allow-listed.
+> ⚠️ **Your deployer MUST hold a non-zero balance (≥ 1 wei).** Even though gas is
+> free (`gasPrice = 0`), Besu **silently skips zero-balance senders** — the tx
+> sits in the pool unmined and your deploy tool hangs waiting for a receipt that
+> never comes (see integration manual §17.4). HARA ops **pre-funds** this
+> dedicated deployer, so you don't need to do anything. The balance is never
+> consumed (gas is free), so a one-time funding lasts forever.
+>
+> If you bring your **own** key instead, send us the address and we'll fund it
+> with a small amount before your first deploy.
 
 ---
 

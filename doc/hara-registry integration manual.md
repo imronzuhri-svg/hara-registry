@@ -683,6 +683,11 @@ Notes:
 - `--legacy` is required (we don't have EIP-1559)
 - `--skip-simulation` because our LB doesn't always cooperate with simulation
 - The private key shown is the Foundry anvil default deployer; it's pre-funded in genesis. For real production use a deployer key from Vault.
+- ⚠️ **Your deployer must hold a non-zero balance** even though gas is free —
+  Besu silently skips zero-balance senders, so an unfunded key's deploy txs sit
+  unmined and the deploy tool hangs (see **§17.4**). The anvil key above is
+  genesis-funded; a freshly generated key must be funded first (ask HARA ops, or
+  send 1 wei from any funded account).
 
 ### 9.3 Registering your contract for discoverability
 
