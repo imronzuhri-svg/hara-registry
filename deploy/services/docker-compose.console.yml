@@ -43,7 +43,9 @@ services:
       # Set CONSOLE_COPILOT_API_KEY to enable; without it /api/copilot returns 503.
       COPILOT_API_KEY: ${CONSOLE_COPILOT_API_KEY:-}
       COPILOT_BASE_URL: ${CONSOLE_COPILOT_BASE_URL:-https://api.moonshot.ai/v1}
-      COPILOT_MODEL: ${CONSOLE_COPILOT_MODEL:-kimi-k2.6}
+      # Default to a fast (non-reasoning) Kimi/Moonshot model for snappy chat
+      # (~5s). Override to kimi-k2.6 for deeper reasoning (slower, ~60s).
+      COPILOT_MODEL: ${CONSOLE_COPILOT_MODEL:-moonshot-v1-128k}
     volumes:
       - console-audit:/data   # append-only P1 proposal audit log (persists across restarts)
 
