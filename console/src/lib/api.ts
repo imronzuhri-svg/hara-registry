@@ -145,6 +145,43 @@ export interface Anomaly {
   area: string;
   level: "info" | "warn" | "critical";
   message: string;
+  at: string;
+}
+export interface Silence {
+  id: string;
+  alertname: string;
+  startsAt: string;
+  endsAt: string;
+  createdBy: string;
+  comment: string;
+  state: string;
+}
+
+export async function fetchSilences(): Promise<Silence[]> {
+  const res = await fetch(`${API_BASE}/alerts/silences`);
+  if (!res.ok) throw new Error(`silences HTTP ${res.status}`);
+  return ((await res.json()) as { silences: Silence[] }).silences;
+}
+export async function silenceAlert(alertname: string, hours: number, comment = ""): Promise<void> {
+  const res = await fetch(`${API_BASE}/alerts/silence`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ alertname, hours, comment }),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `HTTP ${res.status}`);
+}
+export async function unsilence(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/alerts/silence/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+}
+
+/** "2m ago" / "3h ago" relative time from an ISO timestamp. */
+export function ago(iso: string): string {
+  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return `${Math.floor(s)}s ago`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
 }
 
 export async function fetchRange(series: string, minutes = 60): Promise<RangeSeries> {

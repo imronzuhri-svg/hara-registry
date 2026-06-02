@@ -14,6 +14,7 @@ import {
 import { buildProposal } from "./proposals.js";
 import { recordProposal, readAudit } from "./audit.js";
 import { getRange, getAnomalies, SERIES } from "./metrics.js";
+import { createSilence, listSilences, deleteSilence } from "./alerts.js";
 
 // Each section is wrapped so one unreachable source (e.g. an internal mesh
 // service in dev) reports {available:false} instead of failing the whole page.
@@ -103,7 +104,30 @@ app.get("/api/metrics/range", async (req, reply) => {
   }
 });
 
-app.get("/api/anomalies", async () => ({ anomalies: await getAnomalies(Date.now()) }));
+app.get("/api/anomalies", async () => ({ generatedAt: new Date().toISOString(), anomalies: await getAnomalies(Date.now()) }));
+
+// ── Alert silences (acknowledge / ignore) ───────────────────────────────────
+app.get("/api/alerts/silences", async () => ({ silences: await listSilences() }));
+
+app.post("/api/alerts/silence", async (req, reply) => {
+  const b = (req.body ?? {}) as { alertname?: string; hours?: number; comment?: string };
+  if (!b.alertname) return reply.code(400).send({ error: "alertname required" });
+  const createdBy = (req.headers["x-console-actor"] as string) || "hara (console)";
+  try {
+    return await createSilence({ alertname: b.alertname, hours: Number(b.hours ?? 1), createdBy, comment: b.comment ?? "" });
+  } catch (e) {
+    return reply.code(502).send({ error: (e as Error).message });
+  }
+});
+
+app.delete("/api/alerts/silence/:id", async (req, reply) => {
+  try {
+    await deleteSilence((req.params as { id: string }).id);
+    return { ok: true };
+  } catch (e) {
+    return reply.code(502).send({ error: (e as Error).message });
+  }
+});
 
 app
   .listen({ port: config.port, host: "0.0.0.0" })
