@@ -33,11 +33,10 @@ if [ -z "${AGENT_BIND:-}" ]; then
   AGENT_BIND="${AGENT_BIND:-0.0.0.0}"
 fi
 
-command -v node >/dev/null || { echo "✗ node not installed on this host (the agent runs on Node)."; exit 1; }
-command -v pnpm >/dev/null || { echo "▶ enabling pnpm via corepack"; corepack enable && corepack prepare pnpm@10.33.2 --activate; }
-
-echo "▶ Installing agent deps in $AGENT_DIR"
-su - "$RUN_USER" -c "cd '$AGENT_DIR' && pnpm install --prod --frozen-lockfile=false"
+NODE_BIN="$(command -v node || true)"
+[ -n "$NODE_BIN" ] || { echo "✗ node not installed on this host. Install Node (the agent is dependency-free and runs on any Node >= 18), e.g.: sudo apt-get install -y nodejs"; exit 1; }
+echo "▶ Using node: $NODE_BIN ($($NODE_BIN --version))"
+# The agent is dependency-free (plain node:http) — no install step needed.
 
 echo "▶ Writing hara-console-agent.service (bind ${AGENT_BIND}:${AGENT_PORT}, user ${RUN_USER})"
 cat > /etc/systemd/system/hara-console-agent.service <<EOF
@@ -52,7 +51,7 @@ User=$RUN_USER
 WorkingDirectory=$AGENT_DIR
 Environment=AGENT_PORT=$AGENT_PORT
 Environment=AGENT_BIND=$AGENT_BIND
-ExecStart=$AGENT_DIR/node_modules/.bin/tsx src/index.ts
+ExecStart=$NODE_BIN src/index.mjs
 Restart=on-failure
 RestartSec=5
 # read-only service; minimal hardening
