@@ -5,12 +5,13 @@ import { Operations } from "./components/Operations";
 import { AuditLog } from "./components/AuditLog";
 import { TimeSeries } from "./components/TimeSeries";
 import { useOverview } from "./hooks/useOverview";
-import { fetchAnomalies, fetchSilences, silenceAlert, unsilence, ago, rel, type Anomaly, type Section, type Silence } from "./lib/api";
+import { fetchAnomalies, fetchSilences, silenceAlert, unsilence, fetchInsights, ago, rel, type Anomaly, type Section, type Silence, type Insights } from "./lib/api";
 
-type View = "dashboard" | "chain" | "validators" | "rpc" | "services" | "alerts" | "backups" | "vault" | "operations" | "audit" | "help";
+type View = "dashboard" | "insights" | "chain" | "validators" | "rpc" | "services" | "alerts" | "backups" | "vault" | "operations" | "audit" | "help";
 
 const NAV: { item: string; view: View }[] = [
   { item: "Dashboard", view: "dashboard" },
+  { item: "Insights", view: "insights" },
   { item: "Chain", view: "chain" },
   { item: "Validators", view: "validators" },
   { item: "RPC Tier", view: "rpc" },
@@ -145,6 +146,7 @@ export default function App() {
         <main className="flex-1 space-y-5">
           <AnomalyBanner onJump={setActive} />
           {active === "dashboard" && <Dashboard data={data} />}
+          {active === "insights" && <InsightsScreen />}
           {active === "chain" && <ChainScreen data={data} />}
           {active === "validators" && <ValidatorsScreen data={data} />}
           {active === "rpc" && <RpcScreen data={data} />}
@@ -531,6 +533,122 @@ function VaultScreen({ data }: { data: OverviewData }) {
     </>
   );
 }
+function InsightsScreen() {
+  const [ins, setIns] = useState<Insights | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const load = () => fetchInsights().then((d) => alive && (setIns(d), setError(null))).catch((e) => alive && setError((e as Error).message));
+    load();
+    const h = setInterval(load, 30000);
+    return () => { alive = false; clearInterval(h); };
+  }, []);
+
+  const sevTone = (s: string) => (s === "critical" ? "down" : s === "warn" ? "warn" : "idle");
+  const fmtBytes = (n: number | null) => (n == null ? "—" : `${(n / 1024 / 1024).toFixed(0)}MB`);
+
+  if (error) return <Panel title="Insights" subtitle="intelligence"><Muted text={`unavailable — ${error}`} /></Panel>;
+  if (!ins) return <Panel title="Insights" subtitle="intelligence"><Muted text="analysing…" /></Panel>;
+
+  return (
+    <div className="space-y-5">
+      <Panel
+        title="Recommendations"
+        subtitle="reliability + optimisation · read-only analysis"
+        status={<StatusPill tone="ok" label={`${ins.recommendations.length}`} />}
+        help={<>Plain-language conclusions from the live numbers — what to look at, optimise, or pre-empt. Acting on any of these stays human-approved (use the Operations tab to build the command). Re-evaluated every 30s.</>}
+      >
+        <ul className="space-y-2">
+          {ins.recommendations.map((r, i) => (
+            <li key={i} className="flex items-start gap-3 rounded-lg bg-ink-900/60 px-3 py-2 text-sm">
+              <StatusPill tone={sevTone(r.severity)} label={r.area} />
+              <span className="text-mist-1/80">{r.text}</span>
+            </li>
+          ))}
+        </ul>
+      </Panel>
+
+      <ChartGrid>
+        <Panel title="Statistical baselines" subtitle="z-score vs 2h normal" help={<>Phase 1.1 — learns each metric's normal range and flags drift <b>before</b> a hard threshold. <b>z</b> = how many standard deviations from normal; |z|≥3 = anomalous, ≥2 = elevated.</>}>
+          <ul className="space-y-2">
+            {ins.baselines.map((b) => (
+              <li key={b.key} className="flex items-center justify-between rounded-lg bg-ink-900/60 px-3 py-2 text-sm">
+                <span className="text-mist-1/80">{b.label}</span>
+                <span className="flex items-center gap-3">
+                  <span className="text-xs text-mist-1/45">
+                    {b.current?.toFixed(1) ?? "—"} <span className="text-mist-1/30">(~{b.mean?.toFixed(1) ?? "—"} · z {b.z?.toFixed(1) ?? "—"})</span>
+                  </span>
+                  <StatusPill tone={b.status === "anomalous" ? "down" : b.status === "elevated" ? "warn" : "ok"} label={b.status} />
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+
+        <Panel title="Forecasts" subtitle="linear projection +1h" help={<>Phase 1.2 — projects a metric an hour ahead (predict_linear) and flags if it'll cross a safe threshold, turning surprises into scheduled work.</>}>
+          <ul className="space-y-2">
+            {ins.forecasts.map((f, i) => (
+              <li key={i} className="flex items-center justify-between rounded-lg bg-ink-900/60 px-3 py-2 text-sm">
+                <span className="text-mist-1/80">{f.label}</span>
+                <span className="flex items-center gap-3">
+                  <span className="text-xs text-mist-1/45">
+                    {f.label.includes("memory") ? `${fmtBytes(f.current)} → ${fmtBytes(f.predicted1h)}` : `${f.current?.toFixed(0) ?? "—"} → ${f.predicted1h?.toFixed(0) ?? "—"}`}
+                  </span>
+                  <StatusPill tone={f.willBreach ? "warn" : "ok"} label={f.willBreach ? "watch" : "ok"} />
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+
+        <Panel title="RPC SLO & cache" subtitle="error budget + cache efficiency" help={<>Phase 1.4 / 2.1 — request success rate (target 99.9%) and cache hit-rate. Low cache hit = more load on validators; falling success = burning error budget.</>}>
+          <div className="grid grid-cols-2 gap-4">
+            <Stat label="RPC success" value={ins.slo.successPct != null ? `${ins.slo.successPct.toFixed(3)}%` : "—"} hint={`${ins.slo.errors5xx ?? "—"} total 5xx`} />
+            <Stat label="5xx now" value={ins.slo.recent5xxPerMin != null ? `${ins.slo.recent5xxPerMin.toFixed(1)}/min` : "—"} />
+            <Stat label="Cache hit" value={ins.cacheHitPct != null ? `${ins.cacheHitPct.toFixed(0)}%` : "—"} hint="rpc-cache" />
+          </div>
+        </Panel>
+
+        <Panel title="Validator fairness" subtitle="proposing-share balance" help={<>Phase 2.2 — are the 4 validators sharing block production evenly? A lopsided share usually means one node is slow or peering poorly.</>}>
+          <div className="mb-2 text-xs text-mist-1/55">verdict: <span className="text-mist-1/80">{ins.fairness.verdict}</span>{ins.fairness.spreadPct != null && ` · spread ${ins.fairness.spreadPct.toFixed(0)}pp`}</div>
+          <ul className="space-y-2">
+            {ins.fairness.shares.map((s) => (
+              <li key={s.address} className="flex items-center justify-between rounded-lg bg-ink-900/60 px-3 py-2 text-sm">
+                <span className="font-mono text-mist-1/80">{shortAddr(s.address)}</span>
+                <span className="flex items-center gap-3">
+                  <span className="text-xs text-mist-1/45">{s.pct.toFixed(1)}%</span>
+                  <StatusPill tone={s.recentlyProposed ? "ok" : "warn"} label={s.recentlyProposed ? "active" : "stale"} />
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      </ChartGrid>
+
+      <Panel title="Backup freshness" subtitle="time since last successful run" help={<>Phase 1.2 — flags any backup that hasn't succeeded recently (a daily backup older than ~26h, or whose last run failed) so a silently-broken backup can't hide.</>}>
+        <ul className="space-y-2">
+          {ins.backups.length === 0 && <Muted text="no backup agents reachable" />}
+          {ins.backups.map((b, i) => (
+            <li key={i} className="flex items-center justify-between rounded-lg bg-ink-900/60 px-3 py-2 text-sm">
+              <span>
+                <span className="text-mist-1/80">{b.unit.replace(/\.timer$/, "")}</span> <span className="text-xs text-mist-1/40">@ {b.host}</span>
+              </span>
+              <span className="flex items-center gap-3">
+                <span className="text-xs text-mist-1/45">{b.ageHours != null ? `${b.ageHours.toFixed(0)}h ago` : "never"}</span>
+                <StatusPill tone={b.overdue ? "down" : "ok"} label={b.overdue ? "overdue" : "fresh"} />
+              </span>
+            </li>
+          ))}
+        </ul>
+      </Panel>
+
+      <p className="px-1 text-[11px] text-mist-1/35">
+        Intelligence Phase 1 (reliability) + Phase 2 (optimisation), read-only. AI suggests; operators decide. Full plan: doc/registry-console-intelligence-roadmap.md
+      </p>
+    </div>
+  );
+}
+
 function HelpScreen({ onJump }: { onJump: (v: View) => void }) {
   const areas: { view: View; title: string; key: string }[] = [
     { view: "chain", title: "Chain", key: "chain" },

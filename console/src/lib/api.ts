@@ -207,6 +207,63 @@ export async function fetchAnomalies(): Promise<Anomaly[]> {
   return ((await res.json()) as { anomalies: Anomaly[] }).anomalies;
 }
 
+// ── Insights (intelligence: reliability + optimisation) ──────────────────────
+export interface Baseline {
+  key: string;
+  label: string;
+  unit: string;
+  current: number | null;
+  mean: number | null;
+  z: number | null;
+  status: "normal" | "elevated" | "anomalous";
+}
+export interface Forecast {
+  label: string;
+  current: number | null;
+  predicted1h: number | null;
+  threshold: number;
+  willBreach: boolean;
+}
+export interface BackupFreshness {
+  unit: string;
+  host: string;
+  ageHours: number | null;
+  result: string | null;
+  overdue: boolean;
+}
+export interface Slo {
+  successPct: number | null;
+  total: number | null;
+  errors5xx: number | null;
+  recent5xxPerMin: number | null;
+}
+export interface Fairness {
+  shares: { address: string; pct: number; recentlyProposed: boolean }[];
+  spreadPct: number | null;
+  verdict: string;
+}
+export interface Recommendation {
+  area: string;
+  severity: "info" | "warn" | "critical";
+  text: string;
+}
+export interface Insights {
+  generatedAt: string;
+  baselines: Baseline[];
+  forecasts: Forecast[];
+  backups: BackupFreshness[];
+  slo: Slo;
+  cacheHitPct: number | null;
+  fairness: Fairness;
+  recommendations: Recommendation[];
+}
+
+export async function fetchInsights(): Promise<Insights> {
+  const res = await fetch(`${API_BASE}/insights`);
+  if (!res.ok) throw new Error(`insights HTTP ${res.status}`);
+  return (await res.json()) as Insights;
+}
+
 export const CONTRACT_ROLES: Record<string, string[]> = {
   HaraPalmOil: ["MINTER_ROLE", "CERTIFIER_ROLE", "DEFAULT_ADMIN_ROLE"],
   PQAnchorRegistry: ["ANCHOR_ROLE", "KEY_ROTATOR_ROLE", "DEFAULT_ADMIN_ROLE"],
