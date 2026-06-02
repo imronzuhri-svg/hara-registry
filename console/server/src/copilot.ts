@@ -65,7 +65,8 @@ export async function askCopilot(question: string, nowMs: number): Promise<Copil
   const body = {
     model,
     max_tokens: 800,
-    temperature: 0.3,
+    // no temperature override — some Kimi models (e.g. kimi-k2.6) only accept 1;
+    // omitting uses the provider default and works across models.
     messages: [
       { role: "system", content: SYSTEM },
       { role: "user", content: `LIVE STATE (JSON):\n${JSON.stringify(state)}\n\nOPERATOR QUESTION: ${question}` },
