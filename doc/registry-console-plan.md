@@ -177,7 +177,7 @@ A console that can grant roles and move the admin key is a **high-value target**
 | Phase | Scope | Risk | Value |
 |---|---|---|---|
 | **P0 — Glass** | Read-only unified dashboard (§2.1) + embedded Grafana + alert feed + **zero-balance watchlist** + backup/Vault-seal status. No writes. | Low | High — immediate situational awareness; would've caught the hara-xchange zero-balance issue proactively |
-| **P1 — Assisted ops** | Treasury funding (§2.3), contract registry (§2.5), partner onboarding wizard (§2.6), on-demand snapshots/restore drill (§2.7). Guarded writes via Vault Transit. | Med | High — kills the manual SSH/script toil |
+| **P1 — Assisted ops** | ✅ **DONE (propose-only, 2026-06-02).** Operations view: fund / register / grant-revoke role / onboard / snapshot — each builds the exact reviewed `cast`/`ssh` command + risk + notes, records to an append-only audit log; operator executes. **No signing keys in the console.** (Auto-signing via Vault Transit deferred to P2 by decision.) | Low (propose-only) | High — guided, audited, error-proof ops |
 | **P2 — Governance** | Role grant/revoke (§2.2) + validator add/remove (§2.4) via **Gnosis Safe multisig**; guided Vault unseal (§2.8). | High | High — real governance, multi-operator control |
 | **P3 — Full ops** | Alert routing config (§2.9), incident mgmt, DR automation, scheduled jobs, anchor-worker mgmt. | Med | Medium — polish + completeness |
 
