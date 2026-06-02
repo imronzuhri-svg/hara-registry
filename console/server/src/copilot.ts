@@ -64,7 +64,9 @@ export async function askCopilot(question: string, nowMs: number): Promise<Copil
   // OpenAI-compatible Chat Completions (Kimi/Moonshot).
   const body = {
     model,
-    max_tokens: 800,
+    // kimi-k2.6 is a reasoning model: completion tokens cover BOTH reasoning_content
+    // and the visible content. A small budget leaves `content` empty, so give it room.
+    max_tokens: 4000,
     // no temperature override — some Kimi models (e.g. kimi-k2.6) only accept 1;
     // omitting uses the provider default and works across models.
     messages: [
