@@ -362,7 +362,12 @@ function ValidatorsScreen({ data }: { data: OverviewData }) {
   return (
     <>
       <ValidatorsPanel data={data} />
-      <PendingExporter what="Besu validator metrics (--metrics-enabled + a Prometheus scrape job)" />
+      <ChartGrid>
+        <TimeSeries series="validatorPeers" />
+        <TimeSeries series="validatorHeight" />
+        <TimeSeries series="validatorInSync" />
+        <TimeSeries series="txpool" />
+      </ChartGrid>
     </>
   );
 }
@@ -370,7 +375,12 @@ function RpcScreen({ data }: { data: OverviewData }) {
   return (
     <>
       <RpcPanel data={data} />
-      <PendingExporter what="HAProxy Prometheus exporter (and Besu RPC metrics)" />
+      <ChartGrid>
+        <TimeSeries series="rpcReqRate" />
+        <TimeSeries series="rpcSessions" />
+        <TimeSeries series="rpc5xx" />
+        <TimeSeries series="rpcPeers" />
+      </ChartGrid>
     </>
   );
 }
