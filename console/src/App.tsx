@@ -129,17 +129,15 @@ export default function App() {
           </Panel>
 
           {/* RPC Tier */}
-          <Panel title="RPC Tier" subtitle="hara-rpc-1 · HAProxy" status={sectionPill(data?.rpcTier)}>
+          <Panel title="RPC Tier" subtitle="hara-rpc-1 · LB endpoint" status={sectionPill(data?.rpcTier)}>
             <S section={data?.rpcTier}>
-              {(rows) => (
-                <ul className="space-y-2">
-                  {rows.map((b) => (
-                    <li key={`${b.proxy}/${b.server}`} className="flex items-center justify-between rounded-lg bg-ink-900/60 px-3 py-2 text-sm">
-                      <span className="text-mist-1/80">{b.proxy}/{b.server}</span>
-                      <StatusPill tone={b.status === "UP" ? "ok" : b.status === "no check" ? "idle" : "down"} label={b.status} />
-                    </li>
-                  ))}
-                </ul>
+              {(r) => (
+                <div className="grid grid-cols-2 gap-4">
+                  <Stat label="Endpoint" value={r.up ? "UP" : "DOWN"} />
+                  <Stat label="Peers" value={r.peers ?? "—"} />
+                  <Stat label="Syncing" value={r.syncing ? "yes" : "no"} />
+                  <Stat label="Block" value={r.block?.toLocaleString() ?? "—"} />
+                </div>
               )}
             </S>
           </Panel>

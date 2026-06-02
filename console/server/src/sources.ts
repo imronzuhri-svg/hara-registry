@@ -88,27 +88,31 @@ export async function getAccounts(): Promise<AccountInfo[]> {
   );
 }
 
-export interface BackendInfo {
-  proxy: string;
-  server: string;
-  status: string;
+export interface RpcTierInfo {
+  endpoint: string;
+  up: boolean;
+  block: number | null;
+  peers: number | null;
+  syncing: boolean;
 }
 
-export async function getRpcTier(): Promise<BackendInfo[]> {
-  const res = await fetchT(config.haproxyStatsUrl);
-  if (!res.ok) throw new Error(`HAProxy HTTP ${res.status}`);
-  const csv = await res.text();
-  const lines = csv.split(/\r?\n/).filter(Boolean);
-  if (lines.length === 0) throw new Error("empty HAProxy stats");
-  const header = lines[0].replace(/^# /, "").split(",");
-  const iName = header.indexOf("pxname");
-  const iSvr = header.indexOf("svname");
-  const iStatus = header.indexOf("status");
-  return lines
-    .slice(1)
-    .map((l) => l.split(","))
-    .filter((c) => c[iSvr] && c[iSvr] !== "FRONTEND")
-    .map((c) => ({ proxy: c[iName], server: c[iSvr], status: c[iStatus] }));
+// RPC-tier health is read from the LB endpoint the API already reaches over the
+// mesh (10.43.0.21:8545) — peers/syncing/block. This avoids recreating hara-lb
+// (the sole RPC ingress) just to expose HAProxy's 127.0.0.1-only stats port.
+// (Per-backend UP/DOWN would need stats published on the mesh — see compose note.)
+export async function getRpcTier(): Promise<RpcTierInfo> {
+  const [blockHex, peersHex, syncing] = await Promise.all([
+    rpc<string>("eth_blockNumber"),
+    rpc<string>("net_peerCount").catch(() => null),
+    rpc<unknown>("eth_syncing").catch(() => false),
+  ]);
+  return {
+    endpoint: config.rpcUrl,
+    up: true,
+    block: hexToNum(blockHex),
+    peers: peersHex ? hexToNum(peersHex) : null,
+    syncing: syncing !== false,
+  };
 }
 
 export async function getServices(): Promise<{ indexerLag: number | null; indexedBlock: number | null; chainHead: number | null }> {
