@@ -1,16 +1,15 @@
 {
-  "name": "hara-registry-console-api",
+  "name": "hara-registry-console-agent",
   "private": true,
   "version": "0.0.1",
   "type": "module",
-  "description": "Strata Console API — read-only aggregation layer (P0).",
+  "description": "Read-only backups-status agent — reports this host's hara-*-snapshot timer status over the WG mesh.",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@fastify/cors": "^10.0.1",
     "fastify": "^5.1.0",
     "tsx": "^4.19.2"
   },

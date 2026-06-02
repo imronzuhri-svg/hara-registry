@@ -194,7 +194,29 @@ export default function App() {
 
           {/* Backups */}
           <Panel title="Backups & DR" subtitle="age + rclone → S3" status={sectionPill(data?.backups)}>
-            <S section={data?.backups}>{() => <Muted text="backups agent connected." />}</S>
+            <S section={data?.backups}>
+              {(b) => (
+                <ul className="space-y-2">
+                  {b.hosts.flatMap((h) =>
+                    h.timers.map((t) => (
+                      <li key={`${h.host}/${t.unit}`} className="flex items-center justify-between rounded-lg bg-ink-900/60 px-3 py-2 text-sm">
+                        <span>
+                          <span className="text-mist-1/80">{t.unit.replace(/\.timer$/, "")}</span>{" "}
+                          <span className="text-xs text-mist-1/40">@ {h.host}</span>
+                        </span>
+                        <StatusPill
+                          tone={t.result === "success" ? "ok" : t.lastRun ? "down" : "idle"}
+                          label={t.result ?? "scheduled"}
+                        />
+                      </li>
+                    ))
+                  )}
+                  {b.unreachable > 0 && (
+                    <li className="pt-1 text-xs text-accent-orange/70">{b.unreachable} agent(s) unreachable</li>
+                  )}
+                </ul>
+              )}
+            </S>
           </Panel>
 
           {/* Alerts */}

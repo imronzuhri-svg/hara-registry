@@ -73,19 +73,43 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+  agent:
+    name: agent typecheck
+    needs: changes
+    if: needs.changes.outputs.console == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: console/agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: console/agent/pnpm-lock.yaml
+      - name: Install
+        run: pnpm install --frozen-lockfile=false
+      - name: Typecheck
+        run: pnpm typecheck
+
   # Stable, always-reporting status for branch protection.
   console-gate:
     name: console-gate
-    needs: [changes, web, api]
+    needs: [changes, web, api, agent]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Gate on web + api results
+      - name: Gate on web + api + agent results
         run: |
           w="${{ needs.web.result }}"
           a="${{ needs.api.result }}"
-          echo "web: $w  api: $a  (console changed: ${{ needs.changes.outputs.console }})"
-          for r in "$w" "$a"; do
+          g="${{ needs.agent.result }}"
+          echo "web: $w  api: $a  agent: $g  (console changed: ${{ needs.changes.outputs.console }})"
+          for r in "$w" "$a" "$g"; do
             if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then
               echo "::error::console pipeline failed"
               exit 1

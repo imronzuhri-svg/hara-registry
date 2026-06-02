@@ -52,6 +52,36 @@ pnpm build
 surfaces (`#070B18`/`#0C1226`/`#101A38`), Sora display + Inter body. The animated
 core pulses while the chain is producing blocks.
 
+## Deploy (production — hara-stateless-2)
+
+Two containers behind the edge Caddy, on the `hara-platform` bridge; internal
+data sources reached over the WireGuard mesh. Nothing is published to the host.
+
+```bash
+# on hara-stateless-2, from the repo root
+docker compose -f deploy/services/docker-compose.console.yml up -d --build
+# edge: add the console.platform.haratrust.io site (already in deploy/edge/Caddyfile)
+#       set the basic_auth bcrypt hash on-host, then reload/recreate Caddy.
+```
+
+- `console/Dockerfile` → static SPA served by nginx (`hara-console-web`).
+- `console/server/Dockerfile` → the read-only API (`hara-console-api`), env-wired
+  to the mesh (RPC/Prometheus/Vault/HAProxy/Alertmanager + `BACKUPS_AGENT_URLS`).
+- Caddy `console.platform.haratrust.io`: `/api/*` → API, `/*` → web, gated by
+  basic_auth (P0 stopgap) — replace with Hara Numira dSSO + WG/VPN restriction.
+
+### Backups-status agent
+Backups span multiple hosts (hara-stateful + validators), so a tiny read-only
+agent (`console/agent/`) runs on each and reports its `hara-*-snapshot` timer
+status; the API aggregates them via `BACKUPS_AGENT_URLS`.
+
+```bash
+# on each host that runs snapshot timers (hara-stateful, hara-v1..v4):
+sudo ./deploy/ops/install-console-agent.sh        # systemd service on :8911 (wg0)
+# then restrict the port to the mesh:
+sudo ufw allow from 10.43.0.0/24 to any port 8911 proto tcp
+```
+
 ## Auth (later)
 Production auth is **Hara Numira** (hara-did decentralized SSO) — `did:hara`
 login, RBAC bound to the DID. P0 runs behind the WireGuard/VPN gate with an auth
