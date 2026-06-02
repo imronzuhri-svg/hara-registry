@@ -19,13 +19,20 @@ services:
     networks: [hara-platform]
     environment:
       PORT: "8910"
-      # Read-only sources over the WireGuard mesh:
+      # SAME-HOST sources (also on hara-stateless-2's hara-platform bridge) →
+      # reach by container name. Their host ports publish on 127.0.0.1 only, so
+      # the mesh IP would not work from inside the bridge.
+      PROMETHEUS_URL: ${CONSOLE_PROMETHEUS_URL:-http://hara-prometheus:9090}
+      ALERTMANAGER_URL: ${CONSOLE_ALERTMANAGER_URL:-http://hara-alertmanager:9093}
+      INDEXER_METRICS_URL: ${CONSOLE_INDEXER_METRICS_URL:-http://hara-indexer:9100/metrics}
+      # CROSS-HOST sources → reach over the WireGuard mesh (host WG IP + a
+      # port published on that interface).
       RPC_URL: ${CONSOLE_RPC_URL:-http://10.43.0.21:8545}
-      PROMETHEUS_URL: ${CONSOLE_PROMETHEUS_URL:-http://10.43.0.25:9090}
-      ALERTMANAGER_URL: ${CONSOLE_ALERTMANAGER_URL:-http://10.43.0.25:9093}
       VAULT_ADDR: ${CONSOLE_VAULT_ADDR:-http://10.43.0.40:8200}
-      HAPROXY_STATS_URL: ${CONSOLE_HAPROXY_STATS_URL:-http://10.43.0.21:8404/stats;csv}
-      INDEXER_METRICS_URL: ${CONSOLE_INDEXER_METRICS_URL:-http://10.43.0.25:9100/metrics}
+      # NOTE: hara-lb publishes stats on 127.0.0.1:8404 only — not reachable
+      # cross-host. To light up the RPC-tier panel, publish 8404 on hara-rpc-1's
+      # wg0 IP (10.43.0.21:8404) and keep this default.
+      HAPROXY_STATS_URL: ${CONSOLE_HAPROXY_STATS_URL:-http://10.43.0.21:8404/;csv}
       # backups-status agents (one per host running snapshot timers):
       BACKUPS_AGENT_URLS: ${CONSOLE_BACKUPS_AGENT_URLS:-http://10.43.0.40:8911/backups,http://10.43.0.11:8911/backups,http://10.43.0.12:8911/backups,http://10.43.0.13:8911/backups,http://10.43.0.14:8911/backups}
       # same-origin in prod, so CORS can stay tight (Caddy fronts both):
