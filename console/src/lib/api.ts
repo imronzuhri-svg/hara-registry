@@ -247,6 +247,19 @@ export interface Recommendation {
   severity: "info" | "warn" | "critical";
   text: string;
 }
+export interface Capacity {
+  currentTps: number | null;
+  capacityTps: number;
+  headroomPct: number | null;
+  blocksPerDay: number | null;
+  chainHeight: number | null;
+  totalEvents: number | null;
+  horizonMonths: number;
+  targetBatches: number;
+  targetTransfers: number;
+  requiredAvgTps: number;
+  notes: string[];
+}
 export interface Insights {
   generatedAt: string;
   baselines: Baseline[];
@@ -255,6 +268,7 @@ export interface Insights {
   slo: Slo;
   cacheHitPct: number | null;
   fairness: Fairness;
+  capacity: Capacity;
   recommendations: Recommendation[];
 }
 
@@ -262,6 +276,26 @@ export async function fetchInsights(): Promise<Insights> {
   const res = await fetch(`${API_BASE}/insights`);
   if (!res.ok) throw new Error(`insights HTTP ${res.status}`);
   return (await res.json()) as Insights;
+}
+
+// ── Copilot (Phase 4) ────────────────────────────────────────────────────────
+export async function copilotConfigured(): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/copilot/status`);
+    return res.ok ? ((await res.json()) as { configured: boolean }).configured : false;
+  } catch {
+    return false;
+  }
+}
+export async function askCopilot(question: string): Promise<{ answer: string; model: string }> {
+  const res = await fetch(`${API_BASE}/copilot`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ question }),
+  });
+  const j = await res.json();
+  if (!res.ok) throw new Error((j as { error?: string }).error ?? `HTTP ${res.status}`);
+  return j as { answer: string; model: string };
 }
 
 export const CONTRACT_ROLES: Record<string, string[]> = {

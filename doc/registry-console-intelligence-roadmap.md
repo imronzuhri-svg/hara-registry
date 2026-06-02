@@ -8,12 +8,18 @@
 
 A condensed version of this is in the console under **Help & Guide → Intelligence roadmap**.
 
-> **Status (2026-06-02): Phases 1 & 2 are LIVE** in the console **Insights** screen
-> (`GET /api/insights`): statistical baselining (1.1), forecasts + backup-freshness
-> (1.2), RPC SLO/error-budget (1.4), cache hit-rate (2.1), validator fairness (2.2),
-> indexer batch hints (2.4) — rolled up into plain-language recommendations. Phase 3
-> (forecasting vs the 45-month projection), Phase 4 (LLM copilot), and Phase 5
-> (supply-chain intelligence) remain ahead.
+> **Status (2026-06-02): Phases 1–4 are LIVE.**
+> - **P1/P2 (Insights screen, `GET /api/insights`):** statistical baselining (1.1),
+>   forecasts + backup-freshness (1.2), RPC SLO/error-budget (1.4), cache hit-rate
+>   (2.1), validator fairness (2.2), batch hints (2.4) → plain-language recommendations.
+> - **P3 (Insights → Capacity & growth):** live throughput & chain-growth vs the
+>   measured ceiling and the 45-month projection (3.1). Precise disk-fill still needs
+>   node_exporter; ML anomaly → real alert routing (3.3) remains ahead.
+> - **P4 (Copilot screen, `POST /api/copilot`):** grounded read-only LLM Q&A —
+>   enabled when `COPILOT_API_KEY` is set; it answers from live state and points to
+>   Operations (never executes).
+> - **Ahead:** Phase 5 (supply-chain intelligence) + deeper ML/forecasting and
+>   Alertmanager routing.
 
 ---
 

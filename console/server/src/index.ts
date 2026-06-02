@@ -16,6 +16,7 @@ import { recordProposal, readAudit } from "./audit.js";
 import { getRange, getAnomalies, SERIES } from "./metrics.js";
 import { createSilence, listSilences, deleteSilence } from "./alerts.js";
 import { getInsights } from "./insights.js";
+import { askCopilot } from "./copilot.js";
 
 // Each section is wrapped so one unreachable source (e.g. an internal mesh
 // service in dev) reports {available:false} instead of failing the whole page.
@@ -109,6 +110,19 @@ app.get("/api/anomalies", async () => ({ generatedAt: new Date().toISOString(), 
 
 // Intelligence — Phase 1 (reliability) + Phase 2 (optimisation), read-only.
 app.get("/api/insights", async () => getInsights(Date.now()));
+
+// Phase 4 — operator copilot (read-only, grounded). 503 if no COPILOT_API_KEY.
+app.get("/api/copilot/status", async () => ({ configured: !!process.env.COPILOT_API_KEY }));
+app.post("/api/copilot", async (req, reply) => {
+  const q = ((req.body ?? {}) as { question?: string }).question;
+  if (!q || !q.trim()) return reply.code(400).send({ error: "question required" });
+  try {
+    return await askCopilot(q.trim(), Date.now());
+  } catch (e) {
+    const msg = (e as Error).message;
+    return reply.code(msg.includes("not configured") ? 503 : 502).send({ error: msg });
+  }
+});
 
 // ── Alert silences (acknowledge / ignore) ───────────────────────────────────
 app.get("/api/alerts/silences", async () => ({ silences: await listSilences() }));
