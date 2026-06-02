@@ -38,6 +38,9 @@ services:
       # same-origin in prod, so CORS can stay tight (Caddy fronts both):
       CONSOLE_CORS_ORIGIN: ${CONSOLE_CORS_ORIGIN:-https://console.platform.haratrust.io}
       LOG_LEVEL: ${CONSOLE_LOG_LEVEL:-info}
+      AUDIT_PATH: /data/audit.jsonl
+    volumes:
+      - console-audit:/data   # append-only P1 proposal audit log (persists across restarts)
 
   hara-console-web:
     image: ${IMAGE_REGISTRY:-}hara-registry-console-web:${CONSOLE_TAG:-latest}
@@ -46,6 +49,9 @@ services:
     container_name: hara-console-web
     restart: unless-stopped
     networks: [hara-platform]
+
+volumes:
+  console-audit:
 
 networks:
   hara-platform:
