@@ -184,6 +184,17 @@ export function ago(iso: string): string {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
+/** Relative time handling both past ("3h ago") and future ("in 5h"). */
+export function rel(iso: string | null): string {
+  if (!iso) return "—";
+  const d = (new Date(iso).getTime() - Date.now()) / 1000;
+  if (d < 0) return ago(iso);
+  if (d < 60) return "in <1m";
+  if (d < 3600) return `in ${Math.floor(d / 60)}m`;
+  if (d < 86400) return `in ${Math.floor(d / 3600)}h`;
+  return `in ${Math.floor(d / 86400)}d`;
+}
+
 export async function fetchRange(series: string, minutes = 60): Promise<RangeSeries> {
   const res = await fetch(`${API_BASE}/metrics/range?series=${series}&minutes=${minutes}`);
   if (!res.ok) throw new Error(`metrics HTTP ${res.status}`);
