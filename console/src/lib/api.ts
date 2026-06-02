@@ -31,10 +31,12 @@ export interface AccountRow {
   nonce: number;
   zeroBalance: boolean;
 }
-export interface BackendRow {
-  proxy: string;
-  server: string;
-  status: string;
+export interface RpcTierInfo {
+  endpoint: string;
+  up: boolean;
+  block: number | null;
+  peers: number | null;
+  syncing: boolean;
 }
 export interface ServicesData {
   indexerLag: number | null;
@@ -77,7 +79,7 @@ export interface Overview {
   chain: Section<ChainData>;
   validators: Section<ValidatorData>;
   accounts: Section<AccountRow[]>;
-  rpcTier: Section<BackendRow[]>;
+  rpcTier: Section<RpcTierInfo>;
   services: Section<ServicesData>;
   vault: Section<VaultData>;
   alerts: Section<AlertRow[]>;
