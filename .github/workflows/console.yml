@@ -1,0 +1,94 @@
+name: console
+
+# Always runs on every PR so `console-gate` always reports (required-checkable).
+# Expensive work is path-gated to console/** via the `changes` job.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      console: ${{ steps.f.outputs.console }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: f
+        with:
+          filters: |
+            console:
+              - "console/**"
+              - ".github/workflows/console.yml"
+
+  web:
+    name: web typecheck + build
+    needs: changes
+    if: needs.changes.outputs.console == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: console
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: console/pnpm-lock.yaml
+      - name: Install
+        run: pnpm install --frozen-lockfile=false
+      - name: Build (tsc -b && vite build)
+        run: pnpm build
+
+  api:
+    name: api typecheck
+    needs: changes
+    if: needs.changes.outputs.console == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: console/server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: console/server/pnpm-lock.yaml
+      - name: Install
+        run: pnpm install --frozen-lockfile=false
+      - name: Typecheck
+        run: pnpm typecheck
+
+  # Stable, always-reporting status for branch protection.
+  console-gate:
+    name: console-gate
+    needs: [changes, web, api]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gate on web + api results
+        run: |
+          w="${{ needs.web.result }}"
+          a="${{ needs.api.result }}"
+          echo "web: $w  api: $a  (console changed: ${{ needs.changes.outputs.console }})"
+          for r in "$w" "$a"; do
+            if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then
+              echo "::error::console pipeline failed"
+              exit 1
+            fi
+          done
+          echo "console-gate passed"
