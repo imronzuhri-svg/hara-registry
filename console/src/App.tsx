@@ -5,13 +5,14 @@ import { Operations } from "./components/Operations";
 import { AuditLog } from "./components/AuditLog";
 import { TimeSeries } from "./components/TimeSeries";
 import { useOverview } from "./hooks/useOverview";
-import { fetchAnomalies, fetchSilences, silenceAlert, unsilence, fetchInsights, ago, rel, type Anomaly, type Section, type Silence, type Insights } from "./lib/api";
+import { fetchAnomalies, fetchSilences, silenceAlert, unsilence, fetchInsights, copilotConfigured, askCopilot, ago, rel, type Anomaly, type Section, type Silence, type Insights } from "./lib/api";
 
-type View = "dashboard" | "insights" | "chain" | "validators" | "rpc" | "services" | "alerts" | "backups" | "vault" | "operations" | "audit" | "help";
+type View = "dashboard" | "insights" | "copilot" | "chain" | "validators" | "rpc" | "services" | "alerts" | "backups" | "vault" | "operations" | "audit" | "help";
 
 const NAV: { item: string; view: View }[] = [
   { item: "Dashboard", view: "dashboard" },
   { item: "Insights", view: "insights" },
+  { item: "Copilot", view: "copilot" },
   { item: "Chain", view: "chain" },
   { item: "Validators", view: "validators" },
   { item: "RPC Tier", view: "rpc" },
@@ -66,6 +67,16 @@ const HELP: Record<string, ReactNode> = {
   alerts: (
     <>
       <b>What it is:</b> automated warnings from the monitoring system. They <b>clear themselves</b> when the problem resolves — no need to mark them done. <b>To quiet one</b> during planned work, use "mute 1h/24h" (it shows under Silences). <b>Severity:</b> critical = act now; warning = look soon.
+    </>
+  ),
+  insights: (
+    <>
+      <b>What it is:</b> the intelligence layer — it reads all the numbers and tells you, in plain language, what to look at, optimise, or pre-empt. <b>Includes:</b> statistical baselines (drift before a hard alert), forecasts, RPC reliability (SLO) + cache efficiency, validator fairness, and capacity vs the 45-month plan. <b>Read the Recommendations first.</b> It only advises — you act via Operations.
+    </>
+  ),
+  copilot: (
+    <>
+      <b>What it is:</b> an assistant you can ask in plain English ("is everything healthy?", "why are backups failing?"). It answers from the <b>live</b> state and points you to the right screen/action — it <b>can't run anything</b>. Needs an API key configured; otherwise it shows "not configured".
     </>
   ),
 };
@@ -147,6 +158,7 @@ export default function App() {
           <AnomalyBanner onJump={setActive} />
           {active === "dashboard" && <Dashboard data={data} />}
           {active === "insights" && <InsightsScreen />}
+          {active === "copilot" && <CopilotScreen />}
           {active === "chain" && <ChainScreen data={data} />}
           {active === "validators" && <ValidatorsScreen data={data} />}
           {active === "rpc" && <RpcScreen data={data} />}
@@ -533,6 +545,95 @@ function VaultScreen({ data }: { data: OverviewData }) {
     </>
   );
 }
+function CopilotScreen() {
+  const [configured, setConfigured] = useState<boolean | null>(null);
+  const [msgs, setMsgs] = useState<{ role: "you" | "strata"; text: string }[]>([]);
+  const [input, setInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    copilotConfigured().then(setConfigured);
+  }, []);
+
+  const examples = [
+    "Is the registry healthy right now?",
+    "Why might the validator backups be failing?",
+    "Are we anywhere near capacity?",
+    "Anything I should act on today?",
+  ];
+
+  async function ask(q: string) {
+    if (!q.trim() || busy) return;
+    setInput("");
+    setMsgs((m) => [...m, { role: "you", text: q }]);
+    setBusy(true);
+    try {
+      const { answer } = await askCopilot(q);
+      setMsgs((m) => [...m, { role: "strata", text: answer }]);
+    } catch (e) {
+      setMsgs((m) => [...m, { role: "strata", text: `⚠ ${(e as Error).message}` }]);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      <Panel
+        title="Operator copilot"
+        subtitle="ask in plain language · read-only"
+        status={<StatusPill tone={configured ? "ok" : "idle"} label={configured == null ? "…" : configured ? "ready" : "not configured"} />}
+        help={<>Phase 4 — an assistant grounded in the live state (chain, validators, backups, vault, insights). It explains and recommends; it <b>cannot run anything</b> — when an action is needed it points you to the Operations tab. Answers are based only on current data.</>}
+      >
+        {configured === false ? (
+          <Muted text="Copilot isn't configured. Set CONSOLE_COPILOT_API_KEY (an Anthropic key) in the console API env and redeploy — then this becomes a live Q&A grounded in the platform's current state." />
+        ) : (
+          <>
+            <div className="mb-3 flex flex-wrap gap-2">
+              {examples.map((e) => (
+                <button key={e} onClick={() => ask(e)} disabled={busy || !configured} className="rounded-full bg-ink-700 px-3 py-1 text-xs text-mist-1/70 hover:bg-brand-blue/30 hover:text-mist-0 disabled:opacity-40">
+                  {e}
+                </button>
+              ))}
+            </div>
+            <div className="mb-3 max-h-[420px] space-y-3 overflow-y-auto">
+              {msgs.length === 0 && <Muted text="Ask anything about the registry's current state." />}
+              {msgs.map((m, i) => (
+                <div key={i} className={m.role === "you" ? "text-right" : ""}>
+                  <div className={`inline-block max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm ${m.role === "you" ? "bg-strata text-white" : "bg-ink-900/70 text-mist-1/90"}`}>
+                    {m.text}
+                  </div>
+                </div>
+              ))}
+              {busy && <Muted text="thinking…" />}
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                ask(input);
+              }}
+              className="flex gap-2"
+            >
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="e.g. why is indexer lag high?"
+                disabled={busy || !configured}
+                className="flex-1 rounded-lg border border-ink-700 bg-ink-900 px-3 py-2 text-sm text-mist-0 placeholder:text-mist-1/30 focus:border-brand-blue focus:outline-none disabled:opacity-50"
+              />
+              <button type="submit" disabled={busy || !configured} className="rounded-lg bg-strata px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+                Ask
+              </button>
+            </form>
+          </>
+        )}
+      </Panel>
+      <p className="px-1 text-[11px] text-mist-1/35">
+        Read-only & grounded: the copilot answers from live data and never executes — it points you to Operations (propose-only) for any action. Phase 4 of doc/registry-console-intelligence-roadmap.md.
+      </p>
+    </div>
+  );
+}
+
 function InsightsScreen() {
   const [ins, setIns] = useState<Insights | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -625,6 +726,29 @@ function InsightsScreen() {
         </Panel>
       </ChartGrid>
 
+      <Panel
+        title="Capacity & growth"
+        subtitle="forecast vs the 45-month projection"
+        help={<>Phase 3 — compares live throughput & chain growth to the planned workload (25k batches × ~7k transfers over 45 months) and the measured {ins.capacity.capacityTps} TPS ceiling, so capacity needs become dated milestones rather than surprises. (Precise disk-fill needs host metrics, not scraped yet.)</>}
+      >
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+          <Stat label="Throughput now" value={ins.capacity.currentTps != null ? `${ins.capacity.currentTps.toFixed(1)} TPS` : "—"} />
+          <Stat label="Measured ceiling" value={`${ins.capacity.capacityTps} TPS`} hint="stress-tested" />
+          <Stat label="Headroom" value={ins.capacity.headroomPct != null ? `${ins.capacity.headroomPct.toFixed(0)}%` : "—"} />
+          <Stat label="Blocks / day" value={ins.capacity.blocksPerDay != null ? ins.capacity.blocksPerDay.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "—"} />
+          <Stat label="Chain height" value={ins.capacity.chainHeight?.toLocaleString() ?? "—"} />
+          <Stat label="Events indexed" value={ins.capacity.totalEvents?.toLocaleString() ?? "—"} />
+          <Stat label="Plan: batches" value={ins.capacity.targetBatches.toLocaleString()} hint={`${ins.capacity.horizonMonths}-mo target`} />
+          <Stat label="Plan: transfers" value={`${(ins.capacity.targetTransfers / 1e6).toFixed(0)}M`} />
+          <Stat label="Req. avg TPS" value={`${ins.capacity.requiredAvgTps.toFixed(1)}`} hint="to meet plan" />
+        </div>
+        <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-mist-1/55">
+          {ins.capacity.notes.map((n, i) => (
+            <li key={i}>{n}</li>
+          ))}
+        </ul>
+      </Panel>
+
       <Panel title="Backup freshness" subtitle="time since last successful run" help={<>Phase 1.2 — flags any backup that hasn't succeeded recently (a daily backup older than ~26h, or whose last run failed) so a silently-broken backup can't hide.</>}>
         <ul className="space-y-2">
           {ins.backups.length === 0 && <Muted text="no backup agents reachable" />}
@@ -651,6 +775,8 @@ function InsightsScreen() {
 
 function HelpScreen({ onJump }: { onJump: (v: View) => void }) {
   const areas: { view: View; title: string; key: string }[] = [
+    { view: "insights", title: "Insights (intelligence)", key: "insights" },
+    { view: "copilot", title: "Copilot", key: "copilot" },
     { view: "chain", title: "Chain", key: "chain" },
     { view: "validators", title: "Validators", key: "validators" },
     { view: "rpc", title: "RPC Tier", key: "rpc" },
@@ -711,12 +837,14 @@ function HelpScreen({ onJump }: { onJump: (v: View) => void }) {
 
       <Panel title="Intelligence roadmap" subtitle="future AI / analytics on this data" help={<>This is where the console goes next: layering analysis on top of the live numbers — not just "is it up?" but "what should we do, what's coming, and what's interesting?". Full detail in <code>doc/registry-console-intelligence-roadmap.md</code>.</>}>
         <div className="space-y-3 text-xs leading-relaxed text-mist-1/80">
-          <RoadmapRow tag="now" tone="ok" title="Threshold anomaly signals (live)" body="Rules flag chain-stall, indexer lag, failed backups, stale validators, firing alerts — the banner you already see." />
-          <RoadmapRow tag="next" tone="warn" title="Statistical baselining" body="Learn the normal range of each metric (rolling mean/stdev, Holt-Winters) and flag deviations even before a hard threshold — catches slow drifts early." />
-          <RoadmapRow tag="next" tone="warn" title="Predictive failure & capacity" body="Forecast disk/cert/backup-age exhaustion and the 1TB data-store fill date; predict when to scale validators or prune chain data — turn surprises into scheduled milestones." />
-          <RoadmapRow tag="later" tone="idle" title="Operator copilot (LLM)" body="Ask in plain English ('why is lag high?'), get auto incident summaries, and let it PROPOSE fixes through the existing propose-only Operations flow (human approves). Reads runbooks + live metrics." />
-          <RoadmapRow tag="later" tone="idle" title="Optimisation engine" body="Recommend RPC-cache tuning, validator fairness/load balancing, indexer throughput, and right-sized VPS specs from real traffic — actively make the registry faster/cheaper." />
-          <RoadmapRow tag="later" tone="idle" title="Supply-chain intelligence (domain)" body="Graph analytics on the palm-oil custody DAG: mass-balance / fraud detection, RSPO-cert coverage, plantation→refinery flow maps, ESG/compliance reports, demand forecasting — insights beyond ops." />
+          <RoadmapRow tag="live" tone="ok" title="Threshold anomaly signals" body="Chain-stall, indexer lag, failed backups, stale validators, firing alerts — the top banner. (Phase 0)" />
+          <RoadmapRow tag="live" tone="ok" title="Statistical baselining + forecasts" body="z-scores vs each metric's normal range (drift before a hard alert) and +1h projections — see the Insights screen. (Phase 1.1/1.2)" />
+          <RoadmapRow tag="live" tone="ok" title="Reliability: SLO + backup freshness" body="RPC success vs 99.9% target, live 5xx rate, and 'has each backup succeeded recently?'. (Phase 1.4)" />
+          <RoadmapRow tag="live" tone="ok" title="Optimisation engine" body="Cache hit-rate, validator proposing-fairness, and indexer batch-tuning hints from real traffic. (Phase 2)" />
+          <RoadmapRow tag="live" tone="ok" title="Capacity & milestones" body="Throughput & growth vs the measured ceiling and the 45-month projection — Insights → Capacity & growth. (Phase 3)" />
+          <RoadmapRow tag="live*" tone="ok" title="Operator copilot (LLM)" body="Ask in plain English; grounded in live state; points you to Operations for any action. *Needs an API key configured. (Phase 4)" />
+          <RoadmapRow tag="next" tone="idle" title="ML anomaly + real alert routing" body="Per-metric ML (Holt-Winters/Prophet) feeding Alertmanager → Slack/PagerDuty (currently stdout-only). (Phase 3.3)" />
+          <RoadmapRow tag="later" tone="idle" title="Supply-chain intelligence (domain)" body="Graph analytics on the palm-oil custody DAG: mass-balance/fraud detection, RSPO coverage, flow maps, ESG/compliance reports. (Phase 5)" />
           <p className="pt-1 text-mist-1/45">All action-taking stays human-approved via the propose-only model; AI suggests, operators decide.</p>
         </div>
       </Panel>

@@ -39,6 +39,10 @@ services:
       CONSOLE_CORS_ORIGIN: ${CONSOLE_CORS_ORIGIN:-https://console.platform.haratrust.io}
       LOG_LEVEL: ${CONSOLE_LOG_LEVEL:-info}
       AUDIT_PATH: /data/audit.jsonl
+      # Phase 4 copilot (optional) — set CONSOLE_COPILOT_API_KEY in the env to enable.
+      # Without it, /api/copilot returns 503 and the UI shows "not configured".
+      COPILOT_API_KEY: ${CONSOLE_COPILOT_API_KEY:-}
+      COPILOT_MODEL: ${CONSOLE_COPILOT_MODEL:-claude-3-5-haiku-latest}
     volumes:
       - console-audit:/data   # append-only P1 proposal audit log (persists across restarts)
 

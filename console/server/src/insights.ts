@@ -91,6 +91,22 @@ export interface Recommendation {
   text: string;
 }
 
+// ── Phase 3 — capacity & growth vs the projected workload ────────────────────
+export interface Capacity {
+  currentTps: number | null; // sustained on-chain event throughput
+  capacityTps: number; // measured ceiling (stress test)
+  headroomPct: number | null; // how much spare capacity
+  blocksPerDay: number | null;
+  chainHeight: number | null;
+  totalEvents: number | null;
+  // The 45-month nevacloud projection (doc/nevacloud-proposal.md):
+  horizonMonths: number;
+  targetBatches: number;
+  targetTransfers: number;
+  requiredAvgTps: number; // sustained TPS needed to meet the projection
+  notes: string[];
+}
+
 export interface Insights {
   generatedAt: string;
   baselines: Baseline[];
@@ -99,6 +115,7 @@ export interface Insights {
   slo: Slo;
   cacheHitPct: number | null;
   fairness: Fairness;
+  capacity: Capacity;
   recommendations: Recommendation[];
 }
 
@@ -174,6 +191,38 @@ export async function getInsights(nowMs: number): Promise<Insights> {
     /* skip */
   }
 
+  // 3.1 capacity & growth vs the 45-month projection
+  const HORIZON_MONTHS = 45;
+  const TARGET_BATCHES = 25000;
+  const TRANSFERS_PER_BATCH = 7000;
+  const CAPACITY_TPS = 361; // measured valid-run ceiling (state-4 §11)
+  const targetTransfers = TARGET_BATCHES * TRANSFERS_PER_BATCH; // 175M
+  const requiredAvgTps = targetTransfers / (HORIZON_MONTHS * 30 * 86400);
+  const [currentTps, blocksPerDay, chainHeight, totalEvents] = await Promise.all([
+    prom("sum(rate(hara_indexer_events_indexed_total[10m]))"),
+    prom("rate(ethereum_blockchain_height[1h]) * 86400"),
+    prom("max(ethereum_blockchain_height)"),
+    prom("sum(hara_indexer_events_indexed_total)"),
+  ]);
+  const headroomPct = currentTps != null ? Math.max(0, 100 * (1 - currentTps / CAPACITY_TPS)) : null;
+  const capacity: Capacity = {
+    currentTps,
+    capacityTps: CAPACITY_TPS,
+    headroomPct,
+    blocksPerDay,
+    chainHeight,
+    totalEvents,
+    horizonMonths: HORIZON_MONTHS,
+    targetBatches: TARGET_BATCHES,
+    targetTransfers,
+    requiredAvgTps,
+    notes: [
+      `Projection needs ~${requiredAvgTps.toFixed(1)} TPS sustained; measured ceiling is ${CAPACITY_TPS} TPS (${((1 - requiredAvgTps / CAPACITY_TPS) * 100).toFixed(0)}% headroom at projected average).`,
+      "Precise disk-fill date needs host (node_exporter) metrics, which aren't scraped yet — track chain growth as a proxy.",
+    ],
+  };
+  if (currentTps != null && currentTps > 0.8 * CAPACITY_TPS) recs.push({ area: "capacity", severity: "warn", text: `Throughput ${currentTps.toFixed(0)} TPS is within 20% of the measured ${CAPACITY_TPS} TPS ceiling — plan to scale the RPC/validator tier.` });
+
   // 2.4 indexer batch tuning
   const batch = baselines.find((b) => b.key === "batchMs");
   if (batch?.current != null && batch.current > 250) recs.push({ area: "services", severity: "info", text: `Indexer batch duration ~${batch.current.toFixed(0)}ms is high — consider a smaller batch size or more concurrency to keep lag low.` });
@@ -188,6 +237,7 @@ export async function getInsights(nowMs: number): Promise<Insights> {
     slo,
     cacheHitPct,
     fairness,
+    capacity,
     recommendations: recs,
   };
 }
