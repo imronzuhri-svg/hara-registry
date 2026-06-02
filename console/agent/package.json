@@ -3,21 +3,9 @@
   "private": true,
   "version": "0.0.1",
   "type": "module",
-  "description": "Read-only backups-status agent — reports this host's hara-*-snapshot timer status over the WG mesh.",
+  "description": "Read-only backups-status agent (dependency-free; plain node:http). Reports this host's hara-*-snapshot timer status.",
   "scripts": {
-    "start": "tsx src/index.ts",
-    "dev": "tsx watch src/index.ts",
-    "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "fastify": "^5.1.0",
-    "tsx": "^4.19.2"
-  },
-  "devDependencies": {
-    "@types/node": "^22.9.0",
-    "typescript": "^5.6.3"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": ["esbuild"]
+    "start": "node src/index.mjs",
+    "typecheck": "node --check src/index.mjs"
   }
 }

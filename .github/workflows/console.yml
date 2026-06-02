@@ -74,7 +74,7 @@ jobs:
         run: pnpm typecheck
 
   agent:
-    name: agent typecheck
+    name: agent check
     needs: changes
     if: needs.changes.outputs.console == 'true'
     runs-on: ubuntu-latest
@@ -83,18 +83,12 @@ jobs:
         working-directory: console/agent
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.33.2
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: pnpm
-          cache-dependency-path: console/agent/pnpm-lock.yaml
-      - name: Install
-        run: pnpm install --frozen-lockfile=false
-      - name: Typecheck
-        run: pnpm typecheck
+      # dependency-free agent — just syntax-check it
+      - name: Syntax check
+        run: node --check src/index.mjs
 
   # Stable, always-reporting status for branch protection.
   console-gate:
