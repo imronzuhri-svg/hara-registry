@@ -70,6 +70,13 @@ if [ ! -f "$ENV_FILE" ]; then
   echo "    VAULT_APPROLE_ID=...  VAULT_APPROLE_SECRET=...   # vault role (vault-snapshot AppRole)"
 fi
 
+# Snapshot scripts run as $RUN_USER and write under /var/backups/hara — make sure
+# it exists and is writable by that user (the validator snapshot silently failed
+# nightly with "mkdir: /var/backups/hara: Permission denied" until this landed).
+mkdir -p /var/backups/hara
+chown "$RUN_USER":"$RUN_USER" /var/backups/hara
+echo "▶ Ensured /var/backups/hara owned by $RUN_USER"
+
 # install_unit <name> <description> <oncalendar> <exec>
 install_unit() {
   local name="$1" desc="$2" oncal="$3" exec_cmd="$4"
