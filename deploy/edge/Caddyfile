@@ -122,3 +122,38 @@ trace.ledger.haratrust.io {
         format json
     }
 }
+
+# ── Strata Console (admin/monitoring, read-only P0) ──────────────────────────
+# console.platform.haratrust.io → web static (hara-console-web) + /api/* to the
+# read-only Console API (hara-console-api). See deploy/services/docker-compose.console.yml.
+#
+# GATING (P0): basic_auth stopgap — same on-host hash pattern as the trace site:
+#   PW=$(openssl rand -hex 12)
+#   docker exec hara-caddy caddy hash-password --plaintext "$PW"   # paste hash below
+# Production auth becomes Hara Numira (hara-did dSSO); this site should also be
+# reachable only over the WG/VPN. To hard-restrict by source IP, uncomment the
+# @offmesh matcher below (operators must then reach it via the mesh/VPN so their
+# source IP falls in range).
+console.platform.haratrust.io {
+    # @offmesh not remote_ip 10.43.0.0/24 <operator-vpn-cidr>
+    # respond @offmesh 403
+
+    basic_auth {
+        hara REPLACE_WITH_BCRYPT_HASH
+    }
+
+    handle /api/* {
+        reverse_proxy http://hara-console-api:8910
+    }
+    handle /healthz {
+        reverse_proxy http://hara-console-api:8910
+    }
+    handle {
+        reverse_proxy http://hara-console-web:80
+    }
+
+    log {
+        output file /var/log/caddy/console.access.log
+        format json
+    }
+}

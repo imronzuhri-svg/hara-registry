@@ -54,6 +54,23 @@ export interface AlertRow {
   state: string;
   startsAt: string;
 }
+export interface BackupTimer {
+  unit: string;
+  service: string | null;
+  nextRun: string | null;
+  lastRun: string | null;
+  result: string | null;
+  exitStatus: string | null;
+}
+export interface BackupHost {
+  host: string;
+  generatedAt: string;
+  timers: BackupTimer[];
+}
+export interface BackupsData {
+  hosts: BackupHost[];
+  unreachable: number;
+}
 
 export interface Overview {
   generatedAt: string;
@@ -64,7 +81,7 @@ export interface Overview {
   services: Section<ServicesData>;
   vault: Section<VaultData>;
   alerts: Section<AlertRow[]>;
-  backups: Section<unknown>;
+  backups: Section<BackupsData>;
 }
 
 export async function fetchOverview(signal?: AbortSignal): Promise<Overview> {

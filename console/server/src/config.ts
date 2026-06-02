@@ -26,9 +26,13 @@ export const config = {
   vaultAddr: env.VAULT_ADDR ?? "http://10.43.0.40:8200",
   haproxyStatsUrl: env.HAPROXY_STATS_URL ?? "http://10.43.0.21:8404/stats;csv",
   indexerMetricsUrl: env.INDEXER_METRICS_URL ?? "http://10.43.0.25:9100/metrics",
-  // Optional read-only agent that reports `systemctl list-timers` JSON across
-  // hosts (backups span hara-stateful + validators). Unset => backups unavailable.
-  backupsStatusUrl: env.BACKUPS_STATUS_URL ?? "",
+  // Read-only backups-status agents (one per host running snapshot timers —
+  // backups span hara-stateful + validators). Comma-separated. Empty => backups
+  // section reports unavailable.
+  backupsAgentUrls: (env.BACKUPS_AGENT_URLS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean),
 
   // per-upstream fetch timeout (ms) — fail fast so unreachable internal
   // sources don't stall the overview.

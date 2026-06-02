@@ -158,9 +158,33 @@ export async function getAlerts(): Promise<AlertInfo[]> {
   }));
 }
 
-export async function getBackups(): Promise<unknown> {
-  if (!config.backupsStatusUrl) throw new Error("no backups-status agent configured (set BACKUPS_STATUS_URL)");
-  const res = await fetchT(config.backupsStatusUrl);
-  if (!res.ok) throw new Error(`backups agent HTTP ${res.status}`);
-  return res.json();
+export interface BackupHost {
+  host: string;
+  generatedAt: string;
+  timers: Array<{
+    unit: string;
+    service: string | null;
+    nextRun: string | null;
+    lastRun: string | null;
+    result: string | null;
+    exitStatus: string | null;
+  }>;
+}
+
+/** Aggregate every backups-status agent; include reachable hosts, note the rest. */
+export async function getBackups(): Promise<{ hosts: BackupHost[]; unreachable: number }> {
+  if (config.backupsAgentUrls.length === 0)
+    throw new Error("no backups-status agents configured (set BACKUPS_AGENT_URLS)");
+
+  const settled = await Promise.allSettled(
+    config.backupsAgentUrls.map(async (url) => {
+      const res = await fetchT(url);
+      if (!res.ok) throw new Error(`agent HTTP ${res.status}`);
+      return (await res.json()) as BackupHost;
+    })
+  );
+  const hosts = settled.filter((s): s is PromiseFulfilledResult<BackupHost> => s.status === "fulfilled").map((s) => s.value);
+  const unreachable = settled.length - hosts.length;
+  if (hosts.length === 0) throw new Error(`no backups agents reachable (${unreachable} configured)`);
+  return { hosts, unreachable };
 }
