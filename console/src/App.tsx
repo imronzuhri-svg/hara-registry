@@ -585,7 +585,7 @@ function CopilotScreen() {
         help={<>Phase 4 — an assistant grounded in the live state (chain, validators, backups, vault, insights). It explains and recommends; it <b>cannot run anything</b> — when an action is needed it points you to the Operations tab. Answers are based only on current data.</>}
       >
         {configured === false ? (
-          <Muted text="Copilot isn't configured. Set CONSOLE_COPILOT_API_KEY (an Anthropic key) in the console API env and redeploy — then this becomes a live Q&A grounded in the platform's current state." />
+          <Muted text="Copilot isn't configured. Set CONSOLE_COPILOT_API_KEY (a Kimi/Moonshot API key) in the console API env and redeploy — then this becomes a live Q&A grounded in the platform's current state." />
         ) : (
           <>
             <div className="mb-3 flex flex-wrap gap-2">

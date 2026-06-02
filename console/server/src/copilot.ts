@@ -3,12 +3,15 @@
 // when an action is warranted it tells the operator what to do in the Operations
 // tab (propose-only) — it never executes or claims to have changed anything.
 //
-// Requires COPILOT_API_KEY (Anthropic). Without it, /api/copilot returns 503.
+// Requires COPILOT_API_KEY. Default provider = Kimi / Moonshot (OpenAI-compatible
+// Chat Completions). Without a key, /api/copilot returns 503.
 import { fetchT } from "./rpc.js";
 import { getInsights } from "./insights.js";
 import { getChain, getValidators, getBackups, getVault } from "./sources.js";
 
-const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
+// OpenAI-compatible base. Kimi/Moonshot by default; override COPILOT_BASE_URL
+// for any other OpenAI-compatible provider.
+const BASE_URL = (process.env.COPILOT_BASE_URL || "https://api.moonshot.ai/v1").replace(/\/$/, "");
 
 const SYSTEM = `You are "Strata", the read-only operations copilot for the Hara Registry platform —
 a permissioned Hyperledger Besu (QBFT) blockchain for palm-oil supply-chain traceability with
@@ -33,7 +36,7 @@ export interface CopilotAnswer {
 export async function askCopilot(question: string, nowMs: number): Promise<CopilotAnswer> {
   const key = process.env.COPILOT_API_KEY;
   if (!key) throw new Error("copilot not configured — set COPILOT_API_KEY on the console API");
-  const model = process.env.COPILOT_MODEL || "claude-3-5-haiku-latest";
+  const model = process.env.COPILOT_MODEL || "kimi-k2.6";
 
   // Assemble a compact live-state context.
   const [insights, chain, validators, backups, vault] = await Promise.all([
@@ -58,33 +61,28 @@ export async function askCopilot(question: string, nowMs: number): Promise<Copil
     },
   };
 
+  // OpenAI-compatible Chat Completions (Kimi/Moonshot).
   const body = {
     model,
     max_tokens: 800,
-    system: SYSTEM,
+    temperature: 0.3,
     messages: [
-      {
-        role: "user",
-        content: `LIVE STATE (JSON):\n${JSON.stringify(state)}\n\nOPERATOR QUESTION: ${question}`,
-      },
+      { role: "system", content: SYSTEM },
+      { role: "user", content: `LIVE STATE (JSON):\n${JSON.stringify(state)}\n\nOPERATOR QUESTION: ${question}` },
     ],
   };
 
   const res = await fetchT(
-    ANTHROPIC_URL,
+    `${BASE_URL}/chat/completions`,
     {
       method: "POST",
-      headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
       body: JSON.stringify(body),
     },
     30000
   );
   if (!res.ok) throw new Error(`LLM HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
-  const j = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
-  const answer = (j.content ?? [])
-    .filter((c) => c.type === "text")
-    .map((c) => c.text)
-    .join("\n")
-    .trim();
+  const j = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+  const answer = (j.choices?.[0]?.message?.content ?? "").trim();
   return { answer: answer || "(no answer)", model };
 }
