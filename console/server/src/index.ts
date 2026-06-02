@@ -15,6 +15,7 @@ import { buildProposal } from "./proposals.js";
 import { recordProposal, readAudit } from "./audit.js";
 import { getRange, getAnomalies, SERIES } from "./metrics.js";
 import { createSilence, listSilences, deleteSilence } from "./alerts.js";
+import { getInsights } from "./insights.js";
 
 // Each section is wrapped so one unreachable source (e.g. an internal mesh
 // service in dev) reports {available:false} instead of failing the whole page.
@@ -105,6 +106,9 @@ app.get("/api/metrics/range", async (req, reply) => {
 });
 
 app.get("/api/anomalies", async () => ({ generatedAt: new Date().toISOString(), anomalies: await getAnomalies(Date.now()) }));
+
+// Intelligence — Phase 1 (reliability) + Phase 2 (optimisation), read-only.
+app.get("/api/insights", async () => getInsights(Date.now()));
 
 // ── Alert silences (acknowledge / ignore) ───────────────────────────────────
 app.get("/api/alerts/silences", async () => ({ silences: await listSilences() }));
