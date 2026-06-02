@@ -1,24 +1,18 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 
-// Dev-only proxy so the browser can hit the public RPC without CORS.
-// In production the Console API serves these paths (the SPA stays origin-relative).
-// Override the upstream with VITE_RPC_UPSTREAM in console/.env if needed.
+// Dev: proxy /api -> the local Console API (read-only aggregator).
+// Run the API alongside: `pnpm --dir server start` (defaults to :8910).
+// In production the SPA + API are served same-origin, so no proxy is needed.
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, ".", "");
-  const upstream = env.VITE_RPC_UPSTREAM || "https://rpc.ledger.haratrust.io";
+  const apiUpstream = env.VITE_API_UPSTREAM || "http://localhost:8910";
   return {
     plugins: [react()],
     server: {
       port: 5273,
       proxy: {
-        // /rpc/read/ -> https://rpc.ledger.haratrust.io/read/
-        "/rpc": {
-          target: upstream,
-          changeOrigin: true,
-          secure: true,
-          rewrite: (p) => p.replace(/^\/rpc/, ""),
-        },
+        "/api": { target: apiUpstream, changeOrigin: true },
       },
     },
   };

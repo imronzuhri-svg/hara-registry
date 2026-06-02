@@ -12,20 +12,32 @@ P1+ (and the codebase extracts to a private repo at that point).
 - Tailwind (Strata theme tokens in `tailwind.config.ts`, sourced from `doc/design`)
 - `viem` (chain reads; richer use in later phases)
 
-## Run
+## Layout
+
+- `console/` — the web SPA (this package)
+- `console/server/` — the **Console API** (Fastify), a read-only aggregator that
+  exposes `GET /api/overview` (chain, validators, accounts/watchlist, RPC tier,
+  services, vault seal, alerts, backups). See `server/` for config.
+
+## Run (web + API)
 
 ```bash
-cd console
-pnpm install
-cp .env.example .env      # optional; defaults work
-pnpm dev                  # http://localhost:5273
+# 1) Console API (read-only aggregator)
+cd console/server && pnpm install && pnpm start    # http://localhost:8910
+
+# 2) Web (in another shell)
+cd console && pnpm install
+cp .env.example .env        # optional; defaults work
+pnpm dev                    # http://localhost:5273  (proxies /api -> :8910)
 ```
 
-The dev server proxies `/rpc/*` to the public gateway (`VITE_RPC_UPSTREAM`) so
-the browser avoids CORS. The **Chain** panel is wired live (chainId, latest
-block, rough block time); the other panels are styled placeholders labelled with
-the P0 sub-phase that will wire them (`P0.2` host/RPC/service health via the
-Console API, `P0.3` backups/vault/alerts/watchlist).
+**What's live in dev:** chain, validators, and the account watchlist read live
+through the API (which talks to the public RPC). The internal-mesh sources
+(RPC-tier/HAProxy, services/indexer-lag, Vault seal, Alertmanager) show
+`unavailable` from a laptop and resolve automatically when the API runs on the
+WireGuard mesh (hara-stateless-2). Backups need a small status agent
+(`BACKUPS_STATUS_URL`). Every section degrades independently — one unreachable
+source never blanks the page.
 
 ## Build / typecheck
 
