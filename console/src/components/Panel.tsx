@@ -1,27 +1,50 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 export function Panel({
   title,
   subtitle,
   status,
+  help,
   children,
 }: {
   title: string;
   subtitle?: string;
   status?: ReactNode;
+  /** Plain-language explanation shown when the "?" is clicked. */
+  help?: ReactNode;
   children: ReactNode;
 }) {
+  const [showHelp, setShowHelp] = useState(false);
   return (
     <section className="rounded-2xl border border-ink-700 bg-ink-800 p-5 shadow-panel">
       <header className="mb-4 flex items-start justify-between gap-3">
-        <div>
-          <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-mist-1">
-            {title}
-          </h2>
-          {subtitle && <p className="mt-0.5 text-xs text-mist-1/50">{subtitle}</p>}
+        <div className="flex items-start gap-2">
+          <div>
+            <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-mist-1">
+              {title}
+            </h2>
+            {subtitle && <p className="mt-0.5 text-xs text-mist-1/50">{subtitle}</p>}
+          </div>
+          {help && (
+            <button
+              onClick={() => setShowHelp((v) => !v)}
+              aria-label="What is this?"
+              title="What is this?"
+              className={`mt-0.5 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold ring-1 ${
+                showHelp ? "bg-brand-blue text-white ring-brand-blue" : "text-mist-1/50 ring-ink-700 hover:text-brand-teal hover:ring-brand-teal/50"
+              }`}
+            >
+              ?
+            </button>
+          )}
         </div>
         {status}
       </header>
+      {help && showHelp && (
+        <div className="mb-4 rounded-lg border border-brand-blue/20 bg-brand-blue/5 p-3 text-xs leading-relaxed text-mist-1/80">
+          {help}
+        </div>
+      )}
       {children}
     </section>
   );

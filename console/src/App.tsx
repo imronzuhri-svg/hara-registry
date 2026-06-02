@@ -7,7 +7,7 @@ import { TimeSeries } from "./components/TimeSeries";
 import { useOverview } from "./hooks/useOverview";
 import { fetchAnomalies, fetchSilences, silenceAlert, unsilence, ago, rel, type Anomaly, type Section, type Silence } from "./lib/api";
 
-type View = "dashboard" | "chain" | "validators" | "rpc" | "services" | "alerts" | "backups" | "vault" | "operations" | "audit";
+type View = "dashboard" | "chain" | "validators" | "rpc" | "services" | "alerts" | "backups" | "vault" | "operations" | "audit" | "help";
 
 const NAV: { item: string; view: View }[] = [
   { item: "Dashboard", view: "dashboard" },
@@ -20,9 +20,54 @@ const NAV: { item: string; view: View }[] = [
   { item: "Vault", view: "vault" },
   { item: "Treasury · Governance (Ops)", view: "operations" },
   { item: "Audit Log", view: "audit" },
+  { item: "Help & Guide", view: "help" },
 ];
 
 const shortAddr = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
+
+// Plain-language help for each panel (shown via the "?" toggle).
+const HELP: Record<string, ReactNode> = {
+  chain: (
+    <>
+      <b>What it is:</b> the blockchain itself — every transaction lands here. <b>Watch:</b> "Latest block" should keep climbing and "Block time" should stay near ~2s. <b>Good:</b> block time steady ~2s. <b>Bad:</b> block time growing or block number frozen = the chain is stalling.
+    </>
+  ),
+  validators: (
+    <>
+      <b>What it is:</b> the 4 computers that take turns producing & signing blocks (QBFT). The chain needs <b>3 of 4</b> healthy. <b>Watch:</b> each should say "proposing"; "stale" means one stopped taking its turn. <b>Good:</b> all 4 proposing, peers ≈ healthy. <b>Bad:</b> 2+ stale = the chain can halt.
+    </>
+  ),
+  rpc: (
+    <>
+      <b>What it is:</b> the front door apps use to read/write the chain (load balancer + nodes). <b>Watch:</b> "UP", request rate, and 5xx (errors). <b>Good:</b> UP, syncing "no", 0 errors. <b>Bad:</b> rising 5xx or syncing "yes" for long = clients getting errors/stale reads.
+    </>
+  ),
+  services: (
+    <>
+      <b>What it is:</b> the indexer that reads the chain into the database powering the explorer & traceability API. <b>Watch:</b> "Indexer lag" (how many blocks behind). <b>Good:</b> lag 0–2. <b>Bad:</b> lag climbing = the API/explorer is showing stale data.
+    </>
+  ),
+  accounts: (
+    <>
+      <b>What it is:</b> the funded accounts we care about (admin, deployers, partners). <b>Why:</b> on this free-gas chain a <b>zero-balance</b> account silently can't send — its transactions vanish. <b>Watch:</b> a red "ZERO" tag = fund it before that account is used.
+    </>
+  ),
+  vault: (
+    <>
+      <b>What it is:</b> the secure store for all keys/secrets. After any restart it must be "unsealed" with 3 of 5 keys. <b>Watch:</b> seal status. <b>Good:</b> "unsealed". <b>Bad:</b> "SEALED" = services can't fetch secrets until an operator unseals it.
+    </>
+  ),
+  backups: (
+    <>
+      <b>What it is:</b> nightly encrypted backups shipped off-site (Postgres, Vault, each validator). <b>Watch:</b> the result tag + "last run". <b>Good:</b> all "success" with a recent last-run. <b>Bad:</b> "exit-code" = that backup failed; check it didn't silently stop protecting you.
+    </>
+  ),
+  alerts: (
+    <>
+      <b>What it is:</b> automated warnings from the monitoring system. They <b>clear themselves</b> when the problem resolves — no need to mark them done. <b>To quiet one</b> during planned work, use "mute 1h/24h" (it shows under Silences). <b>Severity:</b> critical = act now; warning = look soon.
+    </>
+  ),
+};
 
 function S<T>({ section, children }: { section: Section<T> | undefined; children: (d: T) => ReactNode }) {
   if (!section) return <Muted text="connecting…" />;
@@ -109,6 +154,7 @@ export default function App() {
           {active === "vault" && <VaultScreen data={data} />}
           {active === "operations" && <Operations />}
           {active === "audit" && <AuditLog />}
+          {active === "help" && <HelpScreen onJump={setActive} />}
         </main>
       </div>
     </div>
@@ -153,7 +199,7 @@ function AnomalyBanner({ onJump }: { onJump: (v: View) => void }) {
 // ── Reusable panels ──────────────────────────────────────────────────────────
 function ChainPanel({ data }: { data: OverviewData }) {
   return (
-    <Panel title="Chain" subtitle="QBFT · Besu" status={sectionPill(data?.chain)}>
+    <Panel title="Chain" subtitle="QBFT · Besu" status={sectionPill(data?.chain)} help={HELP.chain}>
       <S section={data?.chain}>
         {(c) => (
           <div className="grid grid-cols-2 gap-4">
@@ -169,7 +215,7 @@ function ChainPanel({ data }: { data: OverviewData }) {
 }
 function ValidatorsPanel({ data }: { data: OverviewData }) {
   return (
-    <Panel title="Validators" subtitle="QBFT · quorum 3/4" status={sectionPill(data?.validators)}>
+    <Panel title="Validators" subtitle="QBFT · quorum 3/4" status={sectionPill(data?.validators)} help={HELP.validators}>
       <S section={data?.validators}>
         {(v) => (
           <ul className="space-y-2">
@@ -191,7 +237,7 @@ function ValidatorsPanel({ data }: { data: OverviewData }) {
 }
 function RpcPanel({ data }: { data: OverviewData }) {
   return (
-    <Panel title="RPC Tier" subtitle="hara-rpc-1 · LB endpoint" status={sectionPill(data?.rpcTier)}>
+    <Panel title="RPC Tier" subtitle="hara-rpc-1 · LB endpoint" status={sectionPill(data?.rpcTier)} help={HELP.rpc}>
       <S section={data?.rpcTier}>
         {(r) => (
           <div className="grid grid-cols-2 gap-4">
@@ -207,7 +253,7 @@ function RpcPanel({ data }: { data: OverviewData }) {
 }
 function ServicesPanel({ data }: { data: OverviewData }) {
   return (
-    <Panel title="Services" subtitle="indexer lag" status={sectionPill(data?.services)}>
+    <Panel title="Services" subtitle="indexer lag" status={sectionPill(data?.services)} help={HELP.services}>
       <S section={data?.services}>
         {(s) => (
           <div className="grid grid-cols-2 gap-4">
@@ -222,7 +268,7 @@ function ServicesPanel({ data }: { data: OverviewData }) {
 }
 function AccountsPanel({ data }: { data: OverviewData }) {
   return (
-    <Panel title="Account Watchlist" subtitle="zero-balance guard" status={sectionPill(data?.accounts)}>
+    <Panel title="Account Watchlist" subtitle="zero-balance guard" status={sectionPill(data?.accounts)} help={HELP.accounts}>
       <S section={data?.accounts}>
         {(rows) => (
           <ul className="space-y-2">
@@ -245,7 +291,7 @@ function AccountsPanel({ data }: { data: OverviewData }) {
 }
 function VaultPanel({ data }: { data: OverviewData }) {
   return (
-    <Panel title="Vault" subtitle="Raft · 3-of-5 unseal" status={sectionPill(data?.vault)}>
+    <Panel title="Vault" subtitle="Raft · 3-of-5 unseal" status={sectionPill(data?.vault)} help={HELP.vault}>
       <S section={data?.vault}>
         {(v) => (
           <div className="grid grid-cols-2 gap-4">
@@ -260,7 +306,7 @@ function VaultPanel({ data }: { data: OverviewData }) {
 }
 function BackupsPanel({ data }: { data: OverviewData }) {
   return (
-    <Panel title="Backups & DR" subtitle="age + rclone → S3" status={sectionPill(data?.backups)}>
+    <Panel title="Backups & DR" subtitle="age + rclone → S3" status={sectionPill(data?.backups)} help={HELP.backups}>
       <S section={data?.backups}>
         {(b) => (
           <ul className="space-y-2">
@@ -316,7 +362,7 @@ function SilenceButtons({ alertname }: { alertname: string }) {
 
 function AlertsPanel({ data, silenceable = false }: { data: OverviewData; silenceable?: boolean }) {
   return (
-    <Panel title="Alerts" subtitle="Alertmanager · auto-resolves when cleared" status={sectionPill(data?.alerts)}>
+    <Panel title="Alerts" subtitle="Alertmanager · auto-resolves when cleared" status={sectionPill(data?.alerts)} help={HELP.alerts}>
       <S section={data?.alerts}>
         {(rows) =>
           rows.length === 0 ? (
@@ -485,6 +531,93 @@ function VaultScreen({ data }: { data: OverviewData }) {
     </>
   );
 }
+function HelpScreen({ onJump }: { onJump: (v: View) => void }) {
+  const areas: { view: View; title: string; key: string }[] = [
+    { view: "chain", title: "Chain", key: "chain" },
+    { view: "validators", title: "Validators", key: "validators" },
+    { view: "rpc", title: "RPC Tier", key: "rpc" },
+    { view: "services", title: "Services / Indexer", key: "services" },
+    { view: "dashboard", title: "Account Watchlist", key: "accounts" },
+    { view: "vault", title: "Vault", key: "vault" },
+    { view: "backups", title: "Backups & DR", key: "backups" },
+    { view: "alerts", title: "Alerts", key: "alerts" },
+  ];
+  return (
+    <div className="space-y-5">
+      <Panel title="What this console is" subtitle="read me first">
+        <div className="space-y-2 text-sm text-mist-1/80">
+          <p>
+            Strata is the single place to see whether Hara Registry is healthy and to run common operations safely. It only <b>reads</b> and <b>shows</b> — for privileged actions it builds the exact command for an operator to run (it never holds keys).
+          </p>
+          <p>
+            <b>Colour code everywhere:</b> <span className="text-brand-teal">teal = healthy/live</span>, <span className="text-accent-orange">amber = warning, look soon</span>, <span className="text-red-400">red = problem, act now</span>, grey = no data / idle.
+          </p>
+          <p>
+            <b>Two ways trouble surfaces:</b> the <b>anomaly banner</b> at the top (plain-language signals, auto-clears when resolved) and the <b>Alerts</b> screen (from the monitoring rules). Each panel has a <span className="font-bold text-brand-teal">?</span> button explaining what to look at.
+          </p>
+        </div>
+      </Panel>
+
+      <Panel title="Area-by-area guide" subtitle="what each screen tells you">
+        <ul className="space-y-3 text-xs leading-relaxed text-mist-1/80">
+          {areas.map((a) => (
+            <li key={a.title} className="rounded-lg bg-ink-900/50 p-3">
+              <button onClick={() => onJump(a.view)} className="font-display text-sm font-semibold text-brand-teal hover:underline">
+                {a.title} →
+              </button>
+              <div className="mt-1">{HELP[a.key]}</div>
+            </li>
+          ))}
+        </ul>
+      </Panel>
+
+      <Panel title="Glossary" subtitle="plain language">
+        <dl className="grid grid-cols-1 gap-2 text-xs text-mist-1/80 md:grid-cols-2">
+          {[
+            ["Validator / QBFT", "The 4 machines that take turns making blocks and vote to agree. Need 3 of 4 working."],
+            ["Block / block time", "A batch of transactions added every ~2 seconds. Steady block time = healthy chain."],
+            ["RPC", "The API apps use to talk to the chain — reads and writes go through a load balancer."],
+            ["Indexer lag", "How many blocks behind the database is vs the chain. Low = the explorer/API is current."],
+            ["Vault seal", "Vault locks its keys when restarted; an operator 'unseals' it with 3 of 5 key shares."],
+            ["Anomaly", "An automatic plain-language signal that a number crossed a healthy threshold. Self-clears."],
+            ["Alert / silence", "A monitoring warning (auto-resolves). 'Silence' = mute it for a window during planned work."],
+            ["Free-gas / zero-balance", "Transactions are free, but a 0-balance account still can't send — fund it first."],
+          ].map(([t, d]) => (
+            <div key={t} className="rounded-lg bg-ink-900/50 p-2">
+              <dt className="font-semibold text-mist-1">{t}</dt>
+              <dd className="text-mist-1/60">{d}</dd>
+            </div>
+          ))}
+        </dl>
+      </Panel>
+
+      <Panel title="Intelligence roadmap" subtitle="future AI / analytics on this data" help={<>This is where the console goes next: layering analysis on top of the live numbers — not just "is it up?" but "what should we do, what's coming, and what's interesting?". Full detail in <code>doc/registry-console-intelligence-roadmap.md</code>.</>}>
+        <div className="space-y-3 text-xs leading-relaxed text-mist-1/80">
+          <RoadmapRow tag="now" tone="ok" title="Threshold anomaly signals (live)" body="Rules flag chain-stall, indexer lag, failed backups, stale validators, firing alerts — the banner you already see." />
+          <RoadmapRow tag="next" tone="warn" title="Statistical baselining" body="Learn the normal range of each metric (rolling mean/stdev, Holt-Winters) and flag deviations even before a hard threshold — catches slow drifts early." />
+          <RoadmapRow tag="next" tone="warn" title="Predictive failure & capacity" body="Forecast disk/cert/backup-age exhaustion and the 1TB data-store fill date; predict when to scale validators or prune chain data — turn surprises into scheduled milestones." />
+          <RoadmapRow tag="later" tone="idle" title="Operator copilot (LLM)" body="Ask in plain English ('why is lag high?'), get auto incident summaries, and let it PROPOSE fixes through the existing propose-only Operations flow (human approves). Reads runbooks + live metrics." />
+          <RoadmapRow tag="later" tone="idle" title="Optimisation engine" body="Recommend RPC-cache tuning, validator fairness/load balancing, indexer throughput, and right-sized VPS specs from real traffic — actively make the registry faster/cheaper." />
+          <RoadmapRow tag="later" tone="idle" title="Supply-chain intelligence (domain)" body="Graph analytics on the palm-oil custody DAG: mass-balance / fraud detection, RSPO-cert coverage, plantation→refinery flow maps, ESG/compliance reports, demand forecasting — insights beyond ops." />
+          <p className="pt-1 text-mist-1/45">All action-taking stays human-approved via the propose-only model; AI suggests, operators decide.</p>
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+function RoadmapRow({ tag, tone, title, body }: { tag: string; tone: "ok" | "warn" | "idle"; title: string; body: string }) {
+  return (
+    <div className="rounded-lg bg-ink-900/50 p-3">
+      <div className="mb-1 flex items-center gap-2">
+        <StatusPill tone={tone} label={tag} />
+        <span className="font-display text-sm font-semibold text-mist-0">{title}</span>
+      </div>
+      <p className="text-mist-1/65">{body}</p>
+    </div>
+  );
+}
+
 function BackupsScreen({ data }: { data: OverviewData }) {
   return (
     <>
