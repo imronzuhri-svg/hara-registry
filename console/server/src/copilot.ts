@@ -80,7 +80,7 @@ export async function askCopilot(question: string, nowMs: number): Promise<Copil
       headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
       body: JSON.stringify(body),
     },
-    30000
+    120000 // kimi-k2.6 can take >30s to generate with the full grounded context
   );
   if (!res.ok) throw new Error(`LLM HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const j = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
