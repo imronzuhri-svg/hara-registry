@@ -13,6 +13,7 @@ import {
 } from "./sources.js";
 import { buildProposal } from "./proposals.js";
 import { recordProposal, readAudit } from "./audit.js";
+import { getRange, getAnomalies, SERIES } from "./metrics.js";
 
 // Each section is wrapped so one unreachable source (e.g. an internal mesh
 // service in dev) reports {available:false} instead of failing the whole page.
@@ -86,6 +87,23 @@ app.get("/api/audit", async (req) => {
   const limit = Number((req.query as { limit?: string }).limit ?? 100);
   return { entries: await readAudit(limit) };
 });
+
+// ── Time-series + anomalies ──────────────────────────────────────────────────
+app.get("/api/metrics/series", async () =>
+  Object.entries(SERIES).map(([name, d]) => ({ name, unit: d.unit, label: d.label }))
+);
+
+app.get("/api/metrics/range", async (req, reply) => {
+  const q = req.query as { series?: string; minutes?: string };
+  if (!q.series) return reply.code(400).send({ error: "series required" });
+  try {
+    return await getRange(q.series, Number(q.minutes ?? 60), Date.now());
+  } catch (e) {
+    return reply.code(400).send({ error: (e as Error).message });
+  }
+});
+
+app.get("/api/anomalies", async () => ({ anomalies: await getAnomalies(Date.now()) }));
 
 app
   .listen({ port: config.port, host: "0.0.0.0" })

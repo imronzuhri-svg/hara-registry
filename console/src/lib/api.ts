@@ -130,6 +130,35 @@ export async function fetchAudit(limit = 100): Promise<AuditEntry[]> {
   return ((await res.json()) as { entries: AuditEntry[] }).entries;
 }
 
+// ── Time-series + anomalies ──────────────────────────────────────────────────
+export interface RangePoint {
+  t: number;
+  v: number;
+}
+export interface RangeSeries {
+  name: string;
+  unit: string;
+  label: string;
+  points: RangePoint[];
+}
+export interface Anomaly {
+  area: string;
+  level: "info" | "warn" | "critical";
+  message: string;
+}
+
+export async function fetchRange(series: string, minutes = 60): Promise<RangeSeries> {
+  const res = await fetch(`${API_BASE}/metrics/range?series=${series}&minutes=${minutes}`);
+  if (!res.ok) throw new Error(`metrics HTTP ${res.status}`);
+  return (await res.json()) as RangeSeries;
+}
+
+export async function fetchAnomalies(): Promise<Anomaly[]> {
+  const res = await fetch(`${API_BASE}/anomalies`);
+  if (!res.ok) throw new Error(`anomalies HTTP ${res.status}`);
+  return ((await res.json()) as { anomalies: Anomaly[] }).anomalies;
+}
+
 export const CONTRACT_ROLES: Record<string, string[]> = {
   HaraPalmOil: ["MINTER_ROLE", "CERTIFIER_ROLE", "DEFAULT_ADMIN_ROLE"],
   PQAnchorRegistry: ["ANCHOR_ROLE", "KEY_ROTATOR_ROLE", "DEFAULT_ADMIN_ROLE"],
