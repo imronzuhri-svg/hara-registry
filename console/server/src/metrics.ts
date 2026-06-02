@@ -104,7 +104,8 @@ export async function getAnomalies(nowMs: number): Promise<Anomaly[]> {
     for (const h of b.hosts) {
       for (const t of h.timers) {
         if (t.lastRun && t.result && t.result !== "success") {
-          out.push({ area: "backups", level: "warn", message: `${t.unit} on ${h.host} last result: ${t.result}.` });
+          const when = new Date(t.lastRun).toISOString().replace("T", " ").slice(0, 16);
+          out.push({ area: "backups", level: "warn", message: `${t.unit} on ${h.host} last result: ${t.result} (last run ${when}Z; next run will retry).` });
         }
       }
     }

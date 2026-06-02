@@ -5,7 +5,7 @@ import { Operations } from "./components/Operations";
 import { AuditLog } from "./components/AuditLog";
 import { TimeSeries } from "./components/TimeSeries";
 import { useOverview } from "./hooks/useOverview";
-import { fetchAnomalies, fetchSilences, silenceAlert, unsilence, ago, type Anomaly, type Section, type Silence } from "./lib/api";
+import { fetchAnomalies, fetchSilences, silenceAlert, unsilence, ago, rel, type Anomaly, type Section, type Silence } from "./lib/api";
 
 type View = "dashboard" | "chain" | "validators" | "rpc" | "services" | "alerts" | "backups" | "vault" | "operations" | "audit";
 
@@ -266,9 +266,13 @@ function BackupsPanel({ data }: { data: OverviewData }) {
           <ul className="space-y-2">
             {b.hosts.flatMap((h) =>
               h.timers.map((t) => (
-                <li key={`${h.host}/${t.unit}`} className="flex items-center justify-between rounded-lg bg-ink-900/60 px-3 py-2 text-sm">
-                  <span>
+                <li key={`${h.host}/${t.unit}`} className="flex items-center justify-between gap-3 rounded-lg bg-ink-900/60 px-3 py-2 text-sm">
+                  <span className="min-w-0">
                     <span className="text-mist-1/80">{t.unit.replace(/\.timer$/, "")}</span> <span className="text-xs text-mist-1/40">@ {h.host}</span>
+                    <span className="mt-0.5 block text-xs text-mist-1/40">
+                      last run <span title={t.lastRun ?? ""}>{t.lastRun ? ago(t.lastRun) : "never"}</span>
+                      {" · next "}<span title={t.nextRun ?? ""}>{rel(t.nextRun)}</span>
+                    </span>
                   </span>
                   <StatusPill tone={t.result === "success" ? "ok" : t.lastRun ? "down" : "idle"} label={t.result ?? "scheduled"} />
                 </li>
