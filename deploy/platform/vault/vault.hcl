@@ -24,6 +24,13 @@ listener "tcp" {
   address     = "0.0.0.0:8200"
   tls_disable = true  # Caddy terminates TLS at the edge; Vault is mesh-internal.
 
+  # Allow Prometheus to scrape /v1/sys/metrics without a token. Safe because the
+  # listener is mesh-internal (WireGuard only) and metrics expose no secrets —
+  # just operational counters + seal status. Avoids persisting a scrape token.
+  telemetry {
+    unauthenticated_metrics_access = true
+  }
+
   # When we move to multi-node HA, replace tls_disable=true with proper
   # client cert auth on a separate internal port (8201) for raft peers.
 }
