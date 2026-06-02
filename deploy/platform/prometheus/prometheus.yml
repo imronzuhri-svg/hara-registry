@@ -2,8 +2,8 @@ global:
   scrape_interval: 10s
   evaluation_interval: 10s
   external_labels:
-    cluster: hara-registry-local
-    phase: P0
+    cluster: hara-registry-prod
+    phase: production
 
 rule_files:
   - /etc/prometheus/rules/alert_rules.yml
@@ -11,84 +11,51 @@ rule_files:
 alerting:
   alertmanagers:
     - static_configs:
-        - targets:
-            - alertmanager:9093
+        - targets: ['alertmanager:9093']
 
+# Split-topology note: cross-host targets are reached over the WireGuard mesh
+# (10.43.0.0/24). Besu/HAProxy metrics are exposed by tiny socat sidecars on
+# each host's wg0 IP (see deploy/ops/install-metrics-proxies.sh) — the besu/
+# haproxy processes already serve metrics on the docker bridge; the sidecars
+# just publish them to the mesh without restarting anything. Same-host services
+# (indexer/blockscout) are reached by container name on hara-platform.
 scrape_configs:
-  # Besu validators
   - job_name: besu-validators
     static_configs:
-      - targets:
-          - validator1:9545
-          - validator2:9545
-          - validator3:9545
-          - validator4:9545
-        labels:
-          role: validator
-          tier: chain
-
-  # Besu RPC tier (split per L1)
-  - job_name: besu-rpc-read
-    static_configs:
-      - targets:
-          - rpc-read-1:9545
-          - rpc-read-2:9545
-        labels:
-          role: rpc
-          mode: read
-          tier: rpc
+      - targets: ['10.43.0.11:9545','10.43.0.12:9545','10.43.0.13:9545','10.43.0.14:9545']
+        labels: { role: validator, tier: chain }
 
   - job_name: besu-rpc-write
     static_configs:
-      - targets:
-          - rpc-write:9545
-        labels:
-          role: rpc
-          mode: write
-          tier: rpc
+      - targets: ['10.43.0.21:9545']
+        labels: { role: rpc, mode: write, tier: rpc }
+  - job_name: besu-rpc-read
+    static_configs:
+      - targets: ['10.43.0.21:9546','10.43.0.21:9547']
+        labels: { role: rpc, mode: read, tier: rpc }
 
-  # HAProxy load balancer — built-in /metrics endpoint
   - job_name: haproxy
     metrics_path: /metrics
     static_configs:
-      - targets:
-          - lb:8404
-        labels:
-          role: lb
-          tier: edge
+      - targets: ['10.43.0.21:8404']
+        labels: { role: lb, tier: edge }
 
-  # Indexer (L3)
+  # Vault telemetry — needs a sys/metrics scrape token. Add this job once the
+  # operator drops a 0600 token file and mounts it; kept out of git to avoid a
+  # persisted secret:
+  #   - job_name: vault
+  #     metrics_path: /v1/sys/metrics
+  #     params: { format: ['prometheus'] }
+  #     authorization: { credentials_file: /etc/prometheus/vault-token }
+  #     static_configs: [{ targets: ['10.43.0.40:8200'], labels: { role: vault, tier: platform } }]
+
   - job_name: indexer
     metrics_path: /metrics
     static_configs:
-      - targets:
-          - indexer:9100
-        labels:
-          role: indexer
-          tier: services
-
-  # Blockscout backend (L5) — Phoenix prometheus_telemetry plugin
+      - targets: ['indexer:9100']
+        labels: { role: indexer, tier: services }
   - job_name: blockscout
     metrics_path: /metrics
     static_configs:
-      - targets:
-          - blockscout:4000
-        labels:
-          role: blockscout
-          tier: services
-          project: hara-registry
-
-  # RPC read cache — hit/miss rate, upstream latency, key count
-  - job_name: rpc-cache
-    metrics_path: /metrics
-    static_configs:
-      - targets:
-          - rpc-cache:8080
-        labels:
-          role: rpc-cache
-          tier: services
-          project: hara-registry
-
-  - job_name: prometheus
-    static_configs:
-      - targets: ["localhost:9090"]
+      - targets: ['blockscout:4000']
+        labels: { role: blockscout, tier: services }

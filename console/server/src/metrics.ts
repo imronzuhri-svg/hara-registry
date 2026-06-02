@@ -22,6 +22,16 @@ export const SERIES: Record<string, SeriesDef> = {
   indexerMem: { promql: "hara_indexer_process_resident_memory_bytes", unit: "bytes", label: "Indexer memory" },
   eventloopP90: { promql: "hara_indexer_nodejs_eventloop_lag_p90_seconds", unit: "s", label: "Event-loop lag p90" },
   alertsFiring: { promql: 'count(ALERTS{alertstate="firing"})', unit: "count", label: "Firing alerts" },
+  // Besu (validators) — via the wg0:9545 metrics proxies
+  validatorPeers: { promql: 'avg(ethereum_peer_count{role="validator"})', unit: "peers", label: "Validator peers (avg)" },
+  validatorHeight: { promql: 'max(ethereum_blockchain_height{role="validator"})', unit: "block", label: "Validator chain height" },
+  validatorInSync: { promql: 'min(besu_synchronizer_in_sync{role="validator"})', unit: "1=synced", label: "Validators in-sync (min)" },
+  txpool: { promql: "max(besu_transaction_pool_number_of_transactions)", unit: "txs", label: "Tx-pool size" },
+  // RPC tier — HAProxy + rpc-node besu metrics
+  rpcReqRate: { promql: "sum(rate(haproxy_backend_http_requests_total[2m]))", unit: "req/s", label: "RPC request rate" },
+  rpcSessions: { promql: "sum(haproxy_backend_current_sessions)", unit: "sessions", label: "RPC active sessions" },
+  rpc5xx: { promql: 'sum(rate(haproxy_backend_http_responses_total{code="5xx"}[5m]))', unit: "5xx/s", label: "RPC 5xx rate" },
+  rpcPeers: { promql: 'avg(ethereum_peer_count{role="rpc"})', unit: "peers", label: "RPC node peers (avg)" },
 };
 
 export interface RangePoint {
