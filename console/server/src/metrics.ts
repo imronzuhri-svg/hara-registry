@@ -77,12 +77,14 @@ export interface Anomaly {
   area: string;
   level: "info" | "warn" | "critical";
   message: string;
+  at: string; // evaluation timestamp (ISO) — threshold checks are stateless, re-evaluated each poll
 }
 
 // Threshold-based anomalies (P1 of the anomaly roadmap). Mirrors the existing
 // Prometheus alert rules; statistical/ML baselining is a later phase.
 export async function getAnomalies(nowMs: number): Promise<Anomaly[]> {
-  const out: Anomaly[] = [];
+  const at = new Date(nowMs).toISOString();
+  const out: Omit<Anomaly, "at">[] = [];
   const [lag, blockRate, errRate, firing] = await Promise.all([
     prom("hara_indexer_lag_blocks", nowMs),
     prom("rate(hara_indexer_chain_head_block[2m])", nowMs),
@@ -119,5 +121,5 @@ export async function getAnomalies(nowMs: number): Promise<Anomaly[]> {
     /* skip */
   }
 
-  return out;
+  return out.map((a) => ({ ...a, at }));
 }

@@ -5,7 +5,7 @@ import { Operations } from "./components/Operations";
 import { AuditLog } from "./components/AuditLog";
 import { TimeSeries } from "./components/TimeSeries";
 import { useOverview } from "./hooks/useOverview";
-import { fetchAnomalies, type Anomaly, type Section } from "./lib/api";
+import { fetchAnomalies, fetchSilences, silenceAlert, unsilence, ago, type Anomaly, type Section, type Silence } from "./lib/api";
 
 type View = "dashboard" | "chain" | "validators" | "rpc" | "services" | "alerts" | "backups" | "vault" | "operations" | "audit";
 
@@ -129,9 +129,13 @@ function AnomalyBanner({ onJump }: { onJump: (v: View) => void }) {
   const worst = items.some((i) => i.level === "critical") ? "critical" : items.some((i) => i.level === "warn") ? "warn" : "info";
   const tone = worst === "critical" ? "border-red-500/40 bg-red-500/10" : worst === "warn" ? "border-accent-orange/40 bg-accent-orange/10" : "border-brand-blue/40 bg-brand-blue/10";
   const areaToView: Record<string, View> = { chain: "chain", services: "services", backups: "backups", validators: "validators", alerts: "alerts" };
+  const evalAt = items[0]?.at;
   return (
     <div className={`rounded-2xl border p-4 ${tone}`}>
-      <div className="mb-1 font-display text-sm font-semibold text-mist-0">⚠ {items.length} anomaly signal{items.length > 1 ? "s" : ""}</div>
+      <div className="mb-1 flex items-baseline justify-between">
+        <span className="font-display text-sm font-semibold text-mist-0">⚠ {items.length} anomaly signal{items.length > 1 ? "s" : ""}</span>
+        {evalAt && <span className="text-[11px] text-mist-1/45" title={evalAt}>evaluated {ago(evalAt)} · clears automatically when resolved</span>}
+      </div>
       <ul className="space-y-1 text-sm text-mist-1/80">
         {items.map((a, i) => (
           <li key={i}>
@@ -277,25 +281,106 @@ function BackupsPanel({ data }: { data: OverviewData }) {
     </Panel>
   );
 }
-function AlertsPanel({ data }: { data: OverviewData }) {
+function SilenceButtons({ alertname }: { alertname: string }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const doSilence = async (h: number) => {
+    setBusy(`${h}`);
+    try {
+      await silenceAlert(alertname, h, "silenced from console");
+    } catch {
+      /* ignore; poll will reflect */
+    } finally {
+      setBusy(null);
+    }
+  };
   return (
-    <Panel title="Alerts" subtitle="Alertmanager" status={sectionPill(data?.alerts)}>
+    <span className="flex items-center gap-1">
+      {[1, 24].map((h) => (
+        <button
+          key={h}
+          onClick={() => doSilence(h)}
+          disabled={!!busy}
+          title={`Silence ${alertname} for ${h}h`}
+          className="rounded-md bg-ink-700 px-2 py-1 text-[11px] text-mist-1/70 hover:bg-accent-orange/30 hover:text-accent-orange disabled:opacity-50"
+        >
+          {busy === `${h}` ? "…" : `mute ${h}h`}
+        </button>
+      ))}
+    </span>
+  );
+}
+
+function AlertsPanel({ data, silenceable = false }: { data: OverviewData; silenceable?: boolean }) {
+  return (
+    <Panel title="Alerts" subtitle="Alertmanager · auto-resolves when cleared" status={sectionPill(data?.alerts)}>
       <S section={data?.alerts}>
         {(rows) =>
           rows.length === 0 ? (
-            <Muted text="no active alerts" />
+            <Muted text="no active alerts — anything that fires clears automatically when its condition resolves" />
           ) : (
             <ul className="space-y-2">
               {rows.map((al, i) => (
-                <li key={`${al.name}-${i}`} className="flex items-center justify-between rounded-lg bg-ink-900/60 px-3 py-2 text-sm">
-                  <span className="text-mist-1/80">{al.name}</span>
-                  <StatusPill tone={al.severity === "critical" ? "down" : "warn"} label={al.severity} />
+                <li key={`${al.name}-${i}`} className="flex items-center justify-between gap-3 rounded-lg bg-ink-900/60 px-3 py-2 text-sm">
+                  <span className="min-w-0">
+                    <span className="text-mist-1/80">{al.name}</span>
+                    {al.startsAt && (
+                      <span className="ml-2 text-xs text-mist-1/40" title={al.startsAt}>
+                        firing {ago(al.startsAt)}
+                      </span>
+                    )}
+                    {al.state === "suppressed" && <span className="ml-2 rounded bg-mist-1/10 px-1.5 py-0.5 text-[10px] text-mist-1/50">silenced</span>}
+                  </span>
+                  <span className="flex shrink-0 items-center gap-2">
+                    {silenceable && al.state !== "suppressed" && <SilenceButtons alertname={al.name} />}
+                    <StatusPill tone={al.severity === "critical" ? "down" : "warn"} label={al.severity} />
+                  </span>
                 </li>
               ))}
             </ul>
           )
         }
       </S>
+    </Panel>
+  );
+}
+
+function SilencesPanel() {
+  const [silences, setSilences] = useState<Silence[] | null>(null);
+  const load = () => fetchSilences().then(setSilences).catch(() => setSilences([]));
+  useEffect(() => {
+    load();
+    const h = setInterval(load, 15000);
+    return () => clearInterval(h);
+  }, []);
+  return (
+    <Panel title="Silences" subtitle="muted alerts (acknowledge / ignore)">
+      {silences === null ? (
+        <Muted text="loading…" />
+      ) : silences.length === 0 ? (
+        <Muted text="no active silences. Use “mute” on an alert to suppress its notifications for a window." />
+      ) : (
+        <ul className="space-y-2">
+          {silences.map((s) => (
+            <li key={s.id} className="flex items-center justify-between gap-3 rounded-lg bg-ink-900/60 px-3 py-2 text-sm">
+              <span className="min-w-0">
+                <span className="text-mist-1/80">{s.alertname}</span>
+                <span className="ml-2 text-xs text-mist-1/40" title={`${s.startsAt} → ${s.endsAt}`}>
+                  until {new Date(s.endsAt).toLocaleString([], { hour: "2-digit", minute: "2-digit", month: "short", day: "numeric" })} · by {s.createdBy}
+                </span>
+              </span>
+              <button
+                onClick={async () => {
+                  await unsilence(s.id).catch(() => {});
+                  load();
+                }}
+                className="shrink-0 rounded-md bg-ink-700 px-2 py-1 text-[11px] text-mist-1/70 hover:bg-brand-blue/30"
+              >
+                unsilence
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </Panel>
   );
 }
@@ -351,10 +436,14 @@ function ServicesScreen({ data }: { data: OverviewData }) {
 function AlertsScreen({ data }: { data: OverviewData }) {
   return (
     <>
-      <AlertsPanel data={data} />
+      <AlertsPanel data={data} silenceable />
+      <SilencesPanel />
       <ChartGrid>
         <TimeSeries series="alertsFiring" minutes={180} />
       </ChartGrid>
+      <Panel title="How alerts work" subtitle="lifecycle">
+        <Muted text="Alerts come from Prometheus rules and auto-resolve the moment their condition clears — there's no manual “mark solved”. To mute one (e.g. during planned work), use “mute 1h/24h”; it appears under Silences and you can unsilence early. Anomaly signals (top banner) are stateless threshold checks re-evaluated every ~20s and vanish on their own when the threshold is no longer breached." />
+      </Panel>
     </>
   );
 }
