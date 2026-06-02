@@ -1,8 +1,18 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { StrataMark } from "./components/StrataMark";
 import { Panel, StatusPill, Stat } from "./components/Panel";
+import { Operations } from "./components/Operations";
+import { AuditLog } from "./components/AuditLog";
 import { useOverview } from "./hooks/useOverview";
 import type { Section } from "./lib/api";
+
+type View = "dashboard" | "operations" | "audit";
+const navView = (item: string): View =>
+  item === "Audit Log"
+    ? "audit"
+    : ["Governance & Roles", "Treasury", "Contracts", "Partners"].includes(item)
+      ? "operations"
+      : "dashboard";
 
 const NAV = [
   "Dashboard",
@@ -41,6 +51,8 @@ function sectionPill(section: Section<unknown> | undefined) {
 
 export default function App() {
   const { data, connected, error } = useOverview();
+  const [active, setActive] = useState("Dashboard");
+  const view = navView(active);
   const chainOk = data?.chain.available ?? false;
   const headTone = connected ? (chainOk ? "ok" : "warn") : "down";
   const headLabel = connected ? (chainOk ? "live" : "degraded") : "offline";
@@ -68,23 +80,26 @@ export default function App() {
       <div className="mx-auto flex max-w-[1400px] gap-6 px-6 py-6">
         <nav className="hidden w-52 shrink-0 lg:block">
           <ul className="space-y-1 text-sm">
-            {NAV.map((item, i) => (
+            {NAV.map((item) => (
               <li key={item}>
-                <a
-                  href="#"
-                  className={`flex items-center justify-between rounded-lg px-3 py-2 ${
-                    i === 0 ? "bg-strata text-white" : "text-mist-1/70 hover:bg-ink-800 hover:text-mist-0"
+                <button
+                  onClick={() => setActive(item)}
+                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left ${
+                    active === item ? "bg-strata text-white" : "text-mist-1/70 hover:bg-ink-800 hover:text-mist-0"
                   }`}
                 >
                   {item}
-                  {i !== 0 && <span className="text-[10px] text-mist-1/30">P1+</span>}
-                </a>
+                  {navView(item) !== "dashboard" && active !== item && (
+                    <span className="text-[10px] text-mist-1/30">P1</span>
+                  )}
+                </button>
               </li>
             ))}
           </ul>
           <p className="mt-6 px-3 text-[11px] leading-relaxed text-mist-1/35">
-            P0 — read-only “glass”. Write/governance actions arrive in P1+ (see
-            <span className="text-brand-teal"> doc/registry-console-plan.md</span>).
+            P1 — assisted ops (<span className="text-brand-teal">propose-only</span>): the console
+            builds + audits the exact command; you run it. No signing keys here.
+            Auto-signing (Vault Transit / Gnosis Safe) is P2.
           </p>
           {error && !connected && (
             <p className="mt-3 px-3 text-[11px] text-accent-orange/80">
@@ -93,7 +108,11 @@ export default function App() {
           )}
         </nav>
 
-        <main className="grid flex-1 grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+        <main className="flex-1">
+          {view === "operations" && <Operations />}
+          {view === "audit" && <AuditLog />}
+          {view === "dashboard" && (
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
           {/* Chain */}
           <Panel title="Chain" subtitle="QBFT · Besu" status={sectionPill(data?.chain)}>
             <S section={data?.chain}>
@@ -241,6 +260,8 @@ export default function App() {
           <Panel title="Observability" subtitle="Grafana embed" status={<StatusPill tone="idle" label="P0.3" />}>
             <Muted text="Embedded Grafana panels (SSO-shared) — Prometheus · Loki · Tempo." />
           </Panel>
+          </div>
+          )}
         </main>
       </div>
     </div>

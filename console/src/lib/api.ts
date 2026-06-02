@@ -91,3 +91,50 @@ export async function fetchOverview(signal?: AbortSignal): Promise<Overview> {
   if (!res.ok) throw new Error(`Console API HTTP ${res.status}`);
   return (await res.json()) as Overview;
 }
+
+// ── P1 assisted-ops (propose-only) ───────────────────────────────────────────
+export type Risk = "low" | "medium" | "high";
+export interface Proposal {
+  kind: string;
+  title: string;
+  summary: string;
+  risk: Risk;
+  commands: string[];
+  notes: string[];
+}
+export interface AuditEntry {
+  ts: string;
+  actor: string;
+  kind: string;
+  summary: string;
+  risk: string;
+  params: Record<string, unknown>;
+  commands: string[];
+}
+
+/** Build (but do NOT execute) a privileged-action command; the API audits it. */
+export async function propose(kind: string, params: Record<string, unknown>): Promise<Proposal> {
+  const res = await fetch(`${API_BASE}/propose/${kind}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error((json as { error?: string }).error ?? `HTTP ${res.status}`);
+  return json as Proposal;
+}
+
+export async function fetchAudit(limit = 100): Promise<AuditEntry[]> {
+  const res = await fetch(`${API_BASE}/audit?limit=${limit}`);
+  if (!res.ok) throw new Error(`audit HTTP ${res.status}`);
+  return ((await res.json()) as { entries: AuditEntry[] }).entries;
+}
+
+export const CONTRACT_ROLES: Record<string, string[]> = {
+  HaraPalmOil: ["MINTER_ROLE", "CERTIFIER_ROLE", "DEFAULT_ADMIN_ROLE"],
+  PQAnchorRegistry: ["ANCHOR_ROLE", "KEY_ROTATOR_ROLE", "DEFAULT_ADMIN_ROLE"],
+  ContractRegistry: ["REGISTRAR_ROLE", "DEFAULT_ADMIN_ROLE"],
+  GovernanceContract: ["GOVERNANCE_ROLE", "DEFAULT_ADMIN_ROLE"],
+  AnchorRegistry: ["ANCHOR_ROLE", "DEFAULT_ADMIN_ROLE"],
+  TraceabilityBatchRelay: ["DEFAULT_ADMIN_ROLE"],
+};

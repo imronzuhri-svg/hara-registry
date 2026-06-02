@@ -11,6 +11,8 @@ import {
   getAlerts,
   getBackups,
 } from "./sources.js";
+import { buildProposal } from "./proposals.js";
+import { recordProposal, readAudit } from "./audit.js";
 
 // Each section is wrapped so one unreachable source (e.g. an internal mesh
 // service in dev) reports {available:false} instead of failing the whole page.
@@ -51,6 +53,38 @@ app.get("/api/overview", async () => {
     alerts,
     backups,
   };
+});
+
+// ── P1 assisted-ops (PROPOSE-ONLY) ───────────────────────────────────────────
+// Build the exact command for a privileged action + audit it. Never executes or
+// signs. The operator runs the returned command with the appropriate key.
+app.post("/api/propose/:kind", async (req, reply) => {
+  const kind = (req.params as { kind: string }).kind;
+  const params = (req.body ?? {}) as Record<string, unknown>;
+  let proposal;
+  try {
+    proposal = buildProposal(kind, params);
+  } catch (e) {
+    return reply.code(400).send({ error: (e as Error).message });
+  }
+  const actor =
+    (req.headers["x-console-actor"] as string) ||
+    (req.headers["authorization"] ? "hara (basic-auth)" : "anonymous");
+  await recordProposal({
+    ts: new Date().toISOString(),
+    actor,
+    kind: proposal.kind,
+    summary: proposal.summary,
+    risk: proposal.risk,
+    params,
+    commands: proposal.commands,
+  });
+  return proposal;
+});
+
+app.get("/api/audit", async (req) => {
+  const limit = Number((req.query as { limit?: string }).limit ?? 100);
+  return { entries: await readAudit(limit) };
 });
 
 app
