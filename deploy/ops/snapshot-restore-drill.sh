@@ -37,9 +37,27 @@ LIVE_PG="${LIVE_PG:-hara-postgres}"
 DB="${DB:-hara_indexer}"
 USER="${USER_PG:-hara}"
 
+# Record drill outcome for the Strata Console Recovery panel (see pitr-restore-
+# drill.sh for the same pattern).
+DRILL_RESULT_DIR="${DRILL_RESULT_DIR:-/var/backups/hara/drills}"
+DRILL_NAME="logical-dump"
+DRILL_START_EPOCH="$(date +%s)"
+write_drill_result() {
+  local code="$1" status="fail"
+  [ "$code" = "0" ] && status="pass"
+  local dur=$(( $(date +%s) - DRILL_START_EPOCH ))
+  ( mkdir -p "$DRILL_RESULT_DIR" 2>/dev/null || sudo mkdir -p "$DRILL_RESULT_DIR" 2>/dev/null ) || true
+  printf '{"drill":"%s","status":"%s","exitCode":%s,"at":"%s","durationSec":%s}\n' \
+    "$DRILL_NAME" "$status" "$code" "$(date -u +%FT%TZ)" "$dur" \
+    | ( tee "$DRILL_RESULT_DIR/$DRILL_NAME.json" >/dev/null 2>&1 \
+        || sudo tee "$DRILL_RESULT_DIR/$DRILL_NAME.json" >/dev/null 2>&1 ) || true
+}
+
 cleanup() {
+  local code=$?
   docker rm -f "$SIDE_PG" >/dev/null 2>&1 || true
   rm -f "$BACKUP"
+  write_drill_result "$code"
 }
 trap cleanup EXIT
 

@@ -38,6 +38,19 @@ export const config = {
   // sources don't stall the overview.
   fetchTimeoutMs: Number(env.CONSOLE_FETCH_TIMEOUT_MS ?? 4000),
 
+  // ── DR / sleeping standby (failover monitoring) ────────────────────────────
+  // The cold standby model: a normally-asleep VPS that, on emergency, restores
+  // the latest base + replays WAL from S3 and is promoted (operator-triggered).
+  // Until one is provisioned these are empty and the Failover panel reports
+  // "not configured". STANDBY_HEALTH_URL is an optional health endpoint the
+  // standby agent exposes when awake.
+  standby: {
+    host: env.STANDBY_HOST ?? "",
+    healthUrl: env.STANDBY_HEALTH_URL ?? "",
+    // Async replication via the WAL archive — the standby is at most this stale.
+    rpoMinutes: Number(env.STANDBY_RPO_MINUTES ?? 10),
+  },
+
   // Watchlist for the zero-balance guard. All public addresses.
   watchAccounts: parseWatch(env.WATCH_ACCOUNTS) ?? [
     { label: "platform admin", address: "0x944b237097A03E1e8CdE8A0F46605506319EC329" },
