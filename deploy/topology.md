@@ -110,7 +110,7 @@ deploy/data/docker-compose.minio.yml        # MinIO + bucket pre-creator
 
 Each validator VPS pulls those two files from MinIO on first boot. After init, the local copies on hara-stateful are discarded — Vault is the only persistent home for keys.
 
-**Backups:** `deploy/ops/snapshot-postgres.sh` nightly; Vault Raft snapshot via `vault operator raft snapshot save` nightly; both uploaded to object storage.
+**Backups:** all age-encrypted off-host to Nevacloud S3, installed via `deploy/ops/install-backup-timers.sh` (auto-detects the full suite on hara-stateful). Postgres has a nightly logical dump (`snapshot-postgres.sh`) **plus** point-in-time recovery — a nightly physical base backup (`snapshot-postgres-basebackup.sh`) and continuous WAL shipping every 10 min (`snapshot-postgres-wal.sh`), ≤5 min RPO over a 14-day window. Redis (`snapshot-redis.sh`) and MinIO (`snapshot-minio.sh`) are backed up nightly; Vault Raft nightly. Restore procedures: `deploy/ops/RECOVERY.md`.
 
 **Why one VPS, not three:** Postgres / Redis / Vault all live in the same trust boundary (the data plane). Splitting them adds cost and network hops without changing the failure model — if this host dies, the chain keeps producing blocks (validators have their working set), but writes are blocked until restore. State-2 §10 explicitly limits to 6 VPSes via Compose; one stateful host is the trade-off.
 
@@ -289,7 +289,7 @@ Vault is NOT routed through Caddy. Operator access via SSH tunnel only.
 |---|---|---|
 | 1 of hara-v1..v4 | Chain keeps producing (QBFT needs 3 of 4). Some indexer latency for the dead validator's events. | Reprovision VPS, cloud-init runs, pull key from Vault, rejoin. ~10 min. |
 | 2 of hara-v1..v4 | Chain HALTS (no quorum). | Recover at least one validator from snapshot to regain quorum. Snapshots are nightly to object storage. |
-| hara-stateful | Chain keeps producing (validators have their keys in memory). All writes hang (signer can't reach Postgres). | Restore Postgres + Vault snapshots from object storage to a fresh VPS. ~15–30 min. State-2 §11 #3 (Vault Raft HA) reduces blast radius here. |
+| hara-stateful | Chain keeps producing (validators have their keys in memory). All writes hang (signer can't reach Postgres). | Restore Postgres (base + WAL → point-in-time, ≤5 min RPO), Redis, MinIO, and Vault snapshots from object storage to a fresh VPS — see `deploy/ops/RECOVERY.md`. ~15–30 min. State-2 §11 #3 (Vault Raft HA) reduces blast radius here. |
 | hara-stateless | Public API offline. Chain itself unaffected. | Re-provision; pull images; up. ~5 min. No state lost. |
 | Object storage | Backups stop landing. Existing chain unaffected. | Reconfigure rclone target. |
 

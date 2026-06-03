@@ -9,12 +9,22 @@ services:
     image: postgres:16-alpine
     container_name: hara-postgres
     restart: unless-stopped
+    depends_on:
+      # Make the WAL-archive volume writable by the postgres user BEFORE
+      # archive_mode=on starts cp'ing into it (see postgres-archive-init). If
+      # archive_command can't write, pg_wal grows unbounded until the disk fills.
+      postgres-archive-init:
+        condition: service_completed_successfully
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?required}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
       POSTGRES_DB: ${POSTGRES_DB:-hara_indexer}
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      # Continuous WAL archive staging. archive_command cp's each completed
+      # segment here; snapshot-postgres-wal.sh (host timer) encrypts + ships
+      # new segments off-host every 10 min, giving point-in-time recovery.
+      - postgres-wal-archive:/wal-archive
     ports:
       - "${POSTGRES_BIND:-127.0.0.1:5432}:5432"
     networks:
@@ -46,6 +56,40 @@ services:
       - "random_page_cost=1.1"   # NVMe
       - "-c"
       - "log_min_duration_statement=500"  # log slow queries
+      # ── Point-in-time recovery (PITR) ──────────────────────────────────────
+      # wal_level=replica is already the PG16 default, but pin it so a future
+      # config tweak can't silently disable archiving. archive_mode=on +
+      # archive_command ship every completed WAL segment into /wal-archive;
+      # the host timer (snapshot-postgres-wal.sh) then encrypts + uploads them.
+      # archive_timeout=300 forces a segment switch at least every 5 min even
+      # when idle, so the recovery point objective stays ≤5 min, not "whenever
+      # 16 MB of WAL happens to fill". max_wal_senders keeps pg_basebackup able
+      # to stream a fresh base backup for the PITR baseline.
+      - "-c"
+      - "wal_level=replica"
+      - "-c"
+      - "archive_mode=on"
+      - "-c"
+      - "archive_command=test ! -f /wal-archive/%f && cp %p /wal-archive/%f"
+      - "-c"
+      - "archive_timeout=300"
+      - "-c"
+      - "max_wal_senders=10"
+
+  # One-shot: chown the WAL-archive volume to the postgres user (uid 70 in the
+  # alpine image) so archive_command can write into it. A fresh named volume is
+  # root-owned by default; without this every archive fails and pg_wal fills the
+  # disk. Mirrors the minio-init / chain-init pattern. Safe to re-run.
+  postgres-archive-init:
+    image: postgres:16-alpine
+    container_name: hara-postgres-archive-init
+    entrypoint:
+      - "sh"
+      - "-c"
+      - "mkdir -p /wal-archive && chown -R 70:70 /wal-archive && chmod 700 /wal-archive && echo '✓ /wal-archive ready (owner uid 70)'"
+    volumes:
+      - postgres-wal-archive:/wal-archive
+    restart: "no"
 
   redis:
     image: redis:7-alpine
@@ -82,4 +126,5 @@ networks:
 
 volumes:
   postgres-data:
+  postgres-wal-archive:
   redis-data:
