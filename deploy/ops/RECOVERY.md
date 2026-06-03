@@ -102,6 +102,12 @@ target time with the WAL archived since.
 (`PG_WAL_REMOTE_KEEP_DAYS`). Base backups are kept 21 days so a base older than
 the window edge always exists.
 
+**Verify the PITR path works** with `deploy/ops/pitr-restore-drill.sh` — it takes
+a base backup, writes a sentinel into a throwaway database that exists only in
+WAL, then restores base + replays archived WAL in a side container and asserts
+the sentinel comes back. Run it after deploying the PITR compose and after any
+Postgres upgrade. It never touches `hara_indexer` / `blockscout`.
+
 ---
 
 ## Redis
