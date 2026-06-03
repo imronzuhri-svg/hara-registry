@@ -5,7 +5,7 @@ import { Operations } from "./components/Operations";
 import { AuditLog } from "./components/AuditLog";
 import { TimeSeries } from "./components/TimeSeries";
 import { useOverview } from "./hooks/useOverview";
-import { fetchAnomalies, fetchSilences, silenceAlert, unsilence, fetchInsights, copilotConfigured, askCopilot, ago, rel, type Anomaly, type Section, type Silence, type Insights } from "./lib/api";
+import { fetchAnomalies, fetchSilences, silenceAlert, unsilence, fetchInsights, copilotConfigured, askCopilot, fetchBackups, fmtBytes, fmtDuration, ago, rel, type Anomaly, type Section, type Silence, type Insights, type BackupsReport, type BackupJob, type BackupHealth } from "./lib/api";
 
 type View = "dashboard" | "insights" | "copilot" | "chain" | "validators" | "rpc" | "services" | "alerts" | "backups" | "vault" | "operations" | "audit" | "help";
 
@@ -864,12 +864,122 @@ function RoadmapRow({ tag, tone, title, body }: { tag: string; tone: "ok" | "war
   );
 }
 
+const BACKUP_HEALTH_PILL: Record<BackupHealth, { tone: "ok" | "warn" | "down" | "idle"; label: string }> = {
+  ok: { tone: "ok", label: "ok" },
+  failed: { tone: "down", label: "failed" },
+  overdue: { tone: "warn", label: "overdue" },
+  never: { tone: "idle", label: "never run" },
+  unknown: { tone: "idle", label: "unknown" },
+};
+
+/** Friendly name for a snapshot unit base, e.g. hara-postgres-wal-snapshot → "Postgres WAL (PITR)". */
+function backupLabel(base: string): string {
+  const m: Record<string, string> = {
+    "hara-postgres-snapshot": "Postgres dump",
+    "hara-postgres-basebackup-snapshot": "Postgres base backup",
+    "hara-postgres-wal-snapshot": "Postgres WAL (PITR)",
+    "hara-redis-snapshot": "Redis RDB",
+    "hara-minio-snapshot": "MinIO objects",
+    "hara-vault-snapshot": "Vault Raft",
+    "hara-validator-snapshot": "Validator chain-data",
+  };
+  return m[base] ?? base.replace(/^hara-/, "").replace(/-snapshot$/, "");
+}
+
+function BackupJobRow({ j }: { j: BackupJob }) {
+  const pill = BACKUP_HEALTH_PILL[j.health];
+  const expected =
+    j.expectedIntervalHours == null ? null : j.expectedIntervalHours < 1 ? `every ${Math.round(j.expectedIntervalHours * 60)}m` : `every ${j.expectedIntervalHours}h`;
+  return (
+    <li className="rounded-lg bg-ink-900/60 px-3 py-2.5 text-sm">
+      <div className="flex items-center justify-between gap-3">
+        <span className="min-w-0">
+          <span className="text-mist-0">{backupLabel(j.base)}</span>{" "}
+          <span className="text-xs text-mist-1/40">@ {j.host}</span>
+        </span>
+        <StatusPill tone={pill.tone} label={pill.label} />
+      </div>
+      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-mist-1/45">
+        <span title={j.lastRun ?? ""}>last {j.lastRun ? ago(j.lastRun) : "never"}</span>
+        <span title={j.nextRun ?? ""}>next {rel(j.nextRun)}</span>
+        {expected && <span>{expected}</span>}
+        {j.durationSec != null && <span>took {fmtDuration(j.durationSec)}</span>}
+        {j.artifactBytes != null && <span title={j.artifactAt ?? ""}>size {fmtBytes(j.artifactBytes)}</span>}
+        {j.exitStatus && j.exitStatus !== "0" && j.health === "failed" && <span className="text-red-400">exit {j.exitStatus}</span>}
+      </div>
+    </li>
+  );
+}
+
 function BackupsScreen({ data }: { data: OverviewData }) {
+  const [report, setReport] = useState<BackupsReport | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [alerts, setAlerts] = useState<Anomaly[]>([]);
+  useEffect(() => {
+    let alive = true;
+    const load = () => {
+      fetchBackups().then((r) => alive && (setReport(r), setErr(null))).catch((e) => alive && setErr((e as Error).message));
+      fetchAnomalies().then((a) => alive && setAlerts(a.filter((x) => x.area === "backups"))).catch(() => {});
+    };
+    load();
+    const h = setInterval(load, 30000);
+    return () => { alive = false; clearInterval(h); };
+  }, []);
+
+  const s = report?.summary;
+  const allHealthy = s != null && s.failed === 0 && s.overdue === 0 && s.never === 0 && report!.unreachable === 0;
   return (
     <>
-      <BackupsPanel data={data} />
-      <Panel title="About these backups" subtitle="event-based, not a time-series">
-        <Muted text="Each host's agent reports its hara-*-snapshot timer (next/last run + systemd Result). Backups are discrete nightly events — the table above is the right view. A 'time-since-last-success' chart could be added later." />
+      <Panel
+        title="Backups & DR"
+        subtitle="operations · performance · freshness"
+        status={report ? <StatusPill tone={allHealthy ? "ok" : s && (s.failed > 0) ? "down" : "warn"} label={allHealthy ? "all healthy" : "attention"} /> : sectionPill(data?.backups)}
+        help={
+          <>
+            <b>What it is:</b> every nightly/continuous snapshot timer across the fleet — Postgres dump + base + WAL (PITR), Redis, MinIO, Vault Raft, and each validator — age-encrypted and shipped off-host to Nevacloud S3.{" "}
+            <b>Watch:</b> the health pill (ok / overdue / failed), last-run age, run duration and artifact size. <b>Good:</b> all "ok" with recent runs and sane sizes. <b>Bad:</b> "failed" (the backup errored) or "overdue" (the timer silently stopped — the dangerous one).
+          </>
+        }
+      >
+        {err && <Muted text={`unavailable — ${err}`} />}
+        {!report && !err && <Muted text="loading backup status…" />}
+        {report && s && (
+          <>
+            <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <Stat label="Jobs healthy" value={`${s.ok}/${s.total}`} hint={`${report.hosts} host${report.hosts === 1 ? "" : "s"}`} />
+              <Stat label="Failed" value={s.failed} hint={s.failed ? "needs attention" : "none"} />
+              <Stat label="Overdue" value={s.overdue} hint={s.overdue ? "timer may be stopped" : "none"} />
+              <Stat label="Oldest success" value={s.oldestSuccessAgeHours != null ? `${s.oldestSuccessAgeHours}h` : "—"} hint="time since last good run" />
+            </div>
+            <ul className="space-y-2">
+              {report.jobs.map((j) => (
+                <BackupJobRow key={`${j.host}/${j.base}`} j={j} />
+              ))}
+              {report.unreachable > 0 && <li className="pt-1 text-xs text-accent-orange/70">{report.unreachable} agent(s) unreachable — those hosts' backups are unknown</li>}
+            </ul>
+          </>
+        )}
+      </Panel>
+
+      <Panel title="Backup alerts" subtitle="failed · overdue · never-run · agent-down" help={<>The same backup signals that drive the top anomaly banner, isolated here. These auto-clear when the next run succeeds. A daily backup is flagged "overdue" past ~1.3× its interval; WAL past ~13 min.</>}>
+        {alerts.length === 0 ? (
+          <div className="flex items-center gap-2 text-sm text-brand-teal">
+            <span className="h-1.5 w-1.5 rounded-full bg-current" /> No backup alerts — all timers ran on schedule.
+          </div>
+        ) : (
+          <ul className="space-y-1.5 text-sm text-mist-1/80">
+            {alerts.map((a, i) => (
+              <li key={i}>
+                <span className={`mr-2 rounded px-1.5 py-0.5 text-[10px] uppercase ${a.level === "critical" ? "bg-red-500/30 text-red-200" : a.level === "warn" ? "bg-accent-orange/30 text-accent-orange" : "bg-brand-blue/30 text-brand-blue"}`}>{a.level}</span>
+                {a.message}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
+
+      <Panel title="About these backups" subtitle="how to read this screen">
+        <Muted text="Each host runs a tiny read-only agent that reports its hara-*-snapshot systemd timers (last/next run, systemd Result, run duration) plus the newest local artifact's size. The Console computes health (ok/failed/overdue/never) against each backup's expected cadence. Restore procedures live in deploy/ops/RECOVERY.md; the off-host encrypted copies go to Nevacloud S3." />
       </Panel>
     </>
   );

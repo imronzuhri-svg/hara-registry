@@ -3,7 +3,7 @@
 // exposed through the console.
 import { config } from "./config.js";
 import { fetchT } from "./rpc.js";
-import { getBackups, getValidators } from "./sources.js";
+import { getBackupsReport, getValidators } from "./sources.js";
 
 export interface SeriesDef {
   promql: string;
@@ -98,17 +98,21 @@ export async function getAnomalies(nowMs: number): Promise<Anomaly[]> {
   if (errRate != null && errRate > 0) out.push({ area: "services", level: "warn", message: "Indexer is logging errors." });
   if (firing != null && firing > 0) out.push({ area: "alerts", level: "info", message: `${firing} alert(s) firing in Alertmanager.` });
 
-  // Backups: any failed (non-success) timer across hosts.
+  // Backups: failed last-run, overdue (silently stopped), or never-run.
   try {
-    const b = await getBackups();
-    for (const h of b.hosts) {
-      for (const t of h.timers) {
-        if (t.lastRun && t.result && t.result !== "success") {
-          const when = new Date(t.lastRun).toISOString().replace("T", " ").slice(0, 16);
-          out.push({ area: "backups", level: "warn", message: `${t.unit} on ${h.host} last result: ${t.result} (last run ${when}Z; next run will retry).` });
-        }
+    const rep = await getBackupsReport(nowMs);
+    for (const j of rep.jobs) {
+      if (j.health === "failed") {
+        const when = j.lastRun ? new Date(j.lastRun).toISOString().replace("T", " ").slice(0, 16) + "Z" : "?";
+        out.push({ area: "backups", level: "critical", message: `${j.base} on ${j.host} FAILED (result: ${j.result}, last run ${when}). Off-host copy may be stale.` });
+      } else if (j.health === "overdue") {
+        const exp = j.expectedIntervalHours != null ? (j.expectedIntervalHours < 1 ? `${Math.round(j.expectedIntervalHours * 60)}m` : `${j.expectedIntervalHours}h`) : "?";
+        out.push({ area: "backups", level: "warn", message: `${j.base} on ${j.host} is overdue — last success ${j.ageHours}h ago (expected every ${exp}). Timer may have stopped.` });
+      } else if (j.health === "never") {
+        out.push({ area: "backups", level: "info", message: `${j.base} on ${j.host} has never run since install.` });
       }
     }
+    if (rep.unreachable > 0) out.push({ area: "backups", level: "warn", message: `${rep.unreachable} backup agent(s) unreachable — backup status for those hosts is unknown.` });
   } catch {
     /* agents unreachable — skip */
   }

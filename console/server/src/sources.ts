@@ -162,17 +162,23 @@ export async function getAlerts(): Promise<AlertInfo[]> {
   }));
 }
 
+export interface BackupTimerRaw {
+  unit: string;
+  service: string | null;
+  nextRun: string | null;
+  lastRun: string | null;
+  result: string | null;
+  exitStatus: string | null;
+  // Added by the enriched agent; older agents omit these (treated as null).
+  durationSec?: number | null;
+  activeState?: string | null;
+  artifactBytes?: number | null;
+  artifactAt?: string | null;
+}
 export interface BackupHost {
   host: string;
   generatedAt: string;
-  timers: Array<{
-    unit: string;
-    service: string | null;
-    nextRun: string | null;
-    lastRun: string | null;
-    result: string | null;
-    exitStatus: string | null;
-  }>;
+  timers: BackupTimerRaw[];
 }
 
 /** Aggregate every backups-status agent; include reachable hosts, note the rest. */
@@ -191,4 +197,92 @@ export async function getBackups(): Promise<{ hosts: BackupHost[]; unreachable: 
   const unreachable = settled.length - hosts.length;
   if (hosts.length === 0) throw new Error(`no backups agents reachable (${unreachable} configured)`);
   return { hosts, unreachable };
+}
+
+// ── Backups report (dedicated /api/backups) ──────────────────────────────────
+// Expected run cadence per backup kind, used to flag "overdue" (a silently-
+// stopped backup is the dangerous failure mode). Keyed by unit base name; a
+// 1.3× grace is applied before a backup is called overdue.
+const EXPECTED_INTERVAL_HOURS: Record<string, number> = {
+  "hara-postgres-wal-snapshot": 10 / 60, // every 10 min
+  "hara-postgres-snapshot": 24,
+  "hara-postgres-basebackup-snapshot": 24,
+  "hara-redis-snapshot": 24,
+  "hara-minio-snapshot": 24,
+  "hara-vault-snapshot": 24,
+  "hara-validator-snapshot": 24,
+};
+const OVERDUE_GRACE = 1.3;
+
+export type BackupHealth = "ok" | "failed" | "overdue" | "never" | "unknown";
+
+export interface BackupJob extends BackupTimerRaw {
+  host: string;
+  base: string; // unit without ".timer"
+  expectedIntervalHours: number | null;
+  ageHours: number | null;
+  overdue: boolean;
+  health: BackupHealth;
+}
+
+export interface BackupsReport {
+  generatedAt: string;
+  hosts: number;
+  unreachable: number;
+  jobs: BackupJob[];
+  summary: { total: number; ok: number; failed: number; overdue: number; never: number; oldestSuccessAgeHours: number | null };
+}
+
+function classify(t: BackupTimerRaw, nowMs: number): { ageHours: number | null; expected: number | null; overdue: boolean; health: BackupHealth } {
+  const base = t.unit.replace(/\.timer$/, "");
+  const expected = EXPECTED_INTERVAL_HOURS[base] ?? null;
+  const ageHours = t.lastRun ? (nowMs - new Date(t.lastRun).getTime()) / 3.6e6 : null;
+  const failed = !!(t.result && t.result !== "success");
+  const overdue = expected != null && ageHours != null && ageHours > expected * OVERDUE_GRACE && !failed;
+  let health: BackupHealth;
+  if (!t.lastRun) health = "never";
+  else if (failed) health = "failed";
+  else if (overdue) health = "overdue";
+  else if (t.result === "success") health = "ok";
+  else health = "unknown";
+  return { ageHours, expected, overdue, health };
+}
+
+/** Rich, computed backup status for the dedicated Backups screen. */
+export async function getBackupsReport(nowMs: number = Date.now()): Promise<BackupsReport> {
+  const { hosts, unreachable } = await getBackups();
+  const jobs: BackupJob[] = [];
+  for (const h of hosts) {
+    for (const t of h.timers) {
+      const { ageHours, expected, overdue, health } = classify(t, nowMs);
+      jobs.push({
+        ...t,
+        host: h.host,
+        base: t.unit.replace(/\.timer$/, ""),
+        expectedIntervalHours: expected,
+        ageHours: ageHours == null ? null : Math.round(ageHours * 10) / 10,
+        overdue,
+        health,
+      });
+    }
+  }
+  jobs.sort((a, b) => {
+    const rank: Record<BackupHealth, number> = { failed: 0, overdue: 1, never: 2, unknown: 3, ok: 4 };
+    return rank[a.health] - rank[b.health] || a.host.localeCompare(b.host) || a.base.localeCompare(b.base);
+  });
+  const okAges = jobs.filter((j) => j.health === "ok" && j.ageHours != null).map((j) => j.ageHours as number);
+  return {
+    generatedAt: new Date(nowMs).toISOString(),
+    hosts: hosts.length,
+    unreachable,
+    jobs,
+    summary: {
+      total: jobs.length,
+      ok: jobs.filter((j) => j.health === "ok").length,
+      failed: jobs.filter((j) => j.health === "failed").length,
+      overdue: jobs.filter((j) => j.health === "overdue").length,
+      never: jobs.filter((j) => j.health === "never").length,
+      oldestSuccessAgeHours: okAges.length ? Math.max(...okAges) : null,
+    },
+  };
 }

@@ -10,6 +10,7 @@ import {
   getVault,
   getAlerts,
   getBackups,
+  getBackupsReport,
 } from "./sources.js";
 import { buildProposal } from "./proposals.js";
 import { recordProposal, readAudit } from "./audit.js";
@@ -84,6 +85,16 @@ app.post("/api/propose/:kind", async (req, reply) => {
     commands: proposal.commands,
   });
   return proposal;
+});
+
+// Dedicated Backups & DR screen: per-job health (ok/failed/overdue/never),
+// run duration, latest artifact size + on-disk age, and a fleet summary.
+app.get("/api/backups", async (_req, reply) => {
+  try {
+    return await getBackupsReport(Date.now());
+  } catch (e) {
+    return reply.code(502).send({ error: (e as Error).message });
+  }
 });
 
 app.get("/api/audit", async (req) => {
