@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- HARA Registry — mono_rev icon (static) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <group android:scaleX="0.54" android:scaleY="0.54">
+        <group android:rotation="0" android:pivotX="100" android:pivotY="100"><path android:pathData="M42.84,67.00 A66,66 0 1 1 42.84,133.00" android:strokeColor="#FFE8ECF6" android:strokeWidth="9" android:strokeLineCap="round"/></group><group android:rotation="140" android:pivotX="100" android:pivotY="100"><path android:pathData="M58.43,76.00 A48,48 0 1 1 58.43,124.00" android:strokeColor="#FFE8ECF6" android:strokeWidth="9" android:strokeLineCap="round"/></group><group android:rotation="40" android:pivotX="100" android:pivotY="100"><path android:pathData="M73.15,84.50 A31,31 0 1 1 73.15,115.50" android:strokeColor="#FFE8ECF6" android:strokeWidth="9" android:strokeLineCap="round"/></group>
+        <path android:pathData="M87,100 a13,13 0 1,0 26,0 a13,13 0 1,0 -26,0 z" android:fillColor="#FFE8ECF6"/>
+    </group>
+</vector>

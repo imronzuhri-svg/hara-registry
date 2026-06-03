@@ -41,7 +41,12 @@ for db in "$DB_NAME_INDEXER" "$DB_NAME_BLOCKSCOUT"; do
   # so automated backups still run before the off-host target is wired.
   if rclone listremotes 2>/dev/null | grep -q "^${REMOTE%%:*}:"; then
     echo "  Uploading $SIZE → $REMOTE/$db/"
-    rclone copy "$OUT" "$REMOTE/$db/" --quiet
+    # Nevacloud S3 rejects large single-PUT objects (returns an HTML error), so
+    # force chunked multipart — postgres dumps grow past the single-PUT limit.
+    # (Same fix as snapshot-validator.sh; see incident 2026-06-02.)
+    rclone copy "$OUT" "$REMOTE/$db/" \
+      --s3-upload-cutoff 16Mi --s3-chunk-size 16Mi --s3-upload-concurrency 2 \
+      --transfers 2 --checkers 4 --quiet
   else
     echo "  ⚠ rclone remote '${REMOTE%%:*}' not configured — LOCAL-ONLY at $OUT ($SIZE). Add the Nevacloud S3 endpoint to enable off-host upload."
   fi
@@ -51,14 +56,14 @@ done
 # the actual backups above already succeeded under set -e)
 find "$BACKUP_DIR" -name "*.sql.zst.age" -mtime +7 -delete || true
 
-echo "✓ Postgres snapshot complete ($(date -u +%FT%TZ))"
-exit 0
-
-# Remote retention: 30 generations per DB
-for db in "$DB_NAME_INDEXER" "$DB_NAME_BLOCKSCOUT"; do
-  rclone lsf "$REMOTE/$db/" 2>/dev/null \
-    | sort -r | tail -n +31 \
-    | while read f; do rclone delete "$REMOTE/$db/$f"; done
-done
+# Remote retention: keep 30 generations per DB. Only if the remote is configured;
+# guarded so a cleanup quirk never fails the run after the dumps already uploaded.
+if rclone listremotes 2>/dev/null | grep -q "^${REMOTE%%:*}:"; then
+  for db in "$DB_NAME_INDEXER" "$DB_NAME_BLOCKSCOUT"; do
+    rclone lsf "$REMOTE/$db/" 2>/dev/null \
+      | sort -r | tail -n +31 \
+      | while read f; do rclone delete "$REMOTE/$db/$f"; done
+  done
+fi
 
 echo "✔ [$(date -u +%FT%TZ)] Postgres snapshot complete (encrypted)"
