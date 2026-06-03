@@ -32,6 +32,18 @@ Everything below is run **on `hara-stateful`** unless it explicitly says
 on the operator workstation — the host never needs it for *taking* backups, only
 for *restoring*.
 
+> ⚠️ **Compose project name (read before any `docker compose` command).** The
+> live data stack was brought up under the project **`hara-ledger-data`** (its
+> volumes are `hara-ledger-data_postgres-data`, `hara-ledger-data_redis-data`,
+> and MinIO's is `hara-ledger-minio_minio-data`). The compose file now declares
+> `name: hara-registry-data` (the post-rename name), but the running stack was
+> never recreated under it. **Until the project is migrated, pass
+> `-p hara-ledger-data` to every `docker compose` command in this runbook** —
+> e.g. `docker compose -p hara-ledger-data -f deploy/data/docker-compose.yml …`.
+> Running them *without* `-p` targets a brand-new empty `hara-registry-data`
+> project and **orphans the live data**. (Verified the hard way on the
+> 2026-06-03 first deploy.)
+
 ---
 
 ## 1. Pre-flight — do not skip
@@ -79,7 +91,7 @@ user (uid 70). Without the sidecar, `archive_command` fails on every segment and
 `pg_wal` grows until the disk fills — so confirm it ran.
 
 ```bash
-docker compose -f deploy/data/docker-compose.yml --env-file deploy/data/.env up -d
+docker compose -p hara-ledger-data -f deploy/data/docker-compose.yml --env-file deploy/data/.env up -d
 
 # The init sidecar should have run once and exited 0:
 docker logs hara-postgres-archive-init     # expect: ✓ /wal-archive ready (owner uid 70)
@@ -95,15 +107,17 @@ docker ps --format '{{.Names}}\t{{.Status}}' | grep hara-postgres
 This is the single most important check — a silently-failing `archive_command`
 is the classic way to fill a disk and take Postgres down.
 
+# Note: pass `-d hara_indexer`. There is no database named after the `hara`
+# role, so a bare `psql -U hara` fails with `database "hara" does not exist`.
 ```bash
-docker exec hara-postgres psql -U hara -tAc "show archive_mode"      # -> on
-docker exec hara-postgres psql -U hara -tAc "show archive_command"   # -> test ! -f /wal-archive/%f && cp %p /wal-archive/%f
-docker exec hara-postgres psql -U hara -tAc "show archive_timeout"   # -> 5min
+docker exec hara-postgres psql -U hara -d hara_indexer -tAc "show archive_mode"      # -> on
+docker exec hara-postgres psql -U hara -d hara_indexer -tAc "show archive_command"   # -> test ! -f /wal-archive/%f && cp %p /wal-archive/%f
+docker exec hara-postgres psql -U hara -d hara_indexer -tAc "show archive_timeout"   # -> 5min
 
 # Force a segment switch, then confirm it archived with zero failures:
-docker exec hara-postgres psql -U hara -c "select pg_switch_wal()"
+docker exec hara-postgres psql -U hara -d hara_indexer -c "select pg_switch_wal()"
 sleep 5
-docker exec hara-postgres psql -U hara -tAc \
+docker exec hara-postgres psql -U hara -d hara_indexer -tAc \
   "select last_archived_wal, last_archived_time, failed_count from pg_stat_archiver"
 ```
 
@@ -123,6 +137,13 @@ postgres-wal, redis, minio. It is idempotent — safe to re-run.
 sudo ./deploy/ops/install-backup-timers.sh
 systemctl list-timers 'hara-*-snapshot.timer'
 ```
+
+> Note: role auto-detect reads `hostname -s`. On hara-stateful that currently
+> returns `localhost` (known issue), so auto-detect errors out. Pass the roles
+> explicitly until the hostname is fixed:
+> ```bash
+> sudo ./deploy/ops/install-backup-timers.sh vault postgres postgres-basebackup postgres-wal redis minio
+> ```
 
 Expect six timers. Schedule: basebackup 01:30, postgres dump 02:00, redis 02:30,
 minio 02:45, vault 04:00, and postgres-wal every 10 min.

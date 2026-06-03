@@ -100,6 +100,17 @@ printf "restore_command = 'cp /wal-archive/%%f %%p'\nrecovery_target_action = 'p
   | sudo tee -a "$PGDATA/postgresql.auto.conf" >/dev/null
 # Don't inherit the live archive_command/archive_mode into the throwaway cluster.
 printf "archive_mode = 'off'\n" | sudo tee -a "$PGDATA/postgresql.auto.conf" >/dev/null
+# WAL replay refuses to start if any of these postmaster GUCs is LOWER on the
+# recovery cluster than it was on the primary that generated the WAL ("recovery
+# aborted because of insufficient parameter settings"). The live cluster runs
+# max_connections=300 (see deploy/data/docker-compose.yml) while the image default
+# is 100, so copy the primary's values across. Read them live so the drill stays
+# correct if the primary's tuning changes.
+for guc in max_connections max_prepared_transactions max_wal_senders \
+           max_worker_processes max_locks_per_transaction; do
+  val=$(ql "SHOW $guc")
+  printf "%s = '%s'\n" "$guc" "$val" | sudo tee -a "$PGDATA/postgresql.auto.conf" >/dev/null
+done
 
 docker run -d --name "$SIDE_PG" \
   -v "$PGDATA:/var/lib/postgresql/data" \
