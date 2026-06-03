@@ -32,17 +32,18 @@ Everything below is run **on `hara-stateful`** unless it explicitly says
 on the operator workstation — the host never needs it for *taking* backups, only
 for *restoring*.
 
-> ⚠️ **Compose project name (read before any `docker compose` command).** The
-> live data stack was brought up under the project **`hara-ledger-data`** (its
-> volumes are `hara-ledger-data_postgres-data`, `hara-ledger-data_redis-data`,
-> and MinIO's is `hara-ledger-minio_minio-data`). The compose file now declares
-> `name: hara-registry-data` (the post-rename name), but the running stack was
-> never recreated under it. **Until the project is migrated, pass
-> `-p hara-ledger-data` to every `docker compose` command in this runbook** —
-> e.g. `docker compose -p hara-ledger-data -f deploy/data/docker-compose.yml …`.
-> Running them *without* `-p` targets a brand-new empty `hara-registry-data`
-> project and **orphans the live data**. (Verified the hard way on the
-> 2026-06-03 first deploy.)
+> ℹ️ **Compose project names.** As of the 2026-06-03 migration the live stacks
+> run under the project names the compose files declare — **`hara-registry-data`**
+> (postgres + redis; volumes `hara-registry-data_postgres-data`,
+> `hara-registry-data_redis-data`, `hara-registry-data_postgres-wal-archive`) and
+> **`hara-registry-minio`** (volume `hara-registry-minio_minio-data`). Run the
+> `docker compose` commands below **without** `-p` — the file's `name:` field
+> already resolves to the right project. (History: the stacks originally ran as
+> `hara-ledger-data` / `hara-ledger-minio`; they were migrated by stopping each
+> project, copying every named volume to its `hara-registry-*` counterpart, and
+> bringing the stack back up under the new name. If you ever see `hara-ledger-*`
+> volumes lingering, they are the pre-migration originals and can be removed once
+> you've confirmed the new ones are healthy.)
 
 ---
 
@@ -91,7 +92,7 @@ user (uid 70). Without the sidecar, `archive_command` fails on every segment and
 `pg_wal` grows until the disk fills — so confirm it ran.
 
 ```bash
-docker compose -p hara-ledger-data -f deploy/data/docker-compose.yml --env-file deploy/data/.env up -d
+docker compose -f deploy/data/docker-compose.yml --env-file deploy/data/.env up -d
 
 # The init sidecar should have run once and exited 0:
 docker logs hara-postgres-archive-init     # expect: ✓ /wal-archive ready (owner uid 70)
