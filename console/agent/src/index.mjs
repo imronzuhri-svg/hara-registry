@@ -52,6 +52,20 @@ async function newestArtifact(dir) {
   }
 }
 
+// systemd monotonic timestamps are µs-since-boot (CLOCK_MONOTONIC) — the same
+// clock Node's process.hrtime() reads. Convert one to a wall-clock ISO string
+// by anchoring against "now" in both clocks (TZ-independent; no parsing of
+// systemd's locale/abbrev timestamp strings like "Wed … WIB").
+function makeMonoToIso() {
+  const monoNowUs = Number(process.hrtime.bigint() / 1000n);
+  const realNowMs = Date.now();
+  return (monoStr) => {
+    const m = Number(monoStr);
+    if (!Number.isFinite(m) || m <= 0) return null;
+    return new Date(realNowMs - (monoNowUs - m) / 1000).toISOString();
+  };
+}
+
 async function listTimers() {
   const { stdout } = await exec("systemctl", [
     "list-timers",
@@ -60,29 +74,40 @@ async function listTimers() {
     TIMER_GLOB,
   ]);
   const raw = JSON.parse(stdout);
+  const monoToIso = makeMonoToIso();
   const out = [];
   for (const t of raw) {
     let result = null;
     let exitStatus = null;
     let durationSec = null;
     let activeState = null;
+    let serviceLastRun = null;
     if (t.activates) {
       try {
+        // NOTE: `systemctl show --value` does NOT preserve the requested order
+        // (it uses systemd's internal property order), so parse KEY=value pairs
+        // into a map instead of relying on line position. (Bug fixed 2026-06-03.)
         const { stdout: shown } = await exec("systemctl", [
           "show",
           t.activates,
           "--property=Result,ExecMainStatus,ExecMainStartTimestampMonotonic,ExecMainExitTimestampMonotonic,ActiveState",
-          "--value",
         ]);
-        const [r, ex, startMono, exitMono, active] = shown.split(/\r?\n/);
-        result = (r || "").trim() || null;
-        exitStatus = (ex || "").trim() || null;
-        activeState = (active || "").trim() || null;
-        // Monotonic timestamps are µs since boot; a run's duration is exit-start
-        // (avoids wall-clock/TZ parsing). Both 0 until the service has run once.
-        const s = Number(startMono),
-          e = Number(exitMono);
+        const props = {};
+        for (const line of shown.split(/\r?\n/)) {
+          const i = line.indexOf("=");
+          if (i > 0) props[line.slice(0, i)] = line.slice(i + 1);
+        }
+        result = (props.Result || "").trim() || null;
+        exitStatus = (props.ExecMainStatus || "").trim() || null;
+        activeState = (props.ActiveState || "").trim() || null;
+        const s = Number(props.ExecMainStartTimestampMonotonic),
+          e = Number(props.ExecMainExitTimestampMonotonic);
         if (Number.isFinite(s) && Number.isFinite(e) && e > s && s > 0) durationSec = Math.round((e - s) / 1e6);
+        // The service's own last-exit wall-clock — used as the lastRun fallback
+        // when the TIMER hasn't auto-fired yet (e.g. a manual `systemctl start`
+        // or before the first scheduled run), so a backup that DID run isn't
+        // shown as "never".
+        serviceLastRun = monoToIso(props.ExecMainExitTimestampMonotonic);
       } catch {
         /* service not loaded yet */
       }
@@ -93,7 +118,9 @@ async function listTimers() {
       unit: t.unit,
       service: t.activates ?? null,
       nextRun: usecToIso(t.next),
-      lastRun: usecToIso(t.last),
+      // Prefer the most recent of the timer's last trigger and the service's
+      // last actual execution (covers manual runs / pre-first-fire).
+      lastRun: usecToIso(t.last) ?? serviceLastRun,
       result,
       exitStatus,
       durationSec,
