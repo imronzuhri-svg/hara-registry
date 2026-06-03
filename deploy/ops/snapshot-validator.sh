@@ -47,18 +47,28 @@ echo "  Source ← $VOLUME"
 echo "  Stopping container..."
 docker stop "$CONTAINER" >/dev/null
 
-# Stream: tar → zstd → age. Plaintext never lands on disk.
+# CRITICAL: from this point the validator is DOWN. Guarantee it restarts no
+# matter how this script exits (archive failure, signal, etc.) — otherwise a
+# failed backup leaves the validator dead and (across the fleet) halts the chain.
+# (This exact bug halted the chain on 2026-06-02.) The explicit start below
+# clears the trap on the happy path.
+trap 'echo "  ⚠ restarting $CONTAINER on exit"; docker start "$CONTAINER" >/dev/null 2>&1 || true' EXIT
+
+# Stream: tar → zstd → age. Plaintext never lands on disk. The Besu data volume
+# is root-owned, so read it via sudo (the snapshot service runs as an unprivileged
+# user). sudo failure no longer strands the validator — the trap restarts it.
 echo "  Archiving + encrypting ..."
-tar --use-compress-program='zstd -3 -T0' \
+sudo tar --use-compress-program='zstd -3 -T0' \
     -cf - -C "$(dirname "$VOLUME")" "$(basename "$VOLUME")" \
   | age -r "$BACKUP_AGE_RECIPIENT" \
   > "$TARBALL"
 chmod 600 "$TARBALL"
 SIZE=$(du -h "$TARBALL" | cut -f1)
 
-# Restart validator immediately
+# Restart validator immediately, then clear the safety trap.
 echo "  Starting container..."
 docker start "$CONTAINER" >/dev/null
+trap - EXIT
 
 # Upload to Nevacloud Object Storage
 echo "  Uploading $SIZE → $REMOTE_PATH"
