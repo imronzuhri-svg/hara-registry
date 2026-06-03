@@ -911,6 +911,40 @@ function BackupJobRow({ j }: { j: BackupJob }) {
   );
 }
 
+function worstTone(jobs: BackupJob[]): "ok" | "warn" | "down" | "idle" {
+  if (jobs.length === 0) return "idle";
+  if (jobs.some((j) => j.health === "failed")) return "down";
+  if (jobs.some((j) => j.health === "overdue" || j.health === "never")) return "warn";
+  return "ok";
+}
+
+function CategoryPanel({ title, subtitle, help, jobs, emptyText }: { title: string; subtitle: string; help: ReactNode; jobs: BackupJob[]; emptyText: string }) {
+  const t = worstTone(jobs);
+  return (
+    <Panel title={title} subtitle={subtitle} status={<StatusPill tone={t} label={t === "ok" ? "healthy" : t === "down" ? "failed" : t === "warn" ? "attention" : "none"} />} help={help}>
+      {jobs.length === 0 ? (
+        <Muted text={emptyText} />
+      ) : (
+        <ul className="space-y-2">
+          {jobs.map((j) => (
+            <BackupJobRow key={`${j.host}/${j.base}`} j={j} />
+          ))}
+        </ul>
+      )}
+    </Panel>
+  );
+}
+
+function KV({ k, v, tone }: { k: string; v: ReactNode; tone?: "ok" | "warn" | "down" | "muted" }) {
+  const c = tone === "ok" ? "text-brand-teal" : tone === "warn" ? "text-accent-orange" : tone === "down" ? "text-red-400" : "text-mist-0";
+  return (
+    <div className="flex items-baseline justify-between gap-3 border-b border-ink-700/60 py-1.5 text-sm last:border-0">
+      <span className="text-mist-1/55">{k}</span>
+      <span className={`text-right ${c}`}>{v}</span>
+    </div>
+  );
+}
+
 function BackupsScreen({ data }: { data: OverviewData }) {
   const [report, setReport] = useState<BackupsReport | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -926,41 +960,106 @@ function BackupsScreen({ data }: { data: OverviewData }) {
     return () => { alive = false; clearInterval(h); };
   }, []);
 
-  const s = report?.summary;
-  const allHealthy = s != null && s.failed === 0 && s.overdue === 0 && s.never === 0 && report!.unreachable === 0;
+  if (err) return <Panel title="Backups & DR" status={sectionPill(data?.backups)}><Muted text={`unavailable — ${err}`} /></Panel>;
+  if (!report) return <Panel title="Backups & DR"><Muted text="loading backup status…" /></Panel>;
+
+  const s = report.summary;
+  const { replication: rep, failover: fo, recovery: rec } = report.dr;
+  const allHealthy = s.failed === 0 && s.overdue === 0 && s.never === 0 && report.unreachable === 0;
+  const backups = report.jobs.filter((j) => j.category === "backup");
+  const snapshots = report.jobs.filter((j) => j.category === "snapshot");
+  const replication = report.jobs.filter((j) => j.category === "replication");
+
   return (
     <>
+      {/* Overview */}
       <Panel
         title="Backups & DR"
-        subtitle="operations · performance · freshness"
-        status={report ? <StatusPill tone={allHealthy ? "ok" : s && (s.failed > 0) ? "down" : "warn"} label={allHealthy ? "all healthy" : "attention"} /> : sectionPill(data?.backups)}
-        help={
-          <>
-            <b>What it is:</b> every nightly/continuous snapshot timer across the fleet — Postgres dump + base + WAL (PITR), Redis, MinIO, Vault Raft, and each validator — age-encrypted and shipped off-host to Nevacloud S3.{" "}
-            <b>Watch:</b> the health pill (ok / overdue / failed), last-run age, run duration and artifact size. <b>Good:</b> all "ok" with recent runs and sane sizes. <b>Bad:</b> "failed" (the backup errored) or "overdue" (the timer silently stopped — the dangerous one).
-          </>
-        }
+        subtitle="backups · snapshots · replication · failover · recovery"
+        status={<StatusPill tone={allHealthy ? "ok" : s.failed > 0 ? "down" : "warn"} label={allHealthy ? "all healthy" : "attention"} />}
+        help={<>The five pillars of disaster recovery for this stack. <b>Backups</b> + <b>Snapshots</b> = off-host encrypted copies. <b>Replication</b> = continuous WAL shipping (async, ~10-min RPO). <b>Failover</b> = the sleeping standby that takes over. <b>Recovery</b> = periodic proof that restores actually work.</>}
       >
-        {err && <Muted text={`unavailable — ${err}`} />}
-        {!report && !err && <Muted text="loading backup status…" />}
-        {report && s && (
-          <>
-            <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <Stat label="Jobs healthy" value={`${s.ok}/${s.total}`} hint={`${report.hosts} host${report.hosts === 1 ? "" : "s"}`} />
-              <Stat label="Failed" value={s.failed} hint={s.failed ? "needs attention" : "none"} />
-              <Stat label="Overdue" value={s.overdue} hint={s.overdue ? "timer may be stopped" : "none"} />
-              <Stat label="Oldest success" value={s.oldestSuccessAgeHours != null ? `${s.oldestSuccessAgeHours}h` : "—"} hint="time since last good run" />
-            </div>
-            <ul className="space-y-2">
-              {report.jobs.map((j) => (
-                <BackupJobRow key={`${j.host}/${j.base}`} j={j} />
-              ))}
-              {report.unreachable > 0 && <li className="pt-1 text-xs text-accent-orange/70">{report.unreachable} agent(s) unreachable — those hosts' backups are unknown</li>}
-            </ul>
-          </>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <Stat label="Jobs healthy" value={`${s.ok}/${s.total}`} hint={`${report.hosts} host${report.hosts === 1 ? "" : "s"}`} />
+          <Stat label="Failed" value={s.failed} hint={s.failed ? "needs attention" : "none"} />
+          <Stat label="Overdue" value={s.overdue} hint={s.overdue ? "timer may be stopped" : "none"} />
+          <Stat label="Oldest success" value={s.oldestSuccessAgeHours != null ? `${s.oldestSuccessAgeHours}h` : "—"} hint="time since last good run" />
+        </div>
+        {report.unreachable > 0 && <p className="mt-3 text-xs text-accent-orange/70">{report.unreachable} agent(s) unreachable — those hosts' status is unknown.</p>}
+      </Panel>
+
+      {/* 1. Backups */}
+      <CategoryPanel
+        title="1 · Backups"
+        subtitle="off-host encrypted copies → Nevacloud S3"
+        help={<>Logical/object backups: Postgres dump, Redis RDB, MinIO objects, Vault Raft. Each age-encrypted before it leaves the VPS. Watch the health pill, last-run age and artifact size.</>}
+        jobs={backups}
+        emptyText="no backup jobs reporting"
+      />
+
+      {/* 2. Snapshots */}
+      <CategoryPanel
+        title="2 · Snapshots"
+        subtitle="point-in-time physical snapshots"
+        help={<>Physical point-in-time snapshots: the Postgres base backup (the PITR baseline) and each validator's chain-data. Heavier than logical backups; the base pairs with WAL for point-in-time recovery.</>}
+        jobs={snapshots}
+        emptyText="no snapshot jobs reporting"
+      />
+
+      {/* 3. Replication */}
+      <Panel
+        title="3 · Replication"
+        subtitle="continuous WAL shipping (async)"
+        status={<StatusPill tone={rep.healthy ? "ok" : "warn"} label={rep.healthy ? "working" : "check"} />}
+        help={<>Continuous async replication: every completed Postgres WAL segment is encrypted and shipped to S3 (~10-min cadence). This is what lets the sleeping standby catch up to within the RPO. True streaming replication (seconds-RPO) would need an always-on replica.</>}
+      >
+        <div className="mb-3">
+          <KV k="Method" v={rep.method} />
+          <KV k="Last WAL ship" v={rep.walLastShipAt ? ago(rep.walLastShipAt) : "—"} tone={rep.healthy ? "ok" : "warn"} />
+          <KV k="Replication lag (RPO)" v={rep.walLagMinutes != null ? `~${rep.walLagMinutes} min` : "—"} />
+          <KV k="Target RPO" v={`≤ ${rep.rpoMinutes} min`} />
+          <KV k="Streaming replica" v={rep.streamingReplica} tone={rep.streamingReplica === "configured" ? "ok" : "muted"} />
+        </div>
+        {replication.length > 0 && <ul className="space-y-2">{replication.map((j) => <BackupJobRow key={`${j.host}/${j.base}`} j={j} />)}</ul>}
+      </Panel>
+
+      {/* 4. Failover */}
+      <Panel
+        title="4 · Failover"
+        subtitle="sleeping standby — is it alive & ready?"
+        status={<StatusPill tone={fo.configured ? (fo.standbyAwake ? "ok" : "idle") : "warn"} label={fo.configured ? (fo.standbyAwake ? "awake" : "asleep (ready)") : "not configured"} />}
+        help={<>The cold/sleeping standby model: a normally-off VPS that, on emergency, wakes, restores the latest base + replays WAL from S3, and is promoted (operator-triggered). This panel monitors whether a standby exists and whether it's reachable.</>}
+      >
+        <KV k="Model" v={fo.model} />
+        <KV k="Standby host" v={fo.standbyHost ?? "none provisioned"} tone={fo.configured ? "ok" : "warn"} />
+        <KV k="Standby state" v={fo.standbyAwake == null ? "n/a (no health probe)" : fo.standbyAwake ? "awake & reachable" : "asleep / unreachable"} tone={fo.standbyAwake ? "ok" : "muted"} />
+        <p className="mt-3 text-xs text-mist-1/55">{fo.note}</p>
+      </Panel>
+
+      {/* 5. Recovery */}
+      <Panel
+        title="5 · Recovery"
+        subtitle="periodic proof that restores work"
+        status={<StatusPill tone={rec.anyFail ? "down" : rec.scheduled && rec.lastPass ? "ok" : "warn"} label={rec.anyFail ? "drill failed" : rec.scheduled ? (rec.lastPass ? "tested" : "scheduled") : "manual only"} />}
+        help={<>Backups you can't restore aren't backups. A weekly drill restores a base + replays WAL into a throwaway container and a logical dump into a side DB, asserting the data comes back — then records pass/fail here. Run on-demand: <code>deploy/ops/pitr-restore-drill.sh</code>.</>}
+      >
+        <KV k="Scheduled drill" v={rec.scheduled ? "weekly (Sun 05:00)" : "not scheduled"} tone={rec.scheduled ? "ok" : "warn"} />
+        <KV k="Last successful drill" v={rec.lastPass ? ago(rec.lastPass) : "never"} tone={rec.lastPass ? "ok" : "warn"} />
+        {rec.drills.length > 0 ? (
+          <ul className="mt-3 space-y-2">
+            {rec.drills.map((d, i) => (
+              <li key={i} className="flex items-center justify-between gap-3 rounded-lg bg-ink-900/60 px-3 py-2 text-sm">
+                <span><span className="text-mist-0">{d.drill}</span> <span className="text-xs text-mist-1/40">@ {d.host}</span>{d.at && <span className="ml-2 text-xs text-mist-1/40">{ago(d.at)}{d.durationSec != null ? ` · ${fmtDuration(d.durationSec)}` : ""}</span>}</span>
+                <StatusPill tone={d.status === "pass" ? "ok" : d.status === "fail" ? "down" : "idle"} label={d.status ?? "unknown"} />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-3 text-xs text-mist-1/55">No drill results yet — the first weekly drill will record here (or run one now from the host).</p>
         )}
       </Panel>
 
+      {/* Alerts */}
       <Panel title="Backup alerts" subtitle="failed · overdue · never-run · agent-down" help={<>The same backup signals that drive the top anomaly banner, isolated here. These auto-clear when the next run succeeds. A daily backup is flagged "overdue" past ~1.3× its interval; WAL past ~13 min.</>}>
         {alerts.length === 0 ? (
           <div className="flex items-center gap-2 text-sm text-brand-teal">
@@ -976,10 +1075,6 @@ function BackupsScreen({ data }: { data: OverviewData }) {
             ))}
           </ul>
         )}
-      </Panel>
-
-      <Panel title="About these backups" subtitle="how to read this screen">
-        <Muted text="Each host runs a tiny read-only agent that reports its hara-*-snapshot systemd timers (last/next run, systemd Result, run duration) plus the newest local artifact's size. The Console computes health (ok/failed/overdue/never) against each backup's expected cadence. Restore procedures live in deploy/ops/RECOVERY.md; the off-host encrypted copies go to Nevacloud S3." />
       </Panel>
     </>
   );

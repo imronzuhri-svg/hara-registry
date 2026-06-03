@@ -69,10 +69,10 @@ for r in "${REQUESTED_ROLES[@]}"; do
   if [ "$r" = "auto" ]; then
     case "$HOST" in
       hara-stateful)
-        ROLES+=(vault postgres postgres-basebackup postgres-wal redis minio) ;;
+        ROLES+=(vault postgres postgres-basebackup postgres-wal redis minio drill) ;;
       hara-v[1-9]*)
         ROLES+=(validator) ;;
-      *) echo "✗ cannot auto-detect role for host '$HOST' — pass vault|validator|postgres|postgres-wal|postgres-basebackup|redis|minio"; exit 1 ;;
+      *) echo "✗ cannot auto-detect role for host '$HOST' — pass vault|validator|postgres|postgres-wal|postgres-basebackup|redis|minio|drill"; exit 1 ;;
     esac
   else
     ROLES+=("$r")
@@ -198,8 +198,19 @@ install_role() {
         "$OPS/snapshot-minio.sh"
       ;;
 
+    drill)
+      # Periodic RECOVERY TESTING — weekly, off-peak (after the nightly backups).
+      # Runs both restore drills; each writes its pass/fail to
+      # /var/backups/hara/drills/*.json, which the console's Recovery panel reads.
+      # Uses ';' so a failure in one still runs (and records) the other.
+      install_unit "hara-drill-snapshot" \
+        "Weekly recovery drills — PITR + logical-dump restore tests" \
+        "Sun *-*-* 05:00:00" \
+        "/bin/sh -c '$OPS/pitr-restore-drill.sh; $OPS/snapshot-restore-drill.sh'"
+      ;;
+
     *)
-      echo "✗ unknown role '$role' (expected vault|validator|postgres|postgres-basebackup|postgres-wal|redis|minio)"; exit 1 ;;
+      echo "✗ unknown role '$role' (expected vault|validator|postgres|postgres-basebackup|postgres-wal|redis|minio|drill)"; exit 1 ;;
   esac
 }
 

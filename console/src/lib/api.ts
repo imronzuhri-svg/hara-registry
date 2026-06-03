@@ -80,13 +80,44 @@ export interface BackupsData {
 
 // Dedicated /api/backups (richer than the overview section).
 export type BackupHealth = "ok" | "failed" | "overdue" | "never" | "unknown";
+export type DrCategory = "backup" | "snapshot" | "replication";
 export interface BackupJob extends BackupTimer {
   host: string;
   base: string;
+  category: DrCategory;
   expectedIntervalHours: number | null;
   ageHours: number | null;
   overdue: boolean;
   health: BackupHealth;
+}
+export interface DrillResult {
+  drill: string;
+  status: string | null;
+  at: string | null;
+  durationSec: number | null;
+  host: string;
+  ageHours: number | null;
+}
+export interface DrReplication {
+  method: string;
+  walLastShipAt: string | null;
+  walLagMinutes: number | null;
+  healthy: boolean;
+  rpoMinutes: number;
+  streamingReplica: "configured" | "not configured";
+}
+export interface DrFailover {
+  model: string;
+  configured: boolean;
+  standbyHost: string | null;
+  standbyAwake: boolean | null;
+  note: string;
+}
+export interface DrRecovery {
+  scheduled: boolean;
+  drills: DrillResult[];
+  lastPass: string | null;
+  anyFail: boolean;
 }
 export interface BackupsReport {
   generatedAt: string;
@@ -94,6 +125,7 @@ export interface BackupsReport {
   unreachable: number;
   jobs: BackupJob[];
   summary: { total: number; ok: number; failed: number; overdue: number; never: number; oldestSuccessAgeHours: number | null };
+  dr: { replication: DrReplication; failover: DrFailover; recovery: DrRecovery };
 }
 
 export async function fetchBackups(): Promise<BackupsReport> {

@@ -38,14 +38,33 @@ SENTINEL="pitr-$(date -u +%Y%m%dT%H%M%SZ)-$RANDOM"
 WORK="$(mktemp -d "${TMPDIR:-/var/tmp}/pitr-drill.XXXXXX")"
 PGDATA="$WORK/pgdata"
 
+# Record the drill outcome so the Strata Console can monitor "recovery is
+# periodically tested". The EXIT trap writes pass/fail from the script's exit
+# code; the backups agent surfaces this file under the console's Recovery panel.
+DRILL_RESULT_DIR="${DRILL_RESULT_DIR:-/var/backups/hara/drills}"
+DRILL_NAME="pitr"
+DRILL_START_EPOCH="$(date +%s)"
+write_drill_result() {
+  local code="$1" status="fail"
+  [ "$code" = "0" ] && status="pass"
+  local dur=$(( $(date +%s) - DRILL_START_EPOCH ))
+  ( mkdir -p "$DRILL_RESULT_DIR" 2>/dev/null || sudo mkdir -p "$DRILL_RESULT_DIR" 2>/dev/null ) || true
+  printf '{"drill":"%s","status":"%s","exitCode":%s,"at":"%s","durationSec":%s}\n' \
+    "$DRILL_NAME" "$status" "$code" "$(date -u +%FT%TZ)" "$dur" \
+    | ( tee "$DRILL_RESULT_DIR/$DRILL_NAME.json" >/dev/null 2>&1 \
+        || sudo tee "$DRILL_RESULT_DIR/$DRILL_NAME.json" >/dev/null 2>&1 ) || true
+}
+
 ql() { docker exec "$LIVE_PG" psql -U "$PG_USER" -d "${2:-postgres}" -t -A -c "$1"; }
 qs() { docker exec "$SIDE_PG" psql -U "$PG_USER" -d "${2:-postgres}" -t -A -c "$1"; }
 
 cleanup() {
+  local code=$?
   docker rm -f "$SIDE_PG" >/dev/null 2>&1 || true
   docker exec "$LIVE_PG" psql -U "$PG_USER" -d postgres \
     -c "DROP DATABASE IF EXISTS $DRILL_DB WITH (FORCE)" >/dev/null 2>&1 || true
   sudo rm -rf "$WORK" 2>/dev/null || rm -rf "$WORK" 2>/dev/null || true
+  write_drill_result "$code"
 }
 trap cleanup EXIT
 

@@ -30,6 +30,30 @@ const ARTIFACT_DIRS = {
 // systemd list-timers emits microseconds-since-epoch (or null/0).
 const usecToIso = (v) => (v && v > 0 ? new Date(v / 1000).toISOString() : null);
 
+const DRILL_DIR = process.env.AGENT_DRILL_DIR ?? "/var/backups/hara/drills";
+
+// Recovery-drill results written by *-restore-drill.sh (one JSON per drill).
+// Surfaced under the console's Recovery panel as "recovery is periodically tested".
+async function readDrills() {
+  try {
+    const names = await fs.readdir(DRILL_DIR);
+    const out = [];
+    for (const name of names) {
+      if (!name.endsWith(".json")) continue;
+      try {
+        const raw = await fs.readFile(path.join(DRILL_DIR, name), "utf8");
+        const j = JSON.parse(raw);
+        if (j && j.drill) out.push({ drill: j.drill, status: j.status ?? null, at: j.at ?? null, durationSec: j.durationSec ?? null });
+      } catch {
+        /* skip unreadable/partial file */
+      }
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
 // Newest regular file in a backup dir → {bytes, mtime}. Best-effort, dep-free.
 async function newestArtifact(dir) {
   try {
@@ -142,8 +166,8 @@ const server = http.createServer(async (req, res) => {
   try {
     if (req.url === "/healthz") return send(res, 200, { ok: true, host: os.hostname() });
     if (req.url === "/backups") {
-      const timers = await listTimers();
-      return send(res, 200, { host: os.hostname(), generatedAt: new Date().toISOString(), timers });
+      const [timers, drills] = await Promise.all([listTimers(), readDrills()]);
+      return send(res, 200, { host: os.hostname(), generatedAt: new Date().toISOString(), timers, drills });
     }
     return send(res, 404, { error: "not found" });
   } catch (e) {
