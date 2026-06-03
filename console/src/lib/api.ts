@@ -63,6 +63,10 @@ export interface BackupTimer {
   lastRun: string | null;
   result: string | null;
   exitStatus: string | null;
+  durationSec?: number | null;
+  activeState?: string | null;
+  artifactBytes?: number | null;
+  artifactAt?: string | null;
 }
 export interface BackupHost {
   host: string;
@@ -72,6 +76,52 @@ export interface BackupHost {
 export interface BackupsData {
   hosts: BackupHost[];
   unreachable: number;
+}
+
+// Dedicated /api/backups (richer than the overview section).
+export type BackupHealth = "ok" | "failed" | "overdue" | "never" | "unknown";
+export interface BackupJob extends BackupTimer {
+  host: string;
+  base: string;
+  expectedIntervalHours: number | null;
+  ageHours: number | null;
+  overdue: boolean;
+  health: BackupHealth;
+}
+export interface BackupsReport {
+  generatedAt: string;
+  hosts: number;
+  unreachable: number;
+  jobs: BackupJob[];
+  summary: { total: number; ok: number; failed: number; overdue: number; never: number; oldestSuccessAgeHours: number | null };
+}
+
+export async function fetchBackups(): Promise<BackupsReport> {
+  const res = await fetch(`${API_BASE}/backups`);
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `backups HTTP ${res.status}`);
+  return (await res.json()) as BackupsReport;
+}
+
+/** Human-readable byte size. */
+export function fmtBytes(n: number | null | undefined): string {
+  if (n == null) return "—";
+  if (n < 1024) return `${n} B`;
+  const u = ["KB", "MB", "GB", "TB"];
+  let v = n / 1024,
+    i = 0;
+  while (v >= 1024 && i < u.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  return `${v < 10 ? v.toFixed(1) : Math.round(v)} ${u[i]}`;
+}
+
+/** Compact duration from seconds. */
+export function fmtDuration(s: number | null | undefined): string {
+  if (s == null) return "—";
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ${s % 60}s`;
+  return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
 }
 
 export interface Overview {

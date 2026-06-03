@@ -5,6 +5,8 @@
 // via BACKUPS_AGENT_URLS.
 import http from "node:http";
 import os from "node:os";
+import fs from "node:fs/promises";
+import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
@@ -14,8 +16,41 @@ const PORT = Number(process.env.AGENT_PORT ?? 8911);
 const BIND = process.env.AGENT_BIND ?? "0.0.0.0";
 const TIMER_GLOB = process.env.AGENT_TIMER_GLOB ?? "hara-*-snapshot.timer";
 
+// Where each snapshot service drops its newest local artifact. Used to report
+// backup SIZE + on-disk freshness (a proxy for "did it actually produce output").
+// Missing dirs are simply skipped — a validator host only has the validator dir.
+const ARTIFACT_DIRS = {
+  "hara-postgres-snapshot": "/var/backups/hara/postgres",
+  "hara-postgres-basebackup-snapshot": "/var/backups/hara/postgres-base",
+  "hara-redis-snapshot": "/var/backups/hara/redis",
+  "hara-minio-snapshot": "/var/backups/hara/minio",
+  "hara-validator-snapshot": "/var/backups/hara",
+};
+
 // systemd list-timers emits microseconds-since-epoch (or null/0).
 const usecToIso = (v) => (v && v > 0 ? new Date(v / 1000).toISOString() : null);
+
+// Newest regular file in a backup dir → {bytes, mtime}. Best-effort, dep-free.
+async function newestArtifact(dir) {
+  try {
+    const names = await fs.readdir(dir);
+    let best = null;
+    for (const name of names) {
+      const full = path.join(dir, name);
+      let st;
+      try {
+        st = await fs.stat(full);
+      } catch {
+        continue;
+      }
+      if (!st.isFile()) continue;
+      if (!best || st.mtimeMs > best.mtimeMs) best = { bytes: st.size, mtimeMs: st.mtimeMs };
+    }
+    return best ? { bytes: best.bytes, mtime: new Date(best.mtimeMs).toISOString() } : null;
+  } catch {
+    return null;
+  }
+}
 
 async function listTimers() {
   const { stdout } = await exec("systemctl", [
@@ -29,21 +64,31 @@ async function listTimers() {
   for (const t of raw) {
     let result = null;
     let exitStatus = null;
+    let durationSec = null;
+    let activeState = null;
     if (t.activates) {
       try {
         const { stdout: shown } = await exec("systemctl", [
           "show",
           t.activates,
-          "--property=Result,ExecMainStatus",
+          "--property=Result,ExecMainStatus,ExecMainStartTimestampMonotonic,ExecMainExitTimestampMonotonic,ActiveState",
           "--value",
         ]);
-        const [r, ex] = shown.split(/\r?\n/);
+        const [r, ex, startMono, exitMono, active] = shown.split(/\r?\n/);
         result = (r || "").trim() || null;
         exitStatus = (ex || "").trim() || null;
+        activeState = (active || "").trim() || null;
+        // Monotonic timestamps are µs since boot; a run's duration is exit-start
+        // (avoids wall-clock/TZ parsing). Both 0 until the service has run once.
+        const s = Number(startMono),
+          e = Number(exitMono);
+        if (Number.isFinite(s) && Number.isFinite(e) && e > s && s > 0) durationSec = Math.round((e - s) / 1e6);
       } catch {
         /* service not loaded yet */
       }
     }
+    const base = t.unit.replace(/\.timer$/, "");
+    const artifact = ARTIFACT_DIRS[base] ? await newestArtifact(ARTIFACT_DIRS[base]) : null;
     out.push({
       unit: t.unit,
       service: t.activates ?? null,
@@ -51,6 +96,10 @@ async function listTimers() {
       lastRun: usecToIso(t.last),
       result,
       exitStatus,
+      durationSec,
+      activeState,
+      artifactBytes: artifact ? artifact.bytes : null,
+      artifactAt: artifact ? artifact.mtime : null,
     });
   }
   return out;
