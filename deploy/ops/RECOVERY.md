@@ -30,14 +30,13 @@ sudo ./deploy/ops/install-backup-timers.sh        # auto-detects the full data-t
 DEC='age -d -i ~/.config/age/hara-backups.txt'
 ```
 
-> ⚠️ **Volume / project names.** The restore steps below reference
-> `hara-registry-data_*` (the post-rename project name in the compose file). The
-> **live** stack still runs under the pre-rename project **`hara-ledger-data`**,
-> so on the current production host the real volumes are
-> `hara-ledger-data_postgres-data`, `hara-ledger-data_redis-data`, and
-> `hara-ledger-minio_minio-data`. Substitute accordingly (or pass
-> `-p hara-ledger-data` to `docker compose`) until the project is migrated.
-> Verify with `docker volume ls` before any destructive restore step.
+> ℹ️ **Volume / project names.** Since the 2026-06-03 migration the live volumes
+> match the compose-file project names: `hara-registry-data_postgres-data`,
+> `hara-registry-data_redis-data`, `hara-registry-data_postgres-wal-archive`, and
+> `hara-registry-minio_minio-data` — exactly as the restore steps below assume.
+> (Pre-migration `hara-ledger-data_*` / `hara-ledger-minio_*` volumes may still
+> exist as backups of the originals.) Always confirm with `docker volume ls`
+> before any destructive restore step.
 
 ---
 
