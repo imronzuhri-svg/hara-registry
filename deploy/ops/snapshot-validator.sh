@@ -70,9 +70,13 @@ echo "  Starting container..."
 docker start "$CONTAINER" >/dev/null
 trap - EXIT
 
-# Upload to Nevacloud Object Storage
+# Upload to Nevacloud Object Storage. Nevacloud's S3 rejects large single-PUT
+# objects (returns an HTML error), so force chunked multipart uploads — validator
+# snapshots are hundreds of MB. 16 MiB chunks upload reliably.
 echo "  Uploading $SIZE → $REMOTE_PATH"
-rclone copy "$TARBALL" "$REMOTE_PATH" --transfers 4 --checkers 4 --quiet
+rclone copy "$TARBALL" "$REMOTE_PATH" \
+  --s3-upload-cutoff 16Mi --s3-chunk-size 16Mi --s3-upload-concurrency 2 \
+  --transfers 2 --checkers 4 --quiet
 
 # Local retention: keep 3 most recent, delete older
 find "$BACKUP_DIR" -name "${CONTAINER}-${HOSTNAME_TAG}-*.tar.zst.age" -type f \
