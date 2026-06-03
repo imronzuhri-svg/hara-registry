@@ -101,7 +101,12 @@ echo "✓ Encrypted snapshot ($(stat -c %s "$OUT" 2>/dev/null || wc -c <"$OUT") 
 if [ -n "$RCLONE_TARGET" ]; then
   command -v rclone >/dev/null || { echo "✗ rclone not installed" >&2; exit 1; }
   echo "▶ Uploading to $RCLONE_TARGET"
-  rclone copy "$OUT" "$RCLONE_TARGET"
+  # Nevacloud S3 rejects large single-PUT objects (returns an HTML error), so
+  # force chunked multipart — Raft snapshots grow past the single-PUT limit.
+  # (Same fix as snapshot-validator.sh; see incident 2026-06-02.)
+  rclone copy "$OUT" "$RCLONE_TARGET" \
+    --s3-upload-cutoff 16Mi --s3-chunk-size 16Mi --s3-upload-concurrency 2 \
+    --transfers 2 --checkers 4
   echo "✓ Uploaded"
 fi
 
