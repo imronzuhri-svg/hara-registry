@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- HARA Registry — full icon (animated) -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="432" height="432" role="img">
+  <defs>
+    <linearGradient id="shell" x1="20" y1="20" x2="180" y2="180" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#2BD4C0"/><stop offset="0.5" stop-color="#3B6BFF"/><stop offset="1" stop-color="#5A45E0"/></linearGradient>
+    <radialGradient id="core" cx="97" cy="96" r="20" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#FFE6B8"/><stop offset="0.45" stop-color="#FFC56E"/><stop offset="1" stop-color="#F39B24"/></radialGradient>
+    <linearGradient id="warm" x1="120" y1="170" x2="175" y2="120" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#FFC56E"/><stop offset="1" stop-color="#FF9D5C"/></linearGradient>
+    <clipPath id="sq"><rect width="108" height="108" rx="24" ry="24"/></clipPath>
+  </defs>
+  <g >
+    
+    <g transform="scale(0.54)">
+      <g><animateTransform attributeName="transform" attributeType="XML" type="rotate" from="0 100 100" to="360 100 100" dur="50s" repeatCount="indefinite" additive="sum"/><g transform="rotate(0 100 100)"><path d="M42.84,67.00 A66,66 0 1 1 42.84,133.00" fill="none" stroke="url(#shell)" stroke-width="9" stroke-linecap="round"/></g><g transform="rotate(140 100 100)"><path d="M58.43,76.00 A48,48 0 1 1 58.43,124.00" fill="none" stroke="url(#shell)" stroke-width="9" stroke-linecap="round"/></g><g transform="rotate(40 100 100)"><path d="M73.15,84.50 A31,31 0 1 1 73.15,115.50" fill="none" stroke="url(#shell)" stroke-width="9" stroke-linecap="round"/></g></g><g transform="translate(100,100)"><g><animateTransform attributeName="transform" attributeType="XML" type="scale" values="1;1.07;1" dur="5.4s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.5;1" keySplines="0.42 0 0.58 1;0.42 0 0.58 1" additive="sum"/><g transform="translate(-100,-100)"><circle cx="100" cy="100" r="13" fill="url(#core)"/><circle cx="96" cy="96" r="3.8" fill="#ffffff" fill-opacity="0.55"/></g></g></g>
+    </g>
+    
+  </g>
+</svg>

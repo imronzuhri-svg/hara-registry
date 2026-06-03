@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- HARA Registry — brand icon (animated) -->
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt">
+    <aapt:attr name="android:drawable">
+        <vector android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:pathData="M0,0 H108 V108 H0 Z"><aapt:attr name="android:fillColor"><gradient android:type="linear" android:startX="0" android:startY="0" android:endX="108" android:endY="108"><item android:offset="0" android:color="#FF2BD4C0"/><item android:offset="1" android:color="#FF3B6BFF"/></gradient></aapt:attr></path>
+                <group android:scaleX="0.54" android:scaleY="0.54">
+                <group android:name="spin" android:pivotX="100" android:pivotY="100"><group android:rotation="0" android:pivotX="100" android:pivotY="100"><path android:pathData="M42.84,67.00 A66,66 0 1 1 42.84,133.00" android:strokeColor="#FFFFFFFF" android:strokeWidth="9" android:strokeLineCap="round"/></group><group android:rotation="140" android:pivotX="100" android:pivotY="100"><path android:pathData="M58.43,76.00 A48,48 0 1 1 58.43,124.00" android:strokeColor="#FFFFFFFF" android:strokeWidth="9" android:strokeLineCap="round"/></group><group android:rotation="40" android:pivotX="100" android:pivotY="100"><path android:pathData="M73.15,84.50 A31,31 0 1 1 73.15,115.50" android:strokeColor="#FFFFFFFF" android:strokeWidth="9" android:strokeLineCap="round"/></group></group>
+                <group android:name="breathe" android:pivotX="100" android:pivotY="100"><path android:pathData="M87,100 a13,13 0 1,0 26,0 a13,13 0 1,0 -26,0 z" android:fillColor="#FFFFFFFF"/></group>
+            </group>
+        </vector>
+    </aapt:attr>
+
+    <target android:name="spin">
+        <aapt:attr name="android:animation"><objectAnimator android:propertyName="rotation" android:duration="50000" android:valueFrom="0" android:valueTo="360" android:repeatCount="infinite" android:interpolator="@android:anim/linear_interpolator"/></aapt:attr>
+    </target>
+
+    <target android:name="breathe">
+        <aapt:attr name="android:animation"><set android:ordering="together"><objectAnimator android:propertyName="scaleX" android:duration="2700" android:valueFrom="1" android:valueTo="1.07" android:repeatCount="infinite" android:repeatMode="reverse" android:interpolator="@android:anim/accelerate_decelerate_interpolator"/><objectAnimator android:propertyName="scaleY" android:duration="2700" android:valueFrom="1" android:valueTo="1.07" android:repeatCount="infinite" android:repeatMode="reverse" android:interpolator="@android:anim/accelerate_decelerate_interpolator"/></set></aapt:attr>
+    </target>
+</animated-vector>
