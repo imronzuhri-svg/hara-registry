@@ -118,8 +118,17 @@ log "Arming archive recovery"
 # Ownership: postgres runs as uid 70 (alpine). The restored tree is owned by us;
 # hand it to 70 so the container can use it.
 sudo chown -R 70:70 "$PGDATA" "$WALDIR" 2>/dev/null || chown -R 70:70 "$PGDATA" "$WALDIR"
+# Capture the base backup's start LSN now — backup_label is consumed (renamed to
+# backup_label.old) once recovery reaches consistency, so it must be read before
+# boot. Used post-promote to assert WAL replay actually advanced past the base.
+BASE_START_LSN=$(sudo grep -m1 'START WAL LOCATION' "$PGDATA/backup_label" 2>/dev/null \
+  | sed -E 's/.*: ([0-9A-Fa-f]+\/[0-9A-Fa-f]+).*/\1/' || true)
 sudo touch "$PGDATA/recovery.signal" 2>/dev/null || touch "$PGDATA/recovery.signal"
-{
+# Build the recovery config, then append it. The data dir is now owned by 70:70
+# (chown above), so the append needs sudo. Hard-fail if it doesn't land — a
+# silently-missing restore_command/GUC block would promote at the base-only
+# consistency point (losing every post-base write) and still look "ready".
+RECOVERY_CONF=$(
   echo "restore_command = 'cp /wal-restore/%f %p'"
   echo "recovery_target_action = 'promote'"
   [ -n "${RECOVERY_TARGET_TIME:-}" ] && echo "recovery_target_time = '$RECOVERY_TARGET_TIME'"
@@ -130,8 +139,11 @@ sudo touch "$PGDATA/recovery.signal" 2>/dev/null || touch "$PGDATA/recovery.sign
   echo "max_wal_senders = '$MAX_WAL_SENDERS'"
   echo "max_locks_per_transaction = '$MAX_LOCKS'"
   echo "max_prepared_transactions = '$MAX_PREPARED_TX'"
-} | sudo tee -a "$PGDATA/postgresql.auto.conf" >/dev/null 2>&1 \
-  || { echo "..." >> "$PGDATA/postgresql.auto.conf"; }
+)
+printf '%s\n' "$RECOVERY_CONF" | sudo tee -a "$PGDATA/postgresql.auto.conf" >/dev/null \
+  || die "could not write recovery config to $PGDATA/postgresql.auto.conf"
+sudo grep -q "^restore_command" "$PGDATA/postgresql.auto.conf" \
+  || die "recovery config did not land in postgresql.auto.conf — refusing to boot a mis-armed standby"
 
 # ── 4. Boot the standby + replay to promote ──────────────────────────────────
 log "Starting $CONTAINER over the restored data dir (replaying WAL → promote)"
@@ -155,12 +167,28 @@ done
 # ── 5. Report ────────────────────────────────────────────────────────────────
 LATEST=$(docker exec "$CONTAINER" psql -U postgres -d hara_indexer -tAc \
   "SELECT max(block_number) FROM indexed_events" 2>/dev/null || echo "?")
+
+# Freshness guard: confirm WAL replay extended the cluster PAST the base. If the
+# restore_command silently fetched nothing, recovery would promote at the
+# base-only consistency point — a stale standby that still "looks ready". Warn
+# loudly rather than hard-fail (a real failover may legitimately have little WAL).
+WAL_ADVANCED="unknown"
+if [ -n "${BASE_START_LSN:-}" ]; then
+  WAL_ADVANCED=$(docker exec "$CONTAINER" psql -U postgres -d postgres -tAc \
+    "SELECT pg_wal_lsn_diff(pg_last_wal_replay_lsn(), '${BASE_START_LSN}'::pg_lsn) > 0" 2>/dev/null || echo "unknown")
+  if [ "$WAL_ADVANCED" = "f" ]; then
+    echo "⚠ WARNING: WAL replay did NOT advance past the base start LSN ($BASE_START_LSN)."
+    echo "  The standby promoted at the base-only point — post-base writes are MISSING."
+    echo "  Check that archived WAL shipped to $WAL_REMOTE and restore_command resolved it."
+  fi
+fi
 echo
 echo "════════════════════════════════════════════════════════════════════"
 echo "✔ STANDBY READY (promoted, not yet serving prod traffic)"
 echo "    container:        $CONTAINER  (127.0.0.1:${PG_PORT})"
 echo "    restored base:    $BASE_FILE"
 echo "    WAL replayed:     $n segment(s)"
+echo "    replay advanced:  $([ "$WAL_ADVANCED" = t ] && echo "yes (past base)" || { [ "$WAL_ADVANCED" = f ] && echo "NO — base-only, STALE" || echo "unknown"; })"
 echo "    indexer head:     block $LATEST"
 echo "    recovery point:   ${RECOVERY_TARGET_TIME:-end of archived WAL}"
 echo "════════════════════════════════════════════════════════════════════"
