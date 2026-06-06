@@ -52,7 +52,7 @@ These don't need to go through private disclosure — open a regular issue or PR
 
 ### Special note on quantum threats
 
-We're aware ECDSA (used by EVM consensus and most signatures) is vulnerable to Shor's algorithm with a sufficiently large quantum computer. See `doc/audit-security-quantum-performance.md` for our hybrid-classical-PQ mitigation roadmap. **Reports demonstrating quantum-feasibility today** (i.e., you have a working quantum computer that can run Shor's at scale) are very much in scope — and would be the most consequential vulnerability disclosure in computing history. Please do reach out.
+We're aware ECDSA (used by EVM consensus and most signatures) is vulnerable to Shor's algorithm with a sufficiently large quantum computer. See `doc/technical/audit-security-quantum-performance.md` for our hybrid-classical-PQ mitigation roadmap. **Reports demonstrating quantum-feasibility today** (i.e., you have a working quantum computer that can run Shor's at scale) are very much in scope — and would be the most consequential vulnerability disclosure in computing history. Please do reach out.
 
 ## Severity assessment
 
@@ -102,7 +102,7 @@ For context, our security relies on:
   - **P1**: Vault HA Raft cluster with AppRole auth
   - **P2+**: HSM (Cloud KMS on Nevacloud / Huawei DEW) or MPC for highest-value keys
 
-See `doc/audit-security-quantum-performance.md` for the full posture and quantum-readiness roadmap.
+See `doc/technical/audit-security-quantum-performance.md` for the full posture and quantum-readiness roadmap.
 
 ## Operational security guidelines
 

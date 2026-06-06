@@ -1,7 +1,7 @@
 # HaraLedger — Technical Reference
 
 **Audience:** engineers building on or operating HaraLedger; auditors reviewing the platform.
-**Companion docs:** `PRODUCT.md` for product-level overview, `deploy/topology.md` for the 6-VPS deployment plan, `doc/hara-registry state 2.md` for the carry-on context snapshot, `doc/audit-security-quantum-performance.md` for the full security rationale.
+**Companion docs:** `PRODUCT.md` for product-level overview, `deploy/topology.md` for the 6-VPS deployment plan, `doc/state/hara-registry-state-02.md` for the carry-on context snapshot, `doc/technical/audit-security-quantum-performance.md` for the full security rationale.
 **Snapshot date:** 2026-05-15.
 
 This document is the consolidated technical reference. It is intentionally redundant with the more focused docs above; if you need to know one thing about HaraLedger, look here first.

@@ -11,7 +11,7 @@ a **production chain-halt incident**. Everything in state-4 still holds unless n
 
 1. **Backups finished + verified.** `install-backup-timers.sh` (role-aware) installed on all hosts; non-root `vault-snapshot` AppRole minted; Vault Raft snapshot verified off-host. Postgres 02:00, validators 03:01/15/31/45, vault 04:00 (WIB).
 2. **CI gates enforced.** `contracts-gate / services-gate / slither-gate / echidna-gate / console-gate` now required on `main` (+ `Gitleaks`, `Analyze (actions)`, `Analyze (javascript-typescript)`).
-3. **hara-xchange onboarded.** `doc/hara-xchange-deploy-guide.md` + a dedicated funded deployer (`0xFB14…`, 10 HARA). Hit + documented the **zero-balance tx-skip** gotcha.
+3. **hara-xchange onboarded.** `doc/guides/hara-xchange-deploy-guide.md` + a dedicated funded deployer (`0xFB14…`, 10 HARA). Hit + documented the **zero-balance tx-skip** gotcha.
 4. **Docs refreshed** to the split topology (deploy README, wireguard README, nevacloud-runbook §1, integration manual §3).
 5. **Strata Console built end-to-end** (P0 monitoring → P1 propose-only ops → Insights P1–P3 → P4 Kimi copilot → help + roadmap) and **deployed live** at `https://console.platform.haratrust.io`.
 6. **Metrics exporters enabled** (Besu + HAProxy) via socat sidecars — **no restarts**; Prometheus retargeted to mesh IPs.
@@ -104,7 +104,7 @@ All **read-only** except the propose/silence endpoints (which still don't execut
 
 ---
 
-## 6. Intelligence roadmap status (`doc/registry-console-intelligence-roadmap.md`)
+## 6. Intelligence roadmap status (`doc/console/registry-console-intelligence-roadmap.md`)
 
 - **P0 threshold anomalies — LIVE** (banner).
 - **P1 reliability — LIVE**: z-score baselining, predict_linear forecasts, backup-freshness, RPC SLO/error-budget.
@@ -169,7 +169,7 @@ All **read-only** except the propose/silence endpoints (which still don't execut
 **Console (new):** `console/` (web: `src/App.tsx`, `components/{Panel,StrataMark,Operations,AuditLog,TimeSeries}.tsx`, `lib/api.ts`, `hooks/useOverview.ts`, Tailwind/Vite config, `Dockerfile`, `nginx.conf`); `console/server/` (`src/{index,config,rpc,sources,proposals,audit,metrics,insights,copilot,contracts,alerts}.ts`, `Dockerfile`); `console/agent/src/index.mjs`.
 **Deploy (new/changed):** `deploy/services/docker-compose.console.yml`; `deploy/edge/Caddyfile` (console site, on-host); `deploy/platform/prometheus/prometheus.yml` (mesh targets); `deploy/platform/vault/vault.hcl` (unauth metrics, staged); `.github/workflows/console.yml`.
 **Ops (new/changed):** `deploy/ops/install-backup-timers.sh` (+/var/backups/hara chown), `install-console-agent.sh`, `install-metrics-proxies.sh`, `vault-approle-bootstrap.sh` (+vault-snapshot AppRole), `vault-raft-snapshot.sh` (AppRole login), **`snapshot-validator.sh` (trap + sudo tar + multipart — the incident fix)**.
-**Docs (new/changed):** `doc/hara-xchange-deploy-guide.md`, `doc/registry-console-plan.md`, `doc/registry-console-intelligence-roadmap.md`, this file; refreshed `deploy/README.md`, `deploy/networks/wireguard/README.md`, `deploy/nevacloud-runbook.md`, `doc/hara-registry integration manual.md`, `hara-registry-state-4.md`.
+**Docs (new/changed):** `doc/guides/hara-xchange-deploy-guide.md`, `doc/console/registry-console-plan.md`, `doc/console/registry-console-intelligence-roadmap.md`, this file; refreshed `deploy/README.md`, `deploy/networks/wireguard/README.md`, `deploy/nevacloud-runbook.md`, `doc/guides/hara-registry-integration-manual.md`, `hara-registry-state-4.md`.
 **On-host only (gitignored):** `deploy/services/.env` (copilot key), `ops/secrets.txt` (console basic-auth + hara-xchange deployer + vault-snapshot AppRole), per-host `backup.env`, rclone.conf on validators; `~/hara-ops/hara-xchange-deployer.json`.
 
 ---
@@ -184,4 +184,4 @@ All **read-only** except the propose/silence endpoints (which still don't execut
 5. Hardening, validator RAM, prod image rebuild, node_exporter — §8.4/7/8.
 6. **Console P2 / P5** when ready.
 
-**Warm-start:** chain + console are healthy and live; all alerts/anomalies clear as of 2026-06-03. The console (`https://console.platform.haratrust.io`) is the front door — its **Help & Guide** explains every panel, and **Insights**/**Copilot** summarise health. Read `doc/registry-console-plan.md` + this file first.
+**Warm-start:** chain + console are healthy and live; all alerts/anomalies clear as of 2026-06-03. The console (`https://console.platform.haratrust.io`) is the front door — its **Help & Guide** explains every panel, and **Insights**/**Copilot** summarise health. Read `doc/console/registry-console-plan.md` + this file first.

@@ -2,12 +2,16 @@
 
 Private permissioned EVM chain for the HARA ecosystem. Besu QBFT consensus, 4-validator minimum, instant finality.
 
-**Start here:**
-- `doc/PRODUCT.md` — product manual, features, stages, roadmap.
-- `doc/TECHNICAL.md` — comprehensive technical reference (architecture, contracts, services, APIs, ops).
-- `deploy/topology.md` — 6-VPS deployment plan + pre-VPS checklist.
+> Renamed **HaraLedger → Hara Registry** (2026-06-01). Older docs use the former name.
 
-Deeper reading in `doc/`: `haraledger_ecosystem_development_blueprint.md` (original blueprint), `hara-registry-roadmap.md` (P0–P3 phases), `hara-registry state 2.md` (carry-on context snapshot), `audit-security-quantum-performance.md` (security + PQ rationale), `hara-registry integration manual.md` (for hara-did developers).
+**Start here:**
+- [`doc/`](doc/README.md) — documentation index (product · technical · guides · state · …).
+- [`doc/product/PRODUCT.md`](doc/product/PRODUCT.md) — product manual, features, stages, roadmap.
+- [`doc/technical/TECHNICAL.md`](doc/technical/TECHNICAL.md) — comprehensive technical reference (architecture, contracts, services, APIs, ops).
+- `deploy/topology.md` — 6-VPS deployment plan + pre-VPS checklist.
+- [`PRODUCTION-READINESS.md`](PRODUCTION-READINESS.md) — production sign-off + open follow-ups.
+
+Deeper reading: [`doc/archives/haraledger_ecosystem_development_blueprint.md`](doc/archives/haraledger_ecosystem_development_blueprint.md) (original blueprint), [`doc/roadmap/hara-ledger-roadmap.md`](doc/roadmap/hara-ledger-roadmap.md) (P0–P3 phases), [`doc/technical/audit-security-quantum-performance.md`](doc/technical/audit-security-quantum-performance.md) (security + PQ rationale), [`doc/guides/hara-registry-integration-manual.md`](doc/guides/hara-registry-integration-manual.md) (for hara-did developers), [`doc/state/hara-registry-state-07.md`](doc/state/hara-registry-state-07.md) (latest state).
 
 ## Stack
 
@@ -82,5 +86,5 @@ hara-registry/
 
 ## Development phases
 
-See `doc/PRODUCT.md` §6 (overview) and `doc/hara-registry-roadmap.md` (full timeline).
+See `doc/product/PRODUCT.md` §6 (overview) and `doc/roadmap/hara-ledger-roadmap.md` (full timeline).
 Current stage: **P0.5 — VPS transition** (P0 complete in local dev; all 7 pre-VPS gates closed per `deploy/topology.md` §9).

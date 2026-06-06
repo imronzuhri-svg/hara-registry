@@ -65,7 +65,7 @@ Forty-five-month target workload: 25,000 palm-oil batches × ~7,000 transfers ea
 ### Quantum-readiness
 - **PQAnchorRegistry** — hybrid ECDSA + ML-DSA-65 (NIST FIPS 204).
 - Strategy: PQ signature itself stays **off-chain**; only the commitment hash goes on-chain (avoids ~5 M gas verifier cost).
-- Full rationale in `doc/audit-security-quantum-performance.md`.
+- Full rationale in `doc/technical/audit-security-quantum-performance.md`.
 
 ---
 

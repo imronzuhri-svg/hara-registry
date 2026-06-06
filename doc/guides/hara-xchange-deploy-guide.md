@@ -190,8 +190,8 @@ forge verify-contract \
 
 ## 8. Getting help
 
-- **Chain / RPC reference:** `doc/hara-registry-technical-manual.md`
+- **Chain / RPC reference:** `doc/technical/hara-registry-technical-manual.md`
 - **Deeper integration (Vault, indexing, observability, conventions):**
-  `doc/hara-registry integration manual.md`
+  `doc/guides/hara-registry-integration-manual.md`
 - **Operational source of truth:** `PRODUCTION-READINESS.md`
 - Anything blocked (key rejected, need a role, need registration): contact HARA ops.
