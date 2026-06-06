@@ -47,6 +47,10 @@ services:
     container_name: hara-rpc-read-1
     environment:
       VALIDATOR_ID: "rpc-read-1"
+      # Heap pinned (-Xms=-Xmx, no resize churn) at 5g — lowered from 6g to free
+      # host headroom (3 co-located Besu JVMs on a 23GB no-swap host). The 2-node
+      # read pool cushions any GC pause; keep vert.x worker pool at 64.
+      BESU_OPTS: "-Xmx5g -Xms5g -Dvertx.options.workerPoolSize=64"
     networks:
       hara-platform:
         ipv4_address: 10.42.0.22   # was .21 — freed for LB read-binding plan
@@ -62,6 +66,7 @@ services:
     container_name: hara-rpc-read-2
     environment:
       VALIDATOR_ID: "rpc-read-2"
+      BESU_OPTS: "-Xmx5g -Xms5g -Dvertx.options.workerPoolSize=64"
     networks:
       hara-platform:
         ipv4_address: 10.42.0.23   # bumped to keep upstream block contiguous
@@ -77,6 +82,8 @@ services:
     container_name: hara-rpc-write
     environment:
       VALIDATOR_ID: "rpc-write"
+      # Write node carries a lighter working set (its RSS never reached 6g) → 4g.
+      BESU_OPTS: "-Xmx4g -Xms4g -Dvertx.options.workerPoolSize=64"
     networks:
       hara-platform:
         ipv4_address: 10.42.0.24   # bumped to keep upstream block contiguous
