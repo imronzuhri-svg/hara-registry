@@ -143,3 +143,52 @@ export async function getAnomalies(nowMs: number): Promise<Anomaly[]> {
 
   return out.map((a) => ({ ...a, at }));
 }
+
+// ── Per-host time-series (multi-line: one line per host) ─────────────────────
+// Disk/mem/cpu over time for the Hosts screen. node_exporter carries the `host`
+// label (set in prometheus.yml), so each query_range returns one series per host;
+// we merge them into Recharts-ready rows ({t, <host>: value}).
+const HOST_FS = 'fstype!~"tmpfs|overlay|squashfs|ramfs|fuse.*"';
+const HOST_SERIES: Record<string, { promql: string; unit: string; label: string; minutes: number }> = {
+  disk: { promql: `max by (host) (100*(1-node_filesystem_avail_bytes{${HOST_FS}}/node_filesystem_size_bytes{${HOST_FS}}))`, unit: "%", label: "Disk used (worst mount)", minutes: 1440 },
+  mem: { promql: "100*(1-node_memory_MemAvailable_bytes/node_memory_MemTotal_bytes)", unit: "%", label: "Memory used", minutes: 360 },
+  cpu: { promql: '100*(1-avg by(host)(rate(node_cpu_seconds_total{mode="idle"}[2m])))', unit: "%", label: "CPU busy", minutes: 60 },
+};
+
+export interface HostRange {
+  metric: string;
+  label: string;
+  unit: string;
+  defaultMinutes: number;
+  hosts: string[];
+  rows: Array<Record<string, number>>; // each row: { t, <host>: value, ... }
+}
+
+export async function getHostRange(metric: string, minutes: number, nowMs: number): Promise<HostRange> {
+  const def = HOST_SERIES[metric];
+  if (!def) throw new Error(`unknown host metric '${metric}' (disk|mem|cpu)`);
+  const end = Math.floor(nowMs / 1000);
+  const start = end - Math.max(5, Math.min(1440, minutes)) * 60;
+  const step = Math.max(15, Math.round((end - start) / 200));
+  const url = `${config.prometheusUrl}/api/v1/query_range?query=${encodeURIComponent(def.promql)}&start=${start}&end=${end}&step=${step}`;
+  const res = await fetchT(url);
+  if (!res.ok) throw new Error(`Prometheus HTTP ${res.status}`);
+  const j = (await res.json()) as { data?: { result?: Array<{ metric: Record<string, string>; values?: [number, string][] }> } };
+  const series = j.data?.result ?? [];
+  const hosts = series.map((s) => s.metric.host).filter(Boolean).sort();
+  const rowMap = new Map<number, Record<string, number>>();
+  for (const s of series) {
+    const host = s.metric.host;
+    if (!host) continue;
+    for (const [t, v] of s.values ?? []) {
+      let row = rowMap.get(t);
+      if (!row) {
+        row = { t };
+        rowMap.set(t, row);
+      }
+      row[host] = Math.round(Number(v) * 10) / 10;
+    }
+  }
+  const rows = [...rowMap.values()].sort((a, b) => a.t - b.t);
+  return { metric, label: def.label, unit: def.unit, defaultMinutes: def.minutes, hosts, rows };
+}

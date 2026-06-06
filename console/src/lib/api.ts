@@ -234,6 +234,19 @@ export interface RangeSeries {
   label: string;
   points: RangePoint[];
 }
+export interface HostRange {
+  metric: string;
+  label: string;
+  unit: string;
+  defaultMinutes: number;
+  hosts: string[];
+  rows: Array<Record<string, number>>; // { t, <host>: value, ... }
+}
+export async function fetchHostRange(metric: string, minutes: number): Promise<HostRange> {
+  const res = await fetch(`${API_BASE}/metrics/host-range?metric=${metric}&minutes=${minutes}`);
+  if (!res.ok) throw new Error(`Console API HTTP ${res.status}`);
+  return (await res.json()) as HostRange;
+}
 export interface Anomaly {
   area: string;
   level: "info" | "warn" | "critical";

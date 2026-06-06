@@ -4,6 +4,7 @@ import { Panel, StatusPill, Stat } from "./components/Panel";
 import { Operations } from "./components/Operations";
 import { AuditLog } from "./components/AuditLog";
 import { TimeSeries } from "./components/TimeSeries";
+import { HostTimeSeries } from "./components/HostTimeSeries";
 import { useOverview } from "./hooks/useOverview";
 import { fetchAnomalies, fetchSilences, silenceAlert, unsilence, fetchInsights, copilotConfigured, askCopilot, fetchBackups, fmtBytes, fmtDuration, ago, rel, type Anomaly, type Section, type Silence, type Insights, type BackupsReport, type BackupJob, type BackupHealth } from "./lib/api";
 
@@ -566,6 +567,7 @@ function UsageBar({ label, pct, sub }: { label: string; pct: number | null; sub?
 }
 function HostsScreen({ data }: { data: OverviewData }) {
   return (
+    <>
     <Panel title="Hosts" subtitle="per-VPS disk · memory · CPU (node_exporter, over the mesh)" status={sectionPill(data?.hosts)} help={HELP.hosts}>
       <S section={data?.hosts}>
         {(hosts) =>
@@ -591,6 +593,12 @@ function HostsScreen({ data }: { data: OverviewData }) {
         }
       </S>
     </Panel>
+    <ChartGrid>
+      <HostTimeSeries metric="disk" minutes={1440} />
+      <HostTimeSeries metric="mem" minutes={360} />
+      <HostTimeSeries metric="cpu" minutes={60} />
+    </ChartGrid>
+    </>
   );
 }
 function VaultScreen({ data }: { data: OverviewData }) {
