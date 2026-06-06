@@ -1,4 +1,9 @@
-name: hara-registry-rpc
+# Project name MUST match the LIVE project on hara-rpc-1 (`hara-ledger-rpc`) — the
+# RPC stack was NOT migrated to hara-registry-* (only data/minio were). Running
+# `docker compose up` with a different name spins up FRESH empty volumes and
+# orphans the live chaindata (forces a full resync). Do the rename deliberately
+# (stop → rename volumes → up) if/when migrating, like the data tier was.
+name: hara-ledger-rpc
 
 # RPC mesh — read replicas, write node, and the HAProxy LB in front of them.
 # In production this can run on its own VPS or co-locate with services/.
