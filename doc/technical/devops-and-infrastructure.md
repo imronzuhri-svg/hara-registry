@@ -142,7 +142,7 @@ v4 160.19.166.23.
 | Host | vCPU | RAM | Disk | Util | Role | Notes |
 |---|---:|---:|---:|---:|---|---|
 | `hara-stateful` | 10 | 31 GB | 400 GB | 8% | Postgres, Redis, MinIO, Vault (Raft HA active) | Vault container shows **unhealthy** = false healthcheck (Vault is unsealed/active — R-02) |
-| `hara-rpc-1` | 8 | 23 GB | 300 GB | **82%** | HAProxy LB, rpc-write, rpc-read-1/2, metrics proxies, autoheal | **228 GB of unrotated Docker logs** (2 containers @ 104 GB) — R-01, **urgent** |
+| `hara-rpc-1` | 8 | 23 GB | 300 GB | ~~82%~~ **6%** | HAProxy LB, rpc-write, rpc-read-1/2, metrics proxies, autoheal | Was 82% from 229 GB unrotated Docker logs — **remediated 2026-06-06** (truncate + hourly logrotate + daemon.json); see R-01 |
 | `hara-stateless-2` | 6 | 15 GB | 200 GB | 9% | signer, broadcaster, indexer, anchor-worker, rpc-cache, Blockscout BE+FE, console API+web, Caddy, **+ full obs stack** | Heavily loaded single host = SPOF (R-06); 17 containers |
 | `hara-v1..v4` | 4 | 7 GB | 100 GB | 9% | Besu QBFT validator (one each) + metrics proxy | RAM at 7 GB — the 8→16 GB upgrade item (R-07) |
 
@@ -282,7 +282,7 @@ Severity = (likelihood × impact). **🔴 act now · 🟠 near-term · 🟡 plan
 
 | ID | Risk | Sev | Current state | Mitigation / action |
 |---|---|:--:|---|---|
-| **R-01** | **hara-rpc-1 disk 82%** — 228 GB of unrotated Docker json logs (2 containers @104 GB) → host fills → **RPC tier down** | 🔴 | No log rotation configured | Set Docker `log-driver` `max-size`/`max-file` (or journald); truncate existing logs; alert on disk >80%. **Quick fix — recommend now.** |
+| **R-01** | **hara-rpc-1 disk 82%** — 229 GB of unrotated Docker json logs (rpc-read-1 105 GB, rpc-read-2 104 GB, lb 20 GB) → host fills → **RPC tier down** | ✅ | **REMEDIATED 2026-06-06 (zero downtime):** truncated the live logs (82%→6%, ~229 GB reclaimed); installed hourly `logrotate` (copytruncate, maxsize 500M) as the active cap; wrote `/etc/docker/daemon.json` (`max-size 50m`/`max-file 5` + `live-restore`) so future recreations rotate natively. **Follow-ups:** recreate the RPC containers at next deploy to apply Docker's native cap; reduce Besu rpc-read log verbosity at source (~20 GB/day/node is abnormal); add a disk>80% alert (ties to R-10). |
 | **R-02** | Vault container reports **unhealthy** (healthcheck failing since boot) | 🟠 | Vault is actually **unsealed + HA active** — false healthcheck. Autoheal could needlessly restart a healthy Vault (which then needs 3/5 manual unseal) | Fix the healthcheck (`vault status` semantics / VAULT_ADDR); exclude from autoheal or make it seal-aware |
 | **R-03** | **Leaked credentials** un-rotated: Vault root token, GitHub PAT, Kimi/Moonshot key | 🔴 | Known since multiple handoffs | Rotate all three (operator-only); scrub history; move to short-TTL AppRole |
 | **R-04** | **Single admin key** governs privileged contract ops (historically anvil-0) | 🟠 | No multisig | Stand up **Gnosis Safe** N-of-M; route grants/validator changes through it |
@@ -303,8 +303,9 @@ Severity = (likelihood × impact). **🔴 act now · 🟠 near-term · 🟡 plan
 | **R-19** | **Besu QBFT mempool ordering** breaks chained txs | 🟢 | Mitigated (`TraceabilityBatchRelay`) | Keep using the relay; documented footgun |
 | **R-20** | **Zero-balance sender drop** (Besu skips 0-balance even at gasPrice 0) | 🟢 | Mitigated (prefund 1 wei) | Console funder watchlist + onboarding prefund step |
 
-**Top 3 to action now:** R-01 (disk/logs — imminent outage), R-03 (rotate leaked
-creds), R-10 (real alerting — so the next R-01 pages someone before it's 82%).
+**Top to action now:** ~~R-01 (disk/logs)~~ ✅ done 2026-06-06 · R-03 (rotate leaked
+creds) · R-10 (real alerting — so the next R-01 pages someone before it's 82%) ·
+R-02 (Vault healthcheck).
 
 ---
 
