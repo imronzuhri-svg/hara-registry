@@ -599,7 +599,14 @@ Local validation script in `deploy/ops/wg-local-test.sh` proves the same primiti
 
 ## 8. Deployment
 
-See `deploy/topology.md` for the full 6-VPS layout. Summary:
+> **Live infrastructure source of truth:** [`devops-and-infrastructure.md`](devops-and-infrastructure.md)
+> — the **as-built** 7-VPS split-plane topology, real server inventory, the current
+> security/network/server configuration, the **target hybrid architecture**
+> (VPS + datacenter + private cloud + AWS/Huawei), the ideal scalable/secure/DR
+> design, and a full **risk register**. The 6-VPS layout below is the original
+> *plan*; the as-built reality (and what to do next) lives in that document.
+
+See `deploy/topology.md` for the original 6-VPS plan. Summary:
 
 | VPS | Specs | Role | Compose files |
 |---|---|---|---|
