@@ -20,6 +20,14 @@ packages:
   - ufw
   - fail2ban
 
+# OOM backstop — the fleet runs no swap; memory-tight hosts (8GB validators, the
+# RPC host's co-located Besu JVMs) need a cushion so a transient spike swaps
+# instead of OOM-killing a container. swappiness set low below (backstop only).
+swap:
+  filename: /swapfile
+  size: 8589934592      # 8 GiB
+  maxsize: 8589934592
+
 users:
   - name: hara
     groups: [docker, sudo]
@@ -63,7 +71,15 @@ write_files:
       description=Mesh overlay
       ports=51820/udp
 
+  - path: /etc/sysctl.d/99-hara-swap.conf
+    content: |
+      # Swap is an OOM backstop, not a paging path — keep it low.
+      vm.swappiness=10
+
 runcmd:
+  # Apply swappiness (the swapfile itself is created by the `swap:` module above)
+  - sysctl --system
+
   # Docker engine
   - install -m 0755 -d /etc/apt/keyrings
   - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg

@@ -12,6 +12,18 @@ apt-get update -y
 apt-get install -y ca-certificates curl gnupg jq git wireguard rclone age zstd \
   prometheus-node-exporter ufw fail2ban
 
+echo "== [1b/6] swap backstop (OOM cushion, low swappiness) =="
+# The fleet runs no swap; memory-tight hosts (8GB validators, the RPC host's 3
+# co-located Besu JVMs) need a cushion so a transient spike swaps instead of
+# OOM-killing a container. swappiness=10 keeps it a backstop, not active paging.
+if ! swapon --show | grep -q /swapfile; then
+  fallocate -l 8G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=8192 status=none
+  chmod 600 /swapfile; mkswap /swapfile >/dev/null; swapon /swapfile
+fi
+grep -q "^/swapfile[[:space:]]" /etc/fstab || echo "/swapfile none swap sw 0 0" >> /etc/fstab
+echo "vm.swappiness=10" > /etc/sysctl.d/99-hara-swap.conf
+sysctl -q vm.swappiness=10
+
 echo "== [2/6] Docker engine + compose plugin =="
 if ! command -v docker >/dev/null; then
   install -m 0755 -d /etc/apt/keyrings
