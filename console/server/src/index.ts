@@ -15,7 +15,7 @@ import {
 } from "./sources.js";
 import { buildProposal } from "./proposals.js";
 import { recordProposal, readAudit } from "./audit.js";
-import { getRange, getAnomalies, SERIES } from "./metrics.js";
+import { getRange, getHostRange, getAnomalies, SERIES } from "./metrics.js";
 import { createSilence, listSilences, deleteSilence } from "./alerts.js";
 import { getInsights } from "./insights.js";
 import { askCopilot } from "./copilot.js";
@@ -115,6 +115,17 @@ app.get("/api/metrics/range", async (req, reply) => {
   if (!q.series) return reply.code(400).send({ error: "series required" });
   try {
     return await getRange(q.series, Number(q.minutes ?? 60), Date.now());
+  } catch (e) {
+    return reply.code(400).send({ error: (e as Error).message });
+  }
+});
+
+// Per-host multi-line time series (disk|mem|cpu) for the Hosts screen.
+app.get("/api/metrics/host-range", async (req, reply) => {
+  const q = req.query as { metric?: string; minutes?: string };
+  if (!q.metric) return reply.code(400).send({ error: "metric required (disk|mem|cpu)" });
+  try {
+    return await getHostRange(q.metric, Number(q.minutes ?? 60), Date.now());
   } catch (e) {
     return reply.code(400).send({ error: (e as Error).message });
   }
