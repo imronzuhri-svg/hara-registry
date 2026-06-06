@@ -7,7 +7,7 @@ import { TimeSeries } from "./components/TimeSeries";
 import { useOverview } from "./hooks/useOverview";
 import { fetchAnomalies, fetchSilences, silenceAlert, unsilence, fetchInsights, copilotConfigured, askCopilot, fetchBackups, fmtBytes, fmtDuration, ago, rel, type Anomaly, type Section, type Silence, type Insights, type BackupsReport, type BackupJob, type BackupHealth } from "./lib/api";
 
-type View = "dashboard" | "insights" | "copilot" | "chain" | "validators" | "rpc" | "services" | "alerts" | "backups" | "vault" | "operations" | "audit" | "help";
+type View = "dashboard" | "insights" | "copilot" | "chain" | "validators" | "rpc" | "services" | "hosts" | "alerts" | "backups" | "vault" | "operations" | "audit" | "help";
 
 const NAV: { item: string; view: View }[] = [
   { item: "Dashboard", view: "dashboard" },
@@ -17,6 +17,7 @@ const NAV: { item: string; view: View }[] = [
   { item: "Validators", view: "validators" },
   { item: "RPC Tier", view: "rpc" },
   { item: "Services", view: "services" },
+  { item: "Hosts", view: "hosts" },
   { item: "Alerts", view: "alerts" },
   { item: "Backups & DR", view: "backups" },
   { item: "Vault", view: "vault" },
@@ -52,6 +53,11 @@ const HELP: Record<string, ReactNode> = {
   accounts: (
     <>
       <b>What it is:</b> the funded accounts we care about (admin, deployers, partners). <b>Why:</b> on this free-gas chain a <b>zero-balance</b> account silently can't send — its transactions vanish. <b>Watch:</b> a red "ZERO" tag = fund it before that account is used.
+    </>
+  ),
+  hosts: (
+    <>
+      <b>What it is:</b> the physical VPSes (disk, memory, CPU) via node_exporter. <b>Why:</b> a host filling its disk takes everything on it down — this is the view that was missing when an RPC host silently hit 82%. <b>Watch:</b> the <b>Disk</b> bar — amber ≥80%, red ≥90%. <b>Good:</b> all green/teal. <b>Bad:</b> any bar amber/red, or a host showing "down".
     </>
   ),
   vault: (
@@ -163,6 +169,7 @@ export default function App() {
           {active === "validators" && <ValidatorsScreen data={data} />}
           {active === "rpc" && <RpcScreen data={data} />}
           {active === "services" && <ServicesScreen data={data} />}
+          {active === "hosts" && <HostsScreen data={data} />}
           {active === "alerts" && <AlertsScreen data={data} />}
           {active === "backups" && <BackupsScreen data={data} />}
           {active === "vault" && <VaultScreen data={data} />}
@@ -535,6 +542,55 @@ function RpcScreen({ data }: { data: OverviewData }) {
         <TimeSeries series="rpcPeers" />
       </ChartGrid>
     </>
+  );
+}
+function hostBarTone(p: number | null): string {
+  if (p == null) return "bg-white/20";
+  if (p >= 90) return "bg-rose-500";
+  if (p >= 80) return "bg-amber-400";
+  if (p >= 60) return "bg-brand-teal";
+  return "bg-emerald-400";
+}
+function UsageBar({ label, pct, sub }: { label: string; pct: number | null; sub?: string }) {
+  return (
+    <div>
+      <div className="mb-1 flex justify-between text-xs text-mist-1/60">
+        <span>{label}</span>
+        <span>{pct != null ? `${pct}%` : "—"}{sub ? ` · ${sub}` : ""}</span>
+      </div>
+      <div className="h-2 w-full overflow-hidden rounded bg-white/10">
+        <div className={`h-full rounded ${hostBarTone(pct)}`} style={{ width: `${Math.min(100, Math.max(0, pct ?? 0))}%` }} />
+      </div>
+    </div>
+  );
+}
+function HostsScreen({ data }: { data: OverviewData }) {
+  return (
+    <Panel title="Hosts" subtitle="per-VPS disk · memory · CPU (node_exporter, over the mesh)" status={sectionPill(data?.hosts)} help={HELP.hosts}>
+      <S section={data?.hosts}>
+        {(hosts) =>
+          hosts.length === 0 ? (
+            <Muted text="no host metrics yet" />
+          ) : (
+            <div className="space-y-3">
+              {hosts.map((h) => (
+                <div key={h.host} className="rounded-lg border border-white/10 p-3">
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="font-medium">{h.host}</span>
+                    <StatusPill tone={h.up ? "ok" : "idle"} label={h.up ? "up" : "down"} />
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                    <UsageBar label={`Disk ${h.diskMount ?? ""}`.trim()} pct={h.diskPct} sub={h.diskFreeGb != null ? `${h.diskFreeGb}GB free` : undefined} />
+                    <UsageBar label="Memory" pct={h.memPct} />
+                    <UsageBar label="CPU" pct={h.cpuPct} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        }
+      </S>
+    </Panel>
   );
 }
 function VaultScreen({ data }: { data: OverviewData }) {

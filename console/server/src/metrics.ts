@@ -3,7 +3,7 @@
 // exposed through the console.
 import { config } from "./config.js";
 import { fetchT } from "./rpc.js";
-import { getBackupsReport, getValidators } from "./sources.js";
+import { getBackupsReport, getValidators, getHosts } from "./sources.js";
 
 export interface SeriesDef {
   promql: string;
@@ -124,6 +124,21 @@ export async function getAnomalies(nowMs: number): Promise<Anomaly[]> {
     if (stale.length) out.push({ area: "validators", level: stale.length >= 2 ? "critical" : "warn", message: `${stale.length} validator(s) not recently proposing.` });
   } catch {
     /* skip */
+  }
+
+  // Hosts: disk (the R-01 blind spot), memory, liveness — per host.
+  try {
+    for (const h of await getHosts()) {
+      if (!h.up) {
+        out.push({ area: "host", level: "critical", message: `${h.host} host metrics unreachable — host or node_exporter down.` });
+        continue;
+      }
+      if (h.diskPct != null && h.diskPct >= 90) out.push({ area: "host", level: "critical", message: `${h.host} ${h.diskMount} disk ${h.diskPct}% full (${h.diskFreeGb}GB free).` });
+      else if (h.diskPct != null && h.diskPct >= 80) out.push({ area: "host", level: "warn", message: `${h.host} ${h.diskMount} disk ${h.diskPct}% full (${h.diskFreeGb}GB free).` });
+      if (h.memPct != null && h.memPct >= 90) out.push({ area: "host", level: "warn", message: `${h.host} memory ${h.memPct}% used.` });
+    }
+  } catch {
+    /* node_exporter not reachable — skip */
   }
 
   return out.map((a) => ({ ...a, at }));

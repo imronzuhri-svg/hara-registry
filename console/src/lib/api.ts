@@ -156,6 +156,16 @@ export function fmtDuration(s: number | null | undefined): string {
   return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
 }
 
+export interface HostInfo {
+  host: string;
+  up: boolean;
+  diskPct: number | null;
+  diskMount: string | null;
+  diskFreeGb: number | null;
+  memPct: number | null;
+  cpuPct: number | null;
+}
+
 export interface Overview {
   generatedAt: string;
   chain: Section<ChainData>;
@@ -166,6 +176,7 @@ export interface Overview {
   vault: Section<VaultData>;
   alerts: Section<AlertRow[]>;
   backups: Section<BackupsData>;
+  hosts: Section<HostInfo[]>;
 }
 
 export async function fetchOverview(signal?: AbortSignal): Promise<Overview> {
