@@ -1,7 +1,7 @@
 # Strata Console
 
 Unified admin / monitoring console for **Hara Registry**. See the full plan in
-[`../doc/registry-console-plan.md`](../doc/registry-console-plan.md).
+[`../doc/console/registry-console-plan.md`](../doc/console/registry-console-plan.md).
 
 **This is P0 — read-only "glass."** It shows a single-pane dashboard and does
 **no** privileged writes. Governance / funding / validator actions arrive in

@@ -111,7 +111,7 @@ Standard eth/net/web3/qbft/txpool/debug/trace. **Legacy txs, gasPrice 0, chainId
 
 ### Anchor-worker `:9102/metrics`.
 
-Full tech manual: **`doc/hara-registry-technical-manual.md`** (+ `.docx`) — every endpoint with real example output.
+Full tech manual: **`doc/technical/hara-registry-technical-manual.md`** (+ `.docx`) — every endpoint with real example output.
 
 ---
 
@@ -265,6 +265,6 @@ The dedicated RPC host cleared the old import-CPU wall: chunks confirmed in stea
 
 ## 19. Memory index (next-session warm start)
 
-`memory/`: MEMORY.md, project-overview (renamed note + new topology), network-split, active-blockers (migration resolved), validator-pool-zombies, rpc-node-hang-bug, stress-test-results (361 TPS + invalid-runs correction), hara-did-partner, next-priorities (production-final push status), coding-conventions, sim-vs-prod-gaps, secrets-locations. Also: `PRODUCTION-READINESS.md`, `doc/hara-registry-technical-manual.md`.
+`memory/`: MEMORY.md, project-overview (renamed note + new topology), network-split, active-blockers (migration resolved), validator-pool-zombies, rpc-node-hang-bug, stress-test-results (361 TPS + invalid-runs correction), hara-did-partner, next-priorities (production-final push status), coding-conventions, sim-vs-prod-gaps, secrets-locations. Also: `PRODUCTION-READINESS.md`, `doc/technical/hara-registry-technical-manual.md`.
 
 **If reading fresh:** chain is live + production-final as Hara Registry; the migration + stress validation + backups + rename are done; the open work is the §17 hardening follow-ups, starting with secret rotation.

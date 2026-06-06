@@ -20,7 +20,7 @@
 > **no Docker Swarm** — cross-host traffic rides the WireGuard mesh; each host
 > still has its own local `10.42.0.0/24` Docker bridge.
 > For **live production** endpoints, canonical contract addresses, and the public
-> API surface, use **`doc/hara-registry-technical-manual.md`** and
+> API surface, use **`doc/technical/hara-registry-technical-manual.md`** and
 > **`PRODUCTION-READINESS.md`** (the production source of truth); the dev
 > addresses/URLs below are for local work only.
 
@@ -357,7 +357,7 @@ The platform team enables AppRole auth, creates the role, hands you the role-id 
 
 Vault runs with `server -dev`, which keeps keys **in memory only**. Container restart = all keys gone. Our `chain/init/init.sh` is idempotent — it detects this and re-bootstraps. **Your services need the same pattern** if they're critical-path on Vault for startup.
 
-For real production, switch Vault to Raft HA mode (3-node cluster, encrypted unseal keys). See `doc/audit-security-quantum-performance.md` for the migration plan.
+For real production, switch Vault to Raft HA mode (3-node cluster, encrypted unseal keys). See `doc/technical/audit-security-quantum-performance.md` for the migration plan.
 
 ---
 
@@ -1017,7 +1017,7 @@ networks:
 
 `${VAULT_TOKEN}` and `${POSTGRES_PASSWORD}` should be **inherited from the platform's .env** (because they have to match what the platform created). hara-did's `secrets-bootstrap.sh` should read those values from hara-registry's `.env` files or directly from Vault.
 
-### 13.3 VPS sizing (from `doc/nevacloud-proposal.md`)
+### 13.3 VPS sizing (from `doc/product/nevacloud-proposal.md`)
 
 For Indonesian pilot scale, hara-did needs **2 VPS**:
 
@@ -1027,7 +1027,7 @@ For Indonesian pilot scale, hara-did needs **2 VPS**:
 | did-frontend | issuer-portal + admin-console + verifier-demo | 4 vCPU / 8 GB / 100 GB NVMe | Rp 700K/mo |
 | Object Storage | Sidetree CAS, ZK trusted-setup artifacts | 200 GB | Rp 200K/mo |
 
-Total: ~Rp 2.5M/mo for hara-did (P1a phase). See `doc/nevacloud-proposal.md` for full proposal.
+Total: ~Rp 2.5M/mo for hara-did (P1a phase). See `doc/product/nevacloud-proposal.md` for full proposal.
 
 ### 13.4 Cloud-init pattern
 
@@ -1140,7 +1140,7 @@ GET /healthz
 
 ### 16.1 Chain migrations (P3+)
 
-hara-registry plans to migrate from Besu QBFT to Avalanche Subnet around P3 (per `doc/hara-registry-roadmap.md`). For your contracts to survive that:
+hara-registry plans to migrate from Besu QBFT to Avalanche Subnet around P3 (per `doc/roadmap/hara-ledger-roadmap.md`). For your contracts to survive that:
 
 1. **Never use chain-id-specific assumptions** (chainId from a runtime call, not a constant)
 2. **Use UUPS upgradeable pattern** for any long-lived contract — you'll redeploy on the new chain and point a proxy at fresh logic
@@ -1370,12 +1370,12 @@ This manual is the integration contract between hara-registry and hara-did. If s
 
 For deeper context:
 
-- `doc/hara-registry-roadmap.md` — phases P0–P3 deployment plan
-- `doc/haradid-pathway.md` — hara-did architecture decisions
+- `doc/roadmap/hara-ledger-roadmap.md` — phases P0–P3 deployment plan
+- `doc/guides/haradid-pathway.md` — hara-did architecture decisions
 - `doc/haradid-roadmap.md` — hara-did development roadmap
-- `doc/haraledger_ecosystem_development_blueprint.md` — overall blueprint
-- `doc/audit-security-quantum-performance.md` — security + quantum strategy
-- `doc/nevacloud-proposal.md` — VPS proposal across hara-registry + hara-did + hara-passport
+- `doc/archives/haraledger_ecosystem_development_blueprint.md` — overall blueprint
+- `doc/technical/audit-security-quantum-performance.md` — security + quantum strategy
+- `doc/product/nevacloud-proposal.md` — VPS proposal across hara-registry + hara-did + hara-passport
 - `deploy/README.md` — production deployment layout
 - `SECURITY.md` — responsible disclosure policy
 

@@ -1,7 +1,7 @@
 # HaraLedger — Product Manual
 
 **Audience:** product stakeholders, regulators, prospective partners, new engineers joining the team.
-**Companion docs:** `TECHNICAL.md` for implementation depth, `deploy/topology.md` for ops, `doc/hara-registry-roadmap.md` for the long-term timeline.
+**Companion docs:** `TECHNICAL.md` for implementation depth, `deploy/topology.md` for ops, `doc/roadmap/hara-ledger-roadmap.md` for the long-term timeline.
 **Snapshot date:** 2026-05-15.
 
 ---
@@ -135,7 +135,7 @@ These are NOT distributed-ledger experiments. They are products meant to be oper
 
 ## 6. Stages / Phases — Where We Are
 
-The roadmap (`doc/hara-registry-roadmap.md`) defines four maturity phases. We are between P0 and P1.
+The roadmap (`doc/roadmap/hara-ledger-roadmap.md`) defines four maturity phases. We are between P0 and P1.
 
 | Phase | Months | Goal | Where we are |
 |---|---|---|---|
@@ -240,7 +240,7 @@ QR-scan a product, see:
 
 ## 10. Cost & Resourcing (current best estimate)
 
-From `doc/nevacloud-proposal.md` §Bagian 2 (Option B, recommended):
+From `doc/product/nevacloud-proposal.md` §Bagian 2 (Option B, recommended):
 
 | Item | Monthly | 45-month total |
 |---|---|---|

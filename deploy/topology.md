@@ -1,7 +1,7 @@
 # Deploy Topology — 6-VPS Nevacloud (Option B)
 
 **Audience:** the person provisioning Nevacloud VPSes and bringing the stack up.
-**Authoritative cross-refs:** `doc/nevacloud-proposal.md` §"Option B (6 VPS) — REKOMENDASI"; `doc/hara-registry state 2.md` §2 (architecture), §11 (priorities).
+**Authoritative cross-refs:** `doc/product/nevacloud-proposal.md` §"Option B (6 VPS) — REKOMENDASI"; `doc/state/hara-registry-state-02.md` §2 (architecture), §11 (priorities).
 
 This is the missing link between "we have docker-compose files" and "we can fan out across 6 hosts." It maps every container in `deploy/` to exactly one VPS, names the network plan, and gives a bring-up sequence that respects the cross-host dependencies.
 

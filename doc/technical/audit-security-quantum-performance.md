@@ -291,7 +291,7 @@ chain/scripts/start-rpc.sh                               TUNE — 4000 conns, 4G
 chain/lb/haproxy.cfg                                     TUNE — 32K maxconn, 16 threads, 5K/10s rate limit
 ops/load-tests/scenario-palm-oil-*.ts                    UPDATE — current contract addresses
 
-doc/audit-security-quantum-performance.md                NEW — this file
+doc/technical/audit-security-quantum-performance.md                NEW — this file
 ```
 
 Continuing autonomously to the next item on the roadmap unless you redirect.

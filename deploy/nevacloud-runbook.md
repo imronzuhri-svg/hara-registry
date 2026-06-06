@@ -1,7 +1,7 @@
 # Nevacloud Deployment Runbook
 
 **Document type:** step-by-step procedure to provision the 6-VPS Nevacloud cluster and bring up the full HaraLedger stack.
-**Companion docs:** `deploy/topology.md` (architecture), `doc/nevacloud-proposal.md` (cost rationale).
+**Companion docs:** `deploy/topology.md` (architecture), `doc/product/nevacloud-proposal.md` (cost rationale).
 **Pre-reqs:** the 7 pre-VPS gates in `deploy/topology.md` §9 — all closed as of 2026-05-22.
 
 This is the single source of truth for "what to type and in what order" when going from a blank Nevacloud account to a running chain. Keep it open during the deploy.
@@ -58,7 +58,7 @@ Order these from the Nevacloud panel.
 
 **Region split (recommended):** put validators 1-2 in Jakarta, validators 3-4 in Surabaya. Stateful + stateless can go in either; keep them in the same region for low latency. This way a single-region outage costs ≤ 2 validators (QBFT still has quorum with 3 of 4).
 
-**Why these specs:** `doc/nevacloud-proposal.md` §Bagian 2 sized them for the full 45-month projected workload (25,000 palm-oil batches × ~7,000 transfers each + 4M halal-passport NFTs). hara-stateful's 1 TB is sized to month 45; no mid-term resize required.
+**Why these specs:** `doc/product/nevacloud-proposal.md` §Bagian 2 sized them for the full 45-month projected workload (25,000 palm-oil batches × ~7,000 transfers each + 4M halal-passport NFTs). hara-stateful's 1 TB is sized to month 45; no mid-term resize required.
 
 ---
 
@@ -698,7 +698,7 @@ Realistic with one or two stumbles: ~3 hours for first-time operator.
 
 Tracked elsewhere, follow up after the initial bring-up:
 
-- **Huawei DR layer** (P2 — month ~12). See `doc/nevacloud-proposal.md` §Bagian DR.
+- **Huawei DR layer** (P2 — month ~12). See `doc/product/nevacloud-proposal.md` §Bagian DR.
 - **K3s migration** for the stateless tier. P1 work.
 - **HSM-backed Vault** (Cloud KMS). P2+.
 - **IOTA L1 anchoring** for the audit anchors. P1+.
