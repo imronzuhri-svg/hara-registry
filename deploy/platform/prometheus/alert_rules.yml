@@ -147,3 +147,67 @@ groups:
           summary: "Scrape target {{ $labels.job }}/{{ $labels.instance }} is down"
           description: "Prometheus cannot reach this target. Check the container and its /metrics endpoint."
           runbook: "ops/runbooks/alerts/ScrapeTargetMissing.md"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Host OS — disk / memory / liveness (node_exporter on every host's wg0 IP).
+  # This is the layer that was MISSING when hara-rpc-1 silently filled to 82%.
+  # ─────────────────────────────────────────────────────────────────────────
+  - name: host.rules
+    interval: 30s
+    rules:
+      - alert: DiskWarning
+        expr: |
+          100 * (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|ramfs|fuse.*"}
+                     / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs|ramfs|fuse.*"}) > 80
+        for: 10m
+        labels:
+          severity: warning
+          tier: host
+        annotations:
+          summary: "{{ $labels.host }} {{ $labels.mountpoint }} disk {{ printf \"%.0f\" $value }}% full"
+          description: "Filesystem over 80% on {{ $labels.host }}. Investigate growth (logs, chaindata, backups) before it reaches critical."
+
+      - alert: DiskCritical
+        expr: |
+          100 * (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|ramfs|fuse.*"}
+                     / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs|ramfs|fuse.*"}) > 90
+        for: 5m
+        labels:
+          severity: critical
+          tier: host
+        annotations:
+          summary: "{{ $labels.host }} {{ $labels.mountpoint }} disk {{ printf \"%.0f\" $value }}% full"
+          description: "Filesystem over 90% on {{ $labels.host }} — imminent risk of the host wedging. Reclaim space now."
+
+      - alert: DiskPredictedFull
+        expr: |
+          predict_linear(node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|ramfs|fuse.*"}[6h], 24*3600) < 0
+          and on(host, mountpoint, instance)
+          (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.5
+        for: 30m
+        labels:
+          severity: warning
+          tier: host
+        annotations:
+          summary: "{{ $labels.host }} {{ $labels.mountpoint }} projected to fill within 24h"
+          description: "Linear projection over the last 6h has this filesystem running out of space inside a day. Act before it crosses the threshold (this is what catches a fast leak early)."
+
+      - alert: HostMemoryHigh
+        expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.10
+        for: 10m
+        labels:
+          severity: warning
+          tier: host
+        annotations:
+          summary: "{{ $labels.host }} has <10% memory available"
+          description: "Available memory below 10% for 10m on {{ $labels.host }}. Risk of OOM kills / GC pressure (validators run hot at 8GB)."
+
+      - alert: HostDown
+        expr: up{job="node"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          tier: host
+        annotations:
+          summary: "{{ $labels.host }} node_exporter unreachable"
+          description: "No host metrics from {{ $labels.host }} for 2m — the host or its node_exporter is down."

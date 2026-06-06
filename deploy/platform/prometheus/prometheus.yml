@@ -49,6 +49,26 @@ scrape_configs:
   #     authorization: { credentials_file: /etc/prometheus/vault-token }
   #     static_configs: [{ targets: ['10.43.0.40:8200'], labels: { role: vault, tier: platform } }]
 
+  # Host-level OS metrics (disk/CPU/RAM/inodes) — node_exporter on every host's
+  # wg0 IP (deploy/ops/install-node-exporter.sh). This is what catches a host
+  # filling up BEFORE it becomes an outage (see DiskWarning/DiskPredictedFull).
+  - job_name: node
+    static_configs:
+      - targets: ['10.43.0.40:9100']
+        labels: { host: hara-stateful, tier: host }
+      - targets: ['10.43.0.21:9100']
+        labels: { host: hara-rpc-1, tier: host }
+      - targets: ['10.43.0.25:9100']
+        labels: { host: hara-stateless-2, tier: host }
+      - targets: ['10.43.0.11:9100']
+        labels: { host: hara-v1, tier: host }
+      - targets: ['10.43.0.12:9100']
+        labels: { host: hara-v2, tier: host }
+      - targets: ['10.43.0.13:9100']
+        labels: { host: hara-v3, tier: host }
+      - targets: ['10.43.0.14:9100']
+        labels: { host: hara-v4, tier: host }
+
   - job_name: indexer
     metrics_path: /metrics
     static_configs:

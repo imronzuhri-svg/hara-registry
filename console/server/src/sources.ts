@@ -385,3 +385,57 @@ export async function getBackupsReport(nowMs: number = Date.now()): Promise<Back
     dr: { replication, failover, recovery },
   };
 }
+
+// ── Host OS metrics (node_exporter via Prometheus, on the mesh) ───────────────
+// node_exporter runs on every host's wg0 IP:9100 (deploy/ops/install-node-exporter.sh).
+// This is the host-resource view the platform was missing when hara-rpc-1 silently
+// filled to 82% (see doc/technical/devops-and-infrastructure.md R-01).
+export interface HostInfo {
+  host: string;
+  up: boolean;
+  diskPct: number | null; // worst filesystem % used
+  diskMount: string | null;
+  diskFreeGb: number | null;
+  memPct: number | null; // % used
+  cpuPct: number | null; // % busy
+}
+
+async function promVector(expr: string): Promise<Array<{ metric: Record<string, string>; value: number }>> {
+  try {
+    const res = await fetchT(`${config.prometheusUrl}/api/v1/query?query=${encodeURIComponent(expr)}`);
+    if (!res.ok) return [];
+    const j = (await res.json()) as { data?: { result?: Array<{ metric: Record<string, string>; value: [number, string] }> } };
+    return (j.data?.result ?? []).map((r) => ({ metric: r.metric, value: Number(r.value[1]) }));
+  } catch {
+    return [];
+  }
+}
+
+const FS_SEL = 'fstype!~"tmpfs|overlay|squashfs|ramfs|fuse.*"';
+
+export async function getHosts(): Promise<HostInfo[]> {
+  const [up, diskPct, diskFree, mem, cpu] = await Promise.all([
+    promVector('up{job="node"}'),
+    promVector(`100*(1-node_filesystem_avail_bytes{${FS_SEL}}/node_filesystem_size_bytes{${FS_SEL}})`),
+    promVector(`node_filesystem_avail_bytes{${FS_SEL}}`),
+    promVector("100*(1-node_memory_MemAvailable_bytes/node_memory_MemTotal_bytes)"),
+    promVector('100*(1-avg by(host)(rate(node_cpu_seconds_total{mode="idle"}[2m])))'),
+  ]);
+  if (up.length === 0) throw new Error("no node_exporter targets (host metrics unavailable)");
+  const hosts = [...new Set(up.map((r) => r.metric.host).filter(Boolean))].sort();
+  const pick = (arr: typeof up, h: string) => arr.filter((r) => r.metric.host === h);
+  return hosts.map((h) => {
+    let worst: { pct: number; mount: string } | null = null;
+    for (const r of pick(diskPct, h)) if (!worst || r.value > worst.pct) worst = { pct: r.value, mount: r.metric.mountpoint ?? "?" };
+    const free = worst ? pick(diskFree, h).find((r) => r.metric.mountpoint === worst!.mount)?.value ?? null : null;
+    return {
+      host: h,
+      up: (pick(up, h)[0]?.value ?? 0) === 1,
+      diskPct: worst ? Math.round(worst.pct) : null,
+      diskMount: worst?.mount ?? null,
+      diskFreeGb: free != null ? Math.round((free / 1e9) * 10) / 10 : null,
+      memPct: pick(mem, h)[0]?.value != null ? Math.round(pick(mem, h)[0].value) : null,
+      cpuPct: pick(cpu, h)[0]?.value != null ? Math.round(pick(cpu, h)[0].value) : null,
+    };
+  });
+}

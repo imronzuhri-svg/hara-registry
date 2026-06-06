@@ -11,6 +11,7 @@ import {
   getAlerts,
   getBackups,
   getBackupsReport,
+  getHosts,
 } from "./sources.js";
 import { buildProposal } from "./proposals.js";
 import { recordProposal, readAudit } from "./audit.js";
@@ -37,7 +38,7 @@ await app.register(cors, { origin: config.corsOrigin });
 app.get("/healthz", async () => ({ ok: true }));
 
 app.get("/api/overview", async () => {
-  const [chain, validators, accounts, rpcTier, services, vault, alerts, backups] = await Promise.all([
+  const [chain, validators, accounts, rpcTier, services, vault, alerts, backups, hosts] = await Promise.all([
     safe(getChain),
     safe(getValidators),
     safe(getAccounts),
@@ -46,6 +47,7 @@ app.get("/api/overview", async () => {
     safe(getVault),
     safe(getAlerts),
     safe(getBackups),
+    safe(getHosts),
   ]);
   return {
     generatedAt: new Date().toISOString(),
@@ -57,6 +59,7 @@ app.get("/api/overview", async () => {
     vault,
     alerts,
     backups,
+    hosts,
   };
 });
 
