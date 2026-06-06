@@ -200,13 +200,16 @@ install_role() {
 
     drill)
       # Periodic RECOVERY TESTING — weekly, off-peak (after the nightly backups).
-      # Runs both restore drills; each writes its pass/fail to
+      # Runs all three drills; each writes its pass/fail to
       # /var/backups/hara/drills/*.json, which the console's Recovery panel reads.
-      # Uses ';' so a failure in one still runs (and records) the other.
+      # Uses ';' so a failure in one still runs (and records) the others.
+      #   pitr-restore-drill    — LOCAL base+WAL replay
+      #   snapshot-restore-drill — LOCAL logical-dump restore
+      #   s3-readback-check      — OFF-HOST: backups are GET-able + age-formatted + fresh
       install_unit "hara-drill-snapshot" \
-        "Weekly recovery drills — PITR + logical-dump restore tests" \
+        "Weekly recovery drills — PITR + logical-dump + S3-readback" \
         "Sun *-*-* 05:00:00" \
-        "/bin/sh -c '$OPS/pitr-restore-drill.sh; $OPS/snapshot-restore-drill.sh'"
+        "/bin/sh -c '$OPS/pitr-restore-drill.sh; $OPS/snapshot-restore-drill.sh; $OPS/s3-readback-check.sh'"
       ;;
 
     *)
