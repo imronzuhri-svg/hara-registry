@@ -47,11 +47,14 @@ export function buildRegister(p: { name: string; version: number; address: strin
     summary: `register("${p.name}", v${p.version}, ${p.address})`,
     risk: "medium",
     commands: [
-      `cast send ${reg} "register(bytes32,uint64,address)" $(cast format-bytes32-string "${p.name}") ${p.version} ${p.address} ${COMMON} --private-key $HARA_REGISTRAR_KEY`,
+      // name = keccak256(utf8(name)) — MUST match the deploy scripts + every
+      // getActive() lookup. (Was cast format-bytes32-string, which produces a
+      // DIFFERENT bytes32 and would orphan the entry under an unreachable key.)
+      `cast send ${reg} "register(bytes32,uint64,address)" $(cast keccak "${p.name}") ${p.version} ${p.address} ${COMMON} --private-key $HARA_REGISTRAR_KEY`,
     ],
     notes: [
       `Needs REGISTRAR_ROLE — the platform admin ${ADMIN} holds it ($HARA_REGISTRAR_KEY = admin or a delegated registrar).`,
-      "name is bytes32 (cast format-bytes32-string); confirm the version is new for this name.",
+      "name is bytes32 = keccak256(utf8(name)) via `cast keccak` — matches the deploy scripts and getActive(); confirm the version is new for this name.",
     ],
   };
 }

@@ -153,10 +153,12 @@ Address book for the platform. Maps `bytes32 name → (version → address)` wit
 
 **Constructor:** `ContractRegistry(address admin)` — `admin` gets `REGISTRAR_ROLE`.
 
-**Key functions:**
-- `register(bytes32 name, uint16 version, address impl)` — add a new version.
+**Key functions** (verified against `contracts/src/ContractRegistry.sol` — `version` is **`uint64`**, not uint16):
+- `register(bytes32 name, uint64 version, address addr)` — add a new version (first one auto-activates). Selector sig: `register(bytes32,uint64,address)`.
 - `getActive(bytes32 name) → address` — fetch current.
-- `setActiveVersion(bytes32 name, uint16 version)` — bump active version.
+- `setActiveVersion(bytes32 name, uint64 version)` — bump active version.
+- `deactivate(bytes32 name, uint64 version)` · `getEntry(bytes32 name, uint64 version)`.
+- **`name` is `keccak256(utf8("ContractName"))`** (i.e. `cast keccak "Name"`) — that's what every on-chain registration and `getActive` lookup uses. Do **not** use `cast format-bytes32-string`.
 
 **Tests:** `ContractRegistry.t.sol` — 6 tests covering first-version auto-activation, duplicate-version reverts, non-registrar reverts, zero-address reverts.
 
