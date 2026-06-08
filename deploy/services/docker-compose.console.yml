@@ -39,6 +39,16 @@ services:
       CONSOLE_CORS_ORIGIN: ${CONSOLE_CORS_ORIGIN:-https://console.platform.haratrust.io}
       LOG_LEVEL: ${CONSOLE_LOG_LEVEL:-info}
       AUDIT_PATH: /data/audit.jsonl
+      # ── User management / auth ─────────────────────────────────────────────
+      # When CONSOLE_DATABASE_URL is set, the console enforces login + RBAC and
+      # exposes user management (Postgres `console` schema). Unset = legacy open
+      # mode behind the Caddy/WG gate. First-run owner: set CONSOLE_BOOTSTRAP_
+      # PASSWORD, else a random one is generated and logged once.
+      CONSOLE_DATABASE_URL: ${CONSOLE_DATABASE_URL:-}
+      CONSOLE_BOOTSTRAP_USER: ${CONSOLE_BOOTSTRAP_USER:-owner}
+      CONSOLE_BOOTSTRAP_PASSWORD: ${CONSOLE_BOOTSTRAP_PASSWORD:-}
+      CONSOLE_COOKIE_SECURE: ${CONSOLE_COOKIE_SECURE:-true}
+      CONSOLE_SESSION_TTL_HOURS: ${CONSOLE_SESSION_TTL_HOURS:-12}
       # Phase 4 copilot (optional, Kimi/Moonshot by default — OpenAI-compatible).
       # Set CONSOLE_COPILOT_API_KEY to enable; without it /api/copilot returns 503.
       COPILOT_API_KEY: ${CONSOLE_COPILOT_API_KEY:-}
