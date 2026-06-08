@@ -51,6 +51,25 @@ export const config = {
     rpoMinutes: Number(env.STANDBY_RPO_MINUTES ?? 10),
   },
 
+  // ── Auth / user management (Postgres-backed) ───────────────────────────────
+  // When CONSOLE_DATABASE_URL is set, the console enforces username/password
+  // login + RBAC and exposes user management. When unset (e.g. local dev), the
+  // API runs in legacy open mode behind the Caddy basic-auth + WG gate only.
+  databaseUrl: env.CONSOLE_DATABASE_URL ?? env.DATABASE_URL ?? "",
+  session: {
+    cookieName: env.CONSOLE_COOKIE_NAME ?? "strata_session",
+    ttlHours: Number(env.CONSOLE_SESSION_TTL_HOURS ?? 12),
+    // Secure cookie (HTTPS only) — true in prod (Caddy terminates TLS); set
+    // CONSOLE_COOKIE_SECURE=false for plain-http local dev.
+    cookieSecure: (env.CONSOLE_COOKIE_SECURE ?? "true") !== "false",
+  },
+  // First-run owner. If CONSOLE_BOOTSTRAP_PASSWORD is unset, a random password is
+  // generated and logged ONCE on first boot (then change it in the UI).
+  bootstrap: {
+    username: (env.CONSOLE_BOOTSTRAP_USER ?? "owner").toLowerCase(),
+    password: env.CONSOLE_BOOTSTRAP_PASSWORD ?? "",
+  },
+
   // Watchlist for the zero-balance guard. All public addresses.
   watchAccounts: parseWatch(env.WATCH_ACCOUNTS) ?? [
     { label: "platform admin", address: "0x944b237097A03E1e8CdE8A0F46605506319EC329" },
