@@ -7,8 +7,11 @@ import { TimeSeries } from "./components/TimeSeries";
 import { HostTimeSeries } from "./components/HostTimeSeries";
 import { useOverview } from "./hooks/useOverview";
 import { fetchAnomalies, fetchSilences, silenceAlert, unsilence, fetchInsights, copilotConfigured, askCopilot, fetchBackups, fmtBytes, fmtDuration, ago, rel, type Anomaly, type Section, type Silence, type Insights, type BackupsReport, type BackupJob, type BackupHealth } from "./lib/api";
+import { Login } from "./components/Login";
+import { Users } from "./components/Users";
+import { fetchMe, logout as apiLogout, changePassword, type AuthUser } from "./lib/auth";
 
-type View = "dashboard" | "insights" | "copilot" | "chain" | "validators" | "rpc" | "services" | "hosts" | "alerts" | "backups" | "vault" | "operations" | "audit" | "help";
+type View = "dashboard" | "insights" | "copilot" | "chain" | "validators" | "rpc" | "services" | "hosts" | "alerts" | "backups" | "vault" | "operations" | "audit" | "users" | "help";
 
 const NAV: { item: string; view: View }[] = [
   { item: "Dashboard", view: "dashboard" },
@@ -113,10 +116,11 @@ function PendingExporter({ what }: { what: string }) {
 
 type OverviewData = ReturnType<typeof useOverview>["data"];
 
-export default function App() {
+function Console({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   const { data, connected, error } = useOverview();
   const [active, setActive] = useState<View>("dashboard");
   const chainOk = data?.chain.available ?? false;
+  const isOwner = user.role === "owner";
   const headTone = connected ? (chainOk ? "ok" : "warn") : "down";
   const headLabel = connected ? (chainOk ? "live" : "degraded") : "offline";
 
@@ -134,14 +138,14 @@ export default function App() {
         </div>
         <div className="flex items-center gap-3">
           <StatusPill tone={headTone} label={`api ${headLabel}`} />
-          <span className="rounded-full bg-ink-700 px-3 py-1 text-xs text-mist-1/70 ring-1 ring-ink-700">did:hara · Numira (stub)</span>
+          <UserMenu user={user} onLogout={onLogout} />
         </div>
       </header>
 
       <div className="mx-auto flex max-w-[1400px] gap-6 px-6 py-6">
         <nav className="hidden w-52 shrink-0 lg:block">
           <ul className="space-y-1 text-sm">
-            {NAV.map(({ item, view }) => (
+            {[...NAV, ...(isOwner ? [{ item: "Users", view: "users" as View }] : [])].map(({ item, view }) => (
               <li key={item}>
                 <button
                   onClick={() => setActive(view)}
@@ -176,9 +180,100 @@ export default function App() {
           {active === "vault" && <VaultScreen data={data} />}
           {active === "operations" && <Operations />}
           {active === "audit" && <AuditLog />}
+          {active === "users" && isOwner && <Users me={user} />}
           {active === "help" && <HelpScreen onJump={setActive} />}
         </main>
       </div>
+    </div>
+  );
+}
+
+// ── Auth gate (default export) ───────────────────────────────────────────────
+export default function App() {
+  const [state, setState] = useState<{ loading: boolean; user: AuthUser | null; authEnabled: boolean }>({
+    loading: true,
+    user: null,
+    authEnabled: true,
+  });
+  useEffect(() => {
+    fetchMe()
+      .then((r) => setState({ loading: false, user: r.user, authEnabled: r.authEnabled }))
+      .catch(() => setState({ loading: false, user: null, authEnabled: true }));
+  }, []);
+
+  if (state.loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-ink-900">
+        <StrataMark size={56} live />
+      </div>
+    );
+  }
+  // Auth enabled but not signed in → login. (Legacy/no-DB mode: authEnabled=false → pass through.)
+  if (state.authEnabled && !state.user) {
+    return <Login onLogin={(user) => setState((s) => ({ ...s, user }))} />;
+  }
+  // In legacy mode there's no user object; synthesize an owner-equivalent so the UI renders.
+  const user: AuthUser = state.user ?? { id: 0, username: "hara", role: "owner" };
+  return <Console user={user} onLogout={() => setState((s) => ({ ...s, user: null }))} />;
+}
+
+// ── User menu (header) ───────────────────────────────────────────────────────
+function UserMenu({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [pwOpen, setPwOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-2 rounded-full bg-ink-700 px-3 py-1 text-xs text-mist-1/80 ring-1 ring-ink-700 hover:text-mist-0"
+      >
+        <span className="font-medium text-mist-0">{user.username}</span>
+        <span className="rounded bg-brand-teal/15 px-1.5 py-0.5 text-[10px] text-brand-teal">{user.role}</span>
+        <span className="text-mist-1/40">▾</span>
+      </button>
+      {open && (
+        <div className="absolute right-0 z-20 mt-2 w-44 rounded-lg border border-ink-700 bg-ink-800 p-1 text-sm shadow-panel">
+          <button className="block w-full rounded px-3 py-1.5 text-left text-mist-1/80 hover:bg-ink-700 hover:text-mist-0" onClick={() => { setPwOpen(true); setOpen(false); }}>
+            Change password
+          </button>
+          <button
+            className="block w-full rounded px-3 py-1.5 text-left text-rose-300 hover:bg-rose-500/10"
+            onClick={async () => { await apiLogout().catch(() => {}); onLogout(); }}
+          >
+            Sign out
+          </button>
+        </div>
+      )}
+      {pwOpen && <ChangePasswordModal onClose={() => setPwOpen(false)} />}
+    </div>
+  );
+}
+
+function ChangePasswordModal({ onClose }: { onClose: () => void }) {
+  const [cur, setCur] = useState("");
+  const [next, setNext] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true); setMsg(null);
+    try { await changePassword(cur, next); setMsg("✓ Password changed."); setCur(""); setNext(""); }
+    catch (e) { setMsg((e as Error).message); }
+    finally { setBusy(false); }
+  }
+  const inp = "w-full rounded-lg border border-ink-700 bg-ink-900 px-3 py-2 text-sm text-mist-0 outline-none focus:border-brand-blue";
+  return (
+    <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <form onClick={(e) => e.stopPropagation()} onSubmit={submit} className="w-full max-w-xs rounded-2xl border border-ink-700 bg-ink-800 p-5 shadow-panel">
+        <div className="mb-3 font-display text-sm font-semibold text-mist-0">Change password</div>
+        <input className={`${inp} mb-2`} type="password" placeholder="current password" value={cur} onChange={(e) => setCur(e.target.value)} autoComplete="current-password" />
+        <input className={`${inp} mb-3`} type="password" placeholder="new password (≥10)" value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" />
+        {msg && <p className="mb-3 text-xs text-mist-1/70">{msg}</p>}
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="rounded-lg border border-ink-700 px-3 py-1.5 text-xs text-mist-1/70">Close</button>
+          <button type="submit" disabled={busy || !cur || next.length < 10} className="rounded-lg bg-strata px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40">Change</button>
+        </div>
+      </form>
     </div>
   );
 }
