@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HARA — Integrated Brand Guidelines</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#070B18;--panel:#0B1020;--panel2:#101A38;
+    --line:rgba(255,255,255,.08);--txt:#E8ECF6;--mut:#8A93AD;--soft:#B9C0D4;
+    --forest:#00843D;--leaf:#22B24C;--sprout:#6FCB57;--teal:#2BD4C0;--blue:#3B6BFF;--indigo:#5A45E0;--gold:#FFC56E;--accent:#2BD4C0;
+    --amber:#FFC56E;--orange:#FF9D5C;--paper:#F4F1EA;
+    /* themeable logo paints — defaults = full colour on dark */
+    --shell-paint:url(#shellG);--core-paint:url(#coreO);--node-paint:url(#coreO);--accent-paint:url(#bladeO);--carve:#070B18;
+    --helix-paint:#22B24C;--circle-paint:#22B24C;--wm-color:#fff;--nm-color:var(--teal);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:
+      radial-gradient(1100px 650px at 74% -8%, rgba(59,107,255,.16), transparent 60%),
+      radial-gradient(820px 560px at 6% 16%, rgba(43,212,192,.10), transparent 55%),
+      radial-gradient(680px 520px at 92% 86%, rgba(255,197,110,.10), transparent 55%),
+      var(--ink);
+    color:var(--txt);font-family:'Hanken Grotesk',sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 26px}
+  section{padding:60px 0;border-bottom:1px solid var(--line)}
+  .eyebrow{font-family:'Outfit';font-weight:400;letter-spacing:.34em;text-transform:uppercase;font-size:11px;color:var(--accent);margin-bottom:14px}
+  .numlbl{font-family:'Outfit';font-weight:300;font-size:11px;letter-spacing:.3em;color:var(--mut)}
+  h1{font-family:'Outfit';font-weight:700;letter-spacing:.16em;font-size:clamp(30px,6vw,52px)}
+  h2{font-family:'Outfit';font-weight:500;font-size:clamp(23px,3.8vw,33px);line-height:1.12;margin:6px 0 12px}
+  h3{font-family:'Outfit';font-weight:500;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--txt);margin-bottom:8px}
+  h4{font-family:'Outfit';font-weight:500;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--txt)}
+  p{color:var(--mut);max-width:66ch;font-size:15px}
+  p strong{color:var(--txt);font-weight:600}
+  .lead{font-size:16.5px;color:var(--soft);max-width:70ch}
+  .cap{font-family:'Outfit';font-weight:400;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);margin-top:13px;text-align:center}
+  .grid{display:grid;gap:18px;margin-top:28px}
+  .g2{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(3,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)}.g5{grid-template-columns:repeat(5,1fr)}.g6{grid-template-columns:repeat(6,1fr)}
+  @media(max-width:900px){.g6,.g5{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:680px){.g2,.g3{grid-template-columns:1fr}.g6,.g5{grid-template-columns:repeat(2,1fr)}}
+  .card{border:1px solid var(--line);border-radius:20px;padding:26px;background:linear-gradient(180deg,rgba(255,255,255,.025),rgba(255,255,255,0))}
+  .card.center{display:flex;flex-direction:column;align-items:center;text-align:center}
+  .card.sm{padding:18px}
+  .rec{border-color:rgba(43,212,192,.32);background:linear-gradient(180deg,rgba(43,212,192,.07),rgba(43,212,192,.01))}
+  .warmrec{border-color:rgba(255,157,77,.32);background:linear-gradient(180deg,rgba(255,157,77,.07),rgba(255,157,77,.01))}
+  .pill{display:inline-block;font-family:'Outfit';font-weight:600;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#04231C;background:var(--accent);padding:5px 12px;border-radius:100px}
+  .pill.ghost{background:transparent;color:var(--mut);border:1px solid var(--line)}
+  .pill.warm{background:var(--orange);color:#241200}
+  .wm{font-family:'Outfit';font-weight:700;letter-spacing:.18em;color:var(--wm-color)}
+  .nm{font-family:'Outfit';font-weight:400;letter-spacing:.34em;text-transform:uppercase;color:var(--nm-color);font-size:12px}
+  .role{font-family:'Hanken Grotesk';font-style:italic;font-weight:400;color:var(--mut);font-size:13.5px;margin-top:6px}
+  .lock{display:flex;align-items:center;gap:14px}.lock.col{flex-direction:column;gap:10px}
+  ul{color:var(--mut);font-size:14.5px;max-width:66ch;padding-left:18px;margin-top:10px}
+  ul li{margin:6px 0}
+  table{width:100%;border-collapse:collapse;margin-top:22px;font-size:14.5px}
+  th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-family:'Outfit';font-weight:500;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut)}
+  td strong{color:var(--txt)}
+  .footer{padding:46px 0 72px;text-align:center;color:var(--mut);font-family:'Outfit';font-size:12px;letter-spacing:.06em}
+
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes breathe{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.07);opacity:.9}}
+  @keyframes twinkle{0%,100%{opacity:1}50%{opacity:.32}}
+  @keyframes pulse{0%,100%{opacity:.45}50%{opacity:1}}
+  .r-slow{transform-origin:100px 100px;animation:spin 44s linear infinite}
+  .r-med{transform-origin:100px 100px;animation:spin 20s linear infinite}
+  .r-glob{transform-origin:100px 100px;animation:spin 60s linear infinite}
+  .core{transform-origin:100px 100px;animation:breathe 5.4s ease-in-out infinite}
+  .node{animation:twinkle 3.2s ease-in-out infinite}
+  .node.n2{animation-delay:.5s}.node.n3{animation-delay:1s}.node.n4{animation-delay:1.5s}
+  .static .r-glob,.static .r-med,.static .r-slow,.static .core,.static .node{animation:none}
+  @media (prefers-reduced-motion:reduce){.r-glob,.r-med,.r-slow,.core,.node{animation:none}}
+
+  .t-dark{--bg:#0B1020;--shell-paint:url(#shellG);--core-paint:url(#coreO);--node-paint:url(#coreO);--accent-paint:url(#bladeO);--carve:#070B18;--helix-paint:#22B24C;--wm-color:#fff;--nm-color:var(--teal)}
+  .t-light{--bg:#FFFFFF;--shell-paint:url(#shellG);--core-paint:url(#coreO);--node-paint:url(#coreO);--accent-paint:url(#bladeO);--carve:#FFFFFF;--helix-paint:#00843D;--wm-color:#0B2016;--nm-color:#0E7F8A}
+  .t-mono{--bg:#F4F1EA;--shell-paint:#11161F;--core-paint:#11161F;--node-paint:#11161F;--accent-paint:#11161F;--carve:#F4F1EA;--helix-paint:#11161F;--wm-color:#11161F;--nm-color:#11161F}
+  .t-monorev{--bg:#0B1020;--shell-paint:#fff;--core-paint:#fff;--node-paint:#fff;--accent-paint:#fff;--carve:#0B1020;--helix-paint:#fff;--wm-color:#fff;--nm-color:#fff}
+  .t-onleaf{--shell-paint:#fff;--core-paint:#fff;--node-paint:#fff;--accent-paint:#fff;--carve:#22B24C;--helix-paint:#fff}
+  .sample{border-radius:18px;padding:30px 18px 24px;display:flex;flex-direction:column;align-items:center;gap:12px;background:var(--bg)}
+  .sample.bord{border:1px solid rgba(0,0,0,.10)}
+  .leafbg{background:var(--leaf)!important}
+  .row{display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap}
+  .vlabel{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+  .vlabel .t{font-family:'Outfit';font-weight:500;font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--txt)}
+  .vlabel .h{font-size:12.5px;color:var(--mut)}
+  .iconcircle{width:88px;height:88px;border-radius:50%;background:var(--leaf);display:flex;align-items:center;justify-content:center}
+
+  .markcard{display:flex;flex-direction:column;align-items:center;text-align:center;border:1px solid var(--line);border-radius:18px;padding:22px 12px;background:rgba(255,255,255,.02)}
+  .markcard .name{font-family:'Outfit';font-weight:400;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--txt);margin-top:14px}
+  .markcard .sub{font-family:'Hanken Grotesk';font-style:italic;font-size:12.5px;color:var(--mut);margin-top:3px}
+  .heartcard{display:flex;flex-direction:column;align-items:center;text-align:center;border:1px solid var(--line);border-radius:16px;padding:16px 8px;background:rgba(255,255,255,.02)}
+  .heartcard .hl{font-family:'Outfit';font-weight:400;font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--txt);margin-top:10px}
+  .heartcard .hs{font-family:'Hanken Grotesk';font-style:italic;font-size:11.5px;color:var(--mut);margin-top:2px}
+
+  .swatch{border-radius:14px;overflow:hidden;border:1px solid var(--line)}
+  .swatch .chip{height:84px}
+  .swatch .meta{padding:11px 13px;background:rgba(255,255,255,.02)}
+  .swatch .nm2{font-family:'Outfit';font-weight:500;font-size:12px;color:var(--txt)}
+  .swatch .hex{font-family:'Outfit';font-weight:300;font-size:11.5px;color:var(--mut);margin-top:2px}
+  .swatch .use{font-size:11.5px;color:var(--mut);margin-top:4px}
+  .grad{height:60px;border-radius:12px;border:1px solid var(--line);margin-top:10px}
+  .type-row{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;padding:18px 0;border-bottom:1px solid var(--line)}
+  .type-row .k{font-family:'Outfit';font-weight:400;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);min-width:130px}
+  .dd{position:relative;border-radius:16px;padding:24px;display:flex;align-items:center;justify-content:center;min-height:148px;background:var(--bg);overflow:hidden}
+  .badge{position:absolute;top:12px;left:12px;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:#fff}
+  .badge.no{background:#FF5A5A}.badge.ok{background:#2BC257;color:#04140C}
+  .ddcap{font-size:13px;margin-top:10px}
+  .idx{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:24px;justify-content:center}
+  .idx a{font-family:'Outfit';font-weight:300;font-size:12px;letter-spacing:.05em;color:var(--mut);text-decoration:none;border-bottom:1px solid transparent}
+  .idx a:hover{color:var(--accent);border-color:var(--accent)}
+  .idx a span{color:var(--accent);margin-right:6px}
+  .band{font-family:'Outfit';font-weight:400;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin:22px 0 2px}
+  .note{font-size:13px;color:var(--mut);border-left:2px solid var(--accent);padding-left:14px;margin-top:16px}
+</style>
+</head>
+<body>
+
+<!-- ============ DEFS ============ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="shellG" x1="20" y1="20" x2="180" y2="180" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2BD4C0"/><stop offset=".5" stop-color="#3B6BFF"/><stop offset="1" stop-color="#5A45E0"/>
+    </linearGradient>
+    <radialGradient id="coreO" cx="40%" cy="34%" r="75%">
+      <stop offset="0" stop-color="#FFE6B8"/><stop offset=".45" stop-color="#FFC56E"/><stop offset="1" stop-color="#F39B24"/>
+    </radialGradient>
+    <linearGradient id="bladeO" x1="120" y1="170" x2="175" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFC56E"/><stop offset="1" stop-color="#FF9D5C"/>
+    </linearGradient>
+  </defs>
+
+  <!-- MASTER · the Helix (faithful reconstruction of the real HARA logogram) -->
+  <symbol id="m-helix" viewBox="0 0 200 320">
+    <g fill="var(--helix-paint)"><circle cx="100" cy="25" r="16"/><line x1="55" y1="79" x2="122" y2="79" stroke="var(--helix-paint)" stroke-width="18" stroke-linecap="round"/><circle cx="55" cy="79" r="16"/><circle cx="145" cy="79" r="16"/><line x1="40" y1="133" x2="160" y2="133" stroke="var(--helix-paint)" stroke-width="18" stroke-linecap="round"/><circle cx="40" cy="133" r="16"/><circle cx="160" cy="133" r="16"/><line x1="40" y1="187" x2="137" y2="187" stroke="var(--helix-paint)" stroke-width="18" stroke-linecap="round"/><circle cx="40" cy="187" r="16"/><circle cx="160" cy="187" r="16"/><line x1="78" y1="241" x2="145" y2="241" stroke="var(--helix-paint)" stroke-width="18" stroke-linecap="round"/><circle cx="55" cy="241" r="16"/><circle cx="145" cy="241" r="16"/><circle cx="100" cy="295" r="16"/></g>
+  </symbol>
+
+  <!-- MASTER · the Helix inside the green circle (the app icon) -->
+  <symbol id="m-hara-icon" viewBox="0 0 200 200">
+    <circle cx="100" cy="100" r="100" fill="var(--circle-paint)"/>
+    <g transform="translate(100 100) scale(0.40) translate(-100 -160)" fill="#fff"><circle cx="100" cy="25" r="16"/><line x1="55" y1="79" x2="122" y2="79" stroke="#fff" stroke-width="18" stroke-linecap="round"/><circle cx="55" cy="79" r="16"/><circle cx="145" cy="79" r="16"/><line x1="40" y1="133" x2="160" y2="133" stroke="#fff" stroke-width="18" stroke-linecap="round"/><circle cx="40" cy="133" r="16"/><circle cx="160" cy="133" r="16"/><line x1="40" y1="187" x2="137" y2="187" stroke="#fff" stroke-width="18" stroke-linecap="round"/><circle cx="40" cy="187" r="16"/><circle cx="160" cy="187" r="16"/><line x1="78" y1="241" x2="145" y2="241" stroke="#fff" stroke-width="18" stroke-linecap="round"/><circle cx="55" cy="241" r="16"/><circle cx="145" cy="241" r="16"/><circle cx="100" cy="295" r="16"/></g>
+  </symbol>
+
+  <!-- soul / a single node -->
+  <symbol id="m-soul" viewBox="0 0 200 200"><g class="core"><circle cx="100" cy="100" r="17" fill="var(--core-paint)"/><circle cx="94" cy="94" r="5" fill="#fff" opacity=".5"/></g></symbol>
+
+  <!-- PRIMITIVES -->
+  <symbol id="m-identity" viewBox="0 0 200 200">
+    <g class="r-slow"><g><path d="M 100 50 A 50 50 0 0 1 138 119" fill="none" stroke="var(--shell-paint)" stroke-width="13" stroke-linecap="round"/><circle cx="100" cy="50" r="8" fill="var(--shell-paint)"/><circle cx="138" cy="119" r="8" fill="var(--shell-paint)"/></g><g transform="rotate(120 100 100)"><path d="M 100 50 A 50 50 0 0 1 138 119" fill="none" stroke="var(--shell-paint)" stroke-width="13" stroke-linecap="round"/><circle cx="100" cy="50" r="8" fill="var(--shell-paint)"/><circle cx="138" cy="119" r="8" fill="var(--shell-paint)"/></g><g transform="rotate(240 100 100)"><path d="M 100 50 A 50 50 0 0 1 138 119" fill="none" stroke="var(--shell-paint)" stroke-width="13" stroke-linecap="round"/><circle cx="100" cy="50" r="8" fill="var(--shell-paint)"/><circle cx="138" cy="119" r="8" fill="var(--shell-paint)"/></g></g>
+    <g class="core"><circle cx="100" cy="100" r="13" fill="var(--core-paint)"/><circle cx="96" cy="96" r="3.8" fill="#fff" opacity=".5"/></g>
+  </symbol>
+  <symbol id="m-record" viewBox="0 0 200 200">
+    <g class="r-slow"><path d="M 51.0 141.1 A 64 64 0 1 1 121.9 160.1" fill="none" stroke="var(--shell-paint)" stroke-width="9" stroke-linecap="round"/><circle cx="51.0" cy="141.1" r="7" fill="var(--shell-paint)"/><circle cx="121.9" cy="160.1" r="7" fill="var(--shell-paint)"/><path d="M 62.3 73.6 A 46 46 0 1 1 77.0 139.8" fill="none" stroke="var(--shell-paint)" stroke-width="9" stroke-linecap="round"/><circle cx="62.3" cy="73.6" r="7" fill="var(--shell-paint)"/><circle cx="77.0" cy="139.8" r="7" fill="var(--shell-paint)"/><path d="M 122.9 116.1 A 28 28 0 1 1 121.4 82.0" fill="none" stroke="var(--shell-paint)" stroke-width="9" stroke-linecap="round"/><circle cx="122.9" cy="116.1" r="7" fill="var(--shell-paint)"/><circle cx="121.4" cy="82.0" r="7" fill="var(--shell-paint)"/></g>
+    <g class="core"><circle cx="100" cy="100" r="13" fill="var(--core-paint)"/><circle cx="96" cy="96" r="3.8" fill="#fff" opacity=".5"/></g>
+  </symbol>
+  <symbol id="m-exchange" viewBox="0 0 200 200">
+    <g class="r-med"><path d="M 100 38 A 62 62 0 0 1 100 162" fill="none" stroke="var(--shell-paint)" stroke-width="12" stroke-linecap="round"/><path d="M 100 162 A 62 62 0 0 1 100 38" fill="none" stroke="var(--accent-paint)" stroke-width="9" stroke-linecap="round" opacity=".95"/><circle cx="100" cy="38" r="8.5" fill="var(--shell-paint)"/><circle cx="100" cy="162" r="8.5" fill="var(--shell-paint)"/></g>
+    <g class="core"><circle cx="100" cy="100" r="13" fill="var(--core-paint)"/><circle cx="96" cy="96" r="3.8" fill="#fff" opacity=".5"/></g>
+  </symbol>
+
+  <!-- HEARTS -->
+  <symbol id="h-locate" viewBox="0 0 200 200"><g class="core"><path d="M100 80 C112 80 120 89 120 100 C120 114 100 126 100 126 C100 126 80 114 80 100 C80 89 88 80 100 80 Z" fill="var(--core-paint)"/><circle cx="100" cy="99" r="6" fill="var(--carve)"/></g></symbol>
+  <symbol id="h-certify" viewBox="0 0 200 200"><g class="core"><circle cx="100" cy="100" r="16" fill="var(--core-paint)"/><path d="M91 100 l6 7 l13 -15" fill="none" stroke="var(--carve)" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="h-trace" viewBox="0 0 200 200"><g class="core"><polyline points="83,112 100,87 117,112" fill="none" stroke="var(--core-paint)" stroke-width="2.8" stroke-linejoin="round" opacity=".7"/><circle cx="83" cy="112" r="5.4" fill="var(--core-paint)"/><circle cx="100" cy="87" r="5.4" fill="var(--core-paint)"/><circle cx="117" cy="112" r="5.4" fill="var(--core-paint)"/></g></symbol>
+  <symbol id="h-halal" viewBox="0 0 200 200"><g class="core"><circle cx="99" cy="100" r="16" fill="var(--core-paint)"/><circle cx="106" cy="95" r="13" fill="var(--carve)"/><circle cx="115" cy="89" r="2.6" fill="var(--core-paint)"/></g></symbol>
+  <symbol id="h-token" viewBox="0 0 200 200"><g class="core"><polygon points="100,84 113.9,92 113.9,108 100,116 86.1,108 86.1,92" fill="var(--core-paint)"/></g></symbol>
+  <symbol id="h-land" viewBox="0 0 200 200"><g class="core"><rect x="85" y="85" width="30" height="30" rx="5" transform="rotate(-12 100 100)" fill="var(--core-paint)"/><circle cx="100" cy="100" r="3.2" fill="var(--carve)"/></g></symbol>
+  <symbol id="h-art" viewBox="0 0 200 200"><g class="core"><polygon points="100,84 116,100 100,116 84,100" fill="var(--core-paint)"/><path d="M90 94 H110 M90 94 L84 100 M110 94 L116 100" fill="none" stroke="var(--carve)" stroke-width="2.2" stroke-linecap="round"/></g></symbol>
+
+  <!-- ATLAS FULL MARKS (sphere + heart, inlined) -->
+  <symbol id="a-atlas" viewBox="0 0 200 200">
+    <g class="r-glob"><circle cx="100" cy="100" r="64" fill="none" stroke="var(--shell-paint)" stroke-width="6"/><ellipse cx="100" cy="100" rx="40" ry="64" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".9"/><ellipse cx="100" cy="100" rx="15" ry="64" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".68"/><ellipse cx="100" cy="100" rx="64" ry="40" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".9"/><ellipse cx="100" cy="100" rx="64" ry="15" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".68"/><circle class="node n1" cx="100" cy="36" r="5.2" fill="var(--node-paint)"/><circle class="node n2" cx="164" cy="100" r="5.2" fill="var(--node-paint)"/><circle class="node n3" cx="100" cy="164" r="5.2" fill="var(--node-paint)"/><circle class="node n4" cx="36" cy="100" r="5.2" fill="var(--node-paint)"/><circle class="node n2" cx="145.3" cy="145.3" r="4.2" fill="var(--node-paint)"/><circle class="node n3" cx="54.7" cy="145.3" r="4.2" fill="var(--node-paint)"/><circle class="node n4" cx="54.7" cy="54.7" r="4.2" fill="var(--node-paint)"/><circle class="node n2" cx="145.3" cy="54.7" r="4.2" fill="var(--node-paint)"/></g>
+    <g class="core"><circle cx="100" cy="100" r="15" fill="var(--core-paint)"/><circle cx="95" cy="95" r="4.2" fill="#fff" opacity=".5"/></g>
+  </symbol>
+  <symbol id="a-locate" viewBox="0 0 200 200">
+    <g class="r-glob"><circle cx="100" cy="100" r="64" fill="none" stroke="var(--shell-paint)" stroke-width="6"/><ellipse cx="100" cy="100" rx="40" ry="64" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".9"/><ellipse cx="100" cy="100" rx="15" ry="64" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".68"/><ellipse cx="100" cy="100" rx="64" ry="40" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".9"/><ellipse cx="100" cy="100" rx="64" ry="15" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".68"/><circle class="node n1" cx="100" cy="36" r="5.2" fill="var(--node-paint)"/><circle class="node n2" cx="164" cy="100" r="5.2" fill="var(--node-paint)"/><circle class="node n3" cx="100" cy="164" r="5.2" fill="var(--node-paint)"/><circle class="node n4" cx="36" cy="100" r="5.2" fill="var(--node-paint)"/><circle class="node n2" cx="145.3" cy="145.3" r="4.2" fill="var(--node-paint)"/><circle class="node n3" cx="54.7" cy="145.3" r="4.2" fill="var(--node-paint)"/><circle class="node n4" cx="54.7" cy="54.7" r="4.2" fill="var(--node-paint)"/><circle class="node n2" cx="145.3" cy="54.7" r="4.2" fill="var(--node-paint)"/></g>
+    <g class="core"><path d="M100 80 C112 80 120 89 120 100 C120 114 100 126 100 126 C100 126 80 114 80 100 C80 89 88 80 100 80 Z" fill="var(--core-paint)"/><circle cx="100" cy="99" r="6" fill="var(--carve)"/></g>
+  </symbol>
+  <symbol id="a-certify" viewBox="0 0 200 200">
+    <g class="r-glob"><circle cx="100" cy="100" r="64" fill="none" stroke="var(--shell-paint)" stroke-width="6"/><ellipse cx="100" cy="100" rx="40" ry="64" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".9"/><ellipse cx="100" cy="100" rx="15" ry="64" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".68"/><ellipse cx="100" cy="100" rx="64" ry="40" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".9"/><ellipse cx="100" cy="100" rx="64" ry="15" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".68"/><circle class="node n1" cx="100" cy="36" r="5.2" fill="var(--node-paint)"/><circle class="node n2" cx="164" cy="100" r="5.2" fill="var(--node-paint)"/><circle class="node n3" cx="100" cy="164" r="5.2" fill="var(--node-paint)"/><circle class="node n4" cx="36" cy="100" r="5.2" fill="var(--node-paint)"/><circle class="node n2" cx="145.3" cy="145.3" r="4.2" fill="var(--node-paint)"/><circle class="node n3" cx="54.7" cy="145.3" r="4.2" fill="var(--node-paint)"/><circle class="node n4" cx="54.7" cy="54.7" r="4.2" fill="var(--node-paint)"/><circle class="node n2" cx="145.3" cy="54.7" r="4.2" fill="var(--node-paint)"/></g>
+    <g class="core"><circle cx="100" cy="100" r="16" fill="var(--core-paint)"/><path d="M91 100 l6 7 l13 -15" fill="none" stroke="var(--carve)" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></g>
+  </symbol>
+  <symbol id="a-trace" viewBox="0 0 200 200">
+    <g class="r-glob"><circle cx="100" cy="100" r="64" fill="none" stroke="var(--shell-paint)" stroke-width="6"/><ellipse cx="100" cy="100" rx="40" ry="64" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".9"/><ellipse cx="100" cy="100" rx="15" ry="64" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".68"/><ellipse cx="100" cy="100" rx="64" ry="40" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".9"/><ellipse cx="100" cy="100" rx="64" ry="15" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".68"/><circle class="node n1" cx="100" cy="36" r="5.2" fill="var(--node-paint)"/><circle class="node n2" cx="164" cy="100" r="5.2" fill="var(--node-paint)"/><circle class="node n3" cx="100" cy="164" r="5.2" fill="var(--node-paint)"/><circle class="node n4" cx="36" cy="100" r="5.2" fill="var(--node-paint)"/><circle class="node n2" cx="145.3" cy="145.3" r="4.2" fill="var(--node-paint)"/><circle class="node n3" cx="54.7" cy="145.3" r="4.2" fill="var(--node-paint)"/><circle class="node n4" cx="54.7" cy="54.7" r="4.2" fill="var(--node-paint)"/><circle class="node n2" cx="145.3" cy="54.7" r="4.2" fill="var(--node-paint)"/></g>
+    <g class="core"><polyline points="83,112 100,87 117,112" fill="none" stroke="var(--core-paint)" stroke-width="2.8" stroke-linejoin="round" opacity=".7"/><circle cx="83" cy="112" r="5.4" fill="var(--core-paint)"/><circle cx="100" cy="87" r="5.4" fill="var(--core-paint)"/><circle cx="117" cy="112" r="5.4" fill="var(--core-paint)"/></g>
+  </symbol>
+  <symbol id="a-halal" viewBox="0 0 200 200">
+    <g class="r-glob"><circle cx="100" cy="100" r="64" fill="none" stroke="var(--shell-paint)" stroke-width="6"/><ellipse cx="100" cy="100" rx="40" ry="64" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".9"/><ellipse cx="100" cy="100" rx="15" ry="64" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".68"/><ellipse cx="100" cy="100" rx="64" ry="40" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".9"/><ellipse cx="100" cy="100" rx="64" ry="15" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".68"/><circle class="node n1" cx="100" cy="36" r="5.2" fill="var(--node-paint)"/><circle class="node n2" cx="164" cy="100" r="5.2" fill="var(--node-paint)"/><circle class="node n3" cx="100" cy="164" r="5.2" fill="var(--node-paint)"/><circle class="node n4" cx="36" cy="100" r="5.2" fill="var(--node-paint)"/><circle class="node n2" cx="145.3" cy="145.3" r="4.2" fill="var(--node-paint)"/><circle class="node n3" cx="54.7" cy="145.3" r="4.2" fill="var(--node-paint)"/><circle class="node n4" cx="54.7" cy="54.7" r="4.2" fill="var(--node-paint)"/><circle class="node n2" cx="145.3" cy="54.7" r="4.2" fill="var(--node-paint)"/></g>
+    <g class="core"><circle cx="99" cy="100" r="16" fill="var(--core-paint)"/><circle cx="106" cy="95" r="13" fill="var(--carve)"/><circle cx="115" cy="89" r="2.6" fill="var(--core-paint)"/></g>
+  </symbol>
+  <symbol id="a-token" viewBox="0 0 200 200">
+    <g class="r-glob"><circle cx="100" cy="100" r="64" fill="none" stroke="var(--shell-paint)" stroke-width="6"/><ellipse cx="100" cy="100" rx="40" ry="64" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".9"/><ellipse cx="100" cy="100" rx="15" ry="64" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".68"/><ellipse cx="100" cy="100" rx="64" ry="40" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".9"/><ellipse cx="100" cy="100" rx="64" ry="15" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".68"/><circle class="node n1" cx="100" cy="36" r="5.2" fill="var(--node-paint)"/><circle class="node n2" cx="164" cy="100" r="5.2" fill="var(--node-paint)"/><circle class="node n3" cx="100" cy="164" r="5.2" fill="var(--node-paint)"/><circle class="node n4" cx="36" cy="100" r="5.2" fill="var(--node-paint)"/><circle class="node n2" cx="145.3" cy="145.3" r="4.2" fill="var(--node-paint)"/><circle class="node n3" cx="54.7" cy="145.3" r="4.2" fill="var(--node-paint)"/><circle class="node n4" cx="54.7" cy="54.7" r="4.2" fill="var(--node-paint)"/><circle class="node n2" cx="145.3" cy="54.7" r="4.2" fill="var(--node-paint)"/></g>
+    <g class="core"><polygon points="100,84 113.9,92 113.9,108 100,116 86.1,108 86.1,92" fill="var(--core-paint)"/></g>
+  </symbol>
+  <symbol id="a-land" viewBox="0 0 200 200">
+    <g class="r-glob"><circle cx="100" cy="100" r="64" fill="none" stroke="var(--shell-paint)" stroke-width="6"/><ellipse cx="100" cy="100" rx="40" ry="64" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".9"/><ellipse cx="100" cy="100" rx="15" ry="64" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".68"/><ellipse cx="100" cy="100" rx="64" ry="40" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".9"/><ellipse cx="100" cy="100" rx="64" ry="15" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".68"/><circle class="node n1" cx="100" cy="36" r="5.2" fill="var(--node-paint)"/><circle class="node n2" cx="164" cy="100" r="5.2" fill="var(--node-paint)"/><circle class="node n3" cx="100" cy="164" r="5.2" fill="var(--node-paint)"/><circle class="node n4" cx="36" cy="100" r="5.2" fill="var(--node-paint)"/><circle class="node n2" cx="145.3" cy="145.3" r="4.2" fill="var(--node-paint)"/><circle class="node n3" cx="54.7" cy="145.3" r="4.2" fill="var(--node-paint)"/><circle class="node n4" cx="54.7" cy="54.7" r="4.2" fill="var(--node-paint)"/><circle class="node n2" cx="145.3" cy="54.7" r="4.2" fill="var(--node-paint)"/></g>
+    <g class="core"><rect x="85" y="85" width="30" height="30" rx="5" transform="rotate(-12 100 100)" fill="var(--core-paint)"/><circle cx="100" cy="100" r="3.2" fill="var(--carve)"/></g>
+  </symbol>
+  <symbol id="a-art" viewBox="0 0 200 200">
+    <g class="r-glob"><circle cx="100" cy="100" r="64" fill="none" stroke="var(--shell-paint)" stroke-width="6"/><ellipse cx="100" cy="100" rx="40" ry="64" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".9"/><ellipse cx="100" cy="100" rx="15" ry="64" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".68"/><ellipse cx="100" cy="100" rx="64" ry="40" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".9"/><ellipse cx="100" cy="100" rx="64" ry="15" fill="none" stroke="var(--shell-paint)" stroke-width="4.4" opacity=".68"/><circle class="node n1" cx="100" cy="36" r="5.2" fill="var(--node-paint)"/><circle class="node n2" cx="164" cy="100" r="5.2" fill="var(--node-paint)"/><circle class="node n3" cx="100" cy="164" r="5.2" fill="var(--node-paint)"/><circle class="node n4" cx="36" cy="100" r="5.2" fill="var(--node-paint)"/><circle class="node n2" cx="145.3" cy="145.3" r="4.2" fill="var(--node-paint)"/><circle class="node n3" cx="54.7" cy="145.3" r="4.2" fill="var(--node-paint)"/><circle class="node n4" cx="54.7" cy="54.7" r="4.2" fill="var(--node-paint)"/><circle class="node n2" cx="145.3" cy="54.7" r="4.2" fill="var(--node-paint)"/></g>
+    <g class="core"><polygon points="100,84 116,100 100,116 84,100" fill="var(--core-paint)"/><path d="M90 94 H110 M90 94 L84 100 M110 94 L116 100" fill="none" stroke="var(--carve)" stroke-width="2.2" stroke-linecap="round"/></g>
+  </symbol>
+</svg>
+
+
+<!-- ============ COVER ============ -->
+<section class="wrap" style="padding-top:64px;text-align:center">
+  <div class="eyebrow">Integrated brand guidelines · v2.0</div>
+  <div style="display:flex;flex-direction:column;align-items:center;gap:20px;margin-top:6px">
+    <svg width="120" height="120" viewBox="0 0 200 200" style="filter:drop-shadow(0 14px 34px rgba(34,178,76,.25))"><use href="#m-hara-icon"/></svg>
+    <h1>HARA</h1>
+  </div>
+  <p class="lead" style="margin:18px auto 0">The living data of the real world — identity, the trusted record, exchange, and proof. One green strand, grounded in agriculture, extended into a family of products with a warm core at the heart of each.</p>
+  <div class="idx">
+    <a href="#master"><span>01</span>Master mark</a>
+    <a href="#mastervar"><span>02</span>Master variants</a>
+    <a href="#color-decision"><span>03</span>Colour decision</a>
+    <a href="#system"><span>04</span>Product system</a>
+    <a href="#arch"><span>05</span>Architecture</a>
+    <a href="#marks"><span>06</span>The marks</a>
+    <a href="#construct"><span>07</span>Construction</a>
+    <a href="#variants"><span>08</span>Backgrounds</a>
+    <a href="#motion"><span>09</span>Motion</a>
+    <a href="#color"><span>10</span>Colour</a>
+    <a href="#type"><span>11</span>Type</a>
+    <a href="#icons"><span>12</span>App icons</a>
+    <a href="#naming"><span>13</span>Naming</a>
+    <a href="#misuse"><span>14</span>Misuse</a>
+  </div>
+</section>
+
+
+<!-- 01 MASTER MARK -->
+<section class="wrap" id="master">
+  <div class="numlbl">01</div><div class="eyebrow">The master mark</div>
+  <h2>The Helix</h2>
+  <p>HARA's mark is a strand of connected nodes — a stylised double-helix. It carries the company's origin literally: the <strong>living data of agriculture</strong>, the genome of real-world things, each node a verified data point linked into a trusted whole. It reads as a seed, a strand, a sequence.</p>
+  <div class="grid g3" style="margin-top:24px">
+    <div class="card center" style="justify-content:center"><svg width="92" height="150" viewBox="0 0 200 320"><use href="#m-helix"/></svg><div class="cap">Logogram</div></div>
+    <div class="card center" style="justify-content:center"><div class="lock col"><svg width="74" height="118" viewBox="0 0 200 320"><use href="#m-helix"/></svg><span class="wm" style="font-size:30px">HARA</span></div><div class="cap">Vertical lockup</div></div>
+    <div class="card center" style="justify-content:center"><svg width="118" height="118" viewBox="0 0 200 200"><use href="#m-hara-icon"/></svg><div class="cap">The green circle (app icon)</div></div>
+  </div>
+  <p class="note">These are faithful reconstructions of the supplied logo, rebuilt as code so they re-theme cleanly across this document. For production, always use the official master vector files.</p>
+</section>
+
+
+<!-- 02 MASTER VARIANTS -->
+<section class="wrap" id="mastervar">
+  <div class="numlbl">02</div><div class="eyebrow">Master · variants</div>
+  <h2>The logo on any ground</h2>
+  <div class="grid g4">
+    <div><div class="vlabel"><span class="t">Green · light</span><span class="h">primary</span></div><div class="sample t-light bord"><svg width="64" height="102" viewBox="0 0 200 320"><use href="#m-helix"/></svg><span class="wm" style="font-size:22px">HARA</span></div></div>
+    <div><div class="vlabel"><span class="t">White · green</span><span class="h">the circle</span></div><div class="sample" style="background:#0B1020"><svg width="100" height="100" viewBox="0 0 200 200"><use href="#m-hara-icon"/></svg></div></div>
+    <div><div class="vlabel"><span class="t">White · dark</span><span class="h">over photos</span></div><div class="sample t-monorev"><svg width="64" height="102" viewBox="0 0 200 320"><use href="#m-helix"/></svg><span class="wm" style="font-size:22px">HARA</span></div></div>
+    <div><div class="vlabel"><span class="t">Mono · ink</span><span class="h">one-colour</span></div><div class="sample t-mono bord"><svg width="64" height="102" viewBox="0 0 200 320"><use href="#m-helix"/></svg><span class="wm" style="font-size:22px">HARA</span></div></div>
+  </div>
+  <div class="grid g2" style="margin-top:18px">
+    <div class="card">
+      <div class="vlabel"><span class="t">Clear space</span><span class="h">min = one node</span></div>
+      <div class="sample t-light bord" style="background:#fff">
+        <svg width="150" height="240" viewBox="0 0 220 360">
+          <rect x="18" y="18" width="184" height="324" rx="12" fill="none" stroke="rgba(0,0,0,.18)" stroke-width="1.4" stroke-dasharray="5 7"/>
+          <use href="#m-helix" x="46" y="50" width="128" height="260"/>
+        </svg>
+      </div>
+      <p style="font-size:13.5px;margin-top:10px">Keep clear space equal to <strong>one node diameter</strong> on every side of the logogram or lockup.</p>
+    </div>
+    <div class="card">
+      <div class="vlabel"><span class="t">Minimum size</span><span class="h">logogram</span></div>
+      <div class="sample t-light bord" style="background:#fff;flex-direction:row;gap:26px;align-items:flex-end;justify-content:center">
+        <div style="text-align:center"><svg width="54" height="86" viewBox="0 0 200 320"><use href="#m-helix"/></svg><div class="cap" style="color:#7B8676">≥ 28 px</div></div>
+        <div style="text-align:center"><svg width="80" height="80" viewBox="0 0 200 200"><use href="#m-hara-icon"/></svg><div class="cap" style="color:#7B8676">circle ≥ 24 px</div></div>
+      </div>
+      <p style="font-size:13.5px;margin-top:10px">Logogram: <strong>28 px / 9 mm</strong> minimum height. The green circle is the preferred small/app form down to <strong>24 px</strong>.</p>
+    </div>
+  </div>
+</section>
+
+
+<!-- 03 COLOUR DECISION -->
+<section class="wrap" id="color-decision">
+  <div class="numlbl">03</div><div class="eyebrow">The colour decision</div>
+  <h2>Green root, cool products</h2>
+  <p>The master mark keeps its real <strong>HARA green</strong> — the living root: agriculture, growth, origin. The products are where data becomes infrastructure, so they wear HARA's <strong>product spectrum</strong> — a cool teal → blue → indigo gradient for trust, security and exactness — with a warm <strong>gold core</strong> for the human or valuable thing held inside. Green grows into the cool, exact product layer.</p>
+  <div class="grid g3" style="margin-top:24px">
+    <div class="card center"><svg width="58" height="93" viewBox="0 0 200 320"><use href="#m-helix"/></svg><div class="cap">Master · HARA green</div></div>
+    <div class="card center"><svg width="84" height="84" viewBox="0 0 200 200"><use href="#m-soul"/></svg><div class="cap">A node, warmed → the gold core</div></div>
+    <div class="card center"><svg width="84" height="84" viewBox="0 0 200 200"><use href="#a-atlas"/></svg><div class="cap">Product · cool spectrum + gold</div></div>
+  </div>
+  <p class="note">The master logo is never recoloured — it is always HARA green. The cool spectrum and gold core belong to the product marks; together they read as one house with a clear, living root.</p>
+</section>
+
+
+<!-- 04 PRODUCT SYSTEM -->
+<section class="wrap" id="system">
+  <div class="numlbl">04</div><div class="eyebrow">The product system</div>
+  <h2>One node, many forms</h2>
+  <p>Pull a single node from the helix, warm it, and it becomes the <strong>core</strong> at the heart of every product. Around that core sits a cool-spectrum form that names the product. The rule runs two ways.</p>
+  <div class="grid g2">
+    <div class="card"><span class="pill ghost">Primitives</span><h3 style="margin-top:14px">Core constant · shell varies</h3><p style="font-size:14px">The warm core stays; the cool form changes — an iris, ledger rings, confluent arcs.</p>
+      <div class="row" style="margin-top:18px;gap:14px"><svg width="58" height="58" viewBox="0 0 200 200"><use href="#m-identity"/></svg><svg width="58" height="58" viewBox="0 0 200 200"><use href="#m-record"/></svg><svg width="58" height="58" viewBox="0 0 200 200"><use href="#m-exchange"/></svg></div>
+    </div>
+    <div class="card rec"><span class="pill">Atlas house</span><h3 style="margin-top:14px">Sphere constant · heart varies</h3><p style="font-size:14px">Atlas solutions share one cool world; only the warm heart at its centre changes.</p>
+      <div class="row" style="margin-top:18px;gap:14px"><svg width="58" height="58" viewBox="0 0 200 200"><use href="#a-halal"/></svg><svg width="58" height="58" viewBox="0 0 200 200"><use href="#a-token"/></svg><svg width="58" height="58" viewBox="0 0 200 200"><use href="#a-land"/></svg><svg width="58" height="58" viewBox="0 0 200 200"><use href="#a-art"/></svg></div>
+    </div>
+  </div>
+</section>
+
+
+<!-- 05 ARCHITECTURE -->
+<section class="wrap" id="arch">
+  <div class="numlbl">05</div><div class="eyebrow">Architecture</div>
+  <h2>The HARA family</h2>
+  <p>Read as a sentence: <strong>Numira</strong> proves who, <strong>HaraLedger</strong> keeps the trusted record, <strong>Exchange</strong> moves data under consent — and <strong>Atlas</strong> binds a real object to all three and returns it as proof.</p>
+
+  <div class="card center rec" style="margin-top:24px"><div class="lock"><svg width="46" height="74" viewBox="0 0 200 320"><use href="#m-helix"/></svg><div><span class="wm" style="font-size:24px">HARA</span><div class="role">the master · the living strand</div></div></div></div>
+
+  <div class="band">Primitives — one form each</div>
+  <div class="grid g3" style="margin-top:8px">
+    <div class="markcard"><svg width="76" height="76" viewBox="0 0 200 200"><use href="#m-identity"/></svg><div class="name">Hara Numira</div><div class="sub">the Iris · identity</div></div>
+    <div class="markcard"><svg width="76" height="76" viewBox="0 0 200 200"><use href="#m-record"/></svg><div class="name">HaraLedger · Registry</div><div class="sub">the Strata · the record</div></div>
+    <div class="markcard"><svg width="76" height="76" viewBox="0 0 200 200"><use href="#m-exchange"/></svg><div class="name">Hara Exchange</div><div class="sub">the Confluence · flow</div></div>
+  </div>
+
+  <div class="band">Hara Atlas — one sphere, many hearts</div>
+  <div class="card" style="margin-top:8px">
+    <div class="row" style="justify-content:flex-start;gap:18px"><svg width="84" height="84" viewBox="0 0 200 200"><use href="#a-atlas"/></svg><div><div class="lock"><span class="wm" style="font-size:20px">HARA</span><span class="nm" style="font-size:11px">Atlas</span></div><div class="role">the proof layer · valuable objects, located</div></div></div>
+    <div class="grid g6" style="margin-top:22px">
+      <div class="heartcard"><svg width="48" height="48" viewBox="0 0 200 200"><use href="#a-locate"/></svg><div class="hl">Locate</div></div>
+      <div class="heartcard"><svg width="48" height="48" viewBox="0 0 200 200"><use href="#a-certify"/></svg><div class="hl">Certify</div></div>
+      <div class="heartcard"><svg width="48" height="48" viewBox="0 0 200 200"><use href="#a-trace"/></svg><div class="hl">Trace</div></div>
+      <div class="heartcard"><svg width="48" height="48" viewBox="0 0 200 200"><use href="#a-halal"/></svg><div class="hl">Halal</div></div>
+      <div class="heartcard"><svg width="48" height="48" viewBox="0 0 200 200"><use href="#a-token"/></svg><div class="hl">Token</div></div>
+      <div class="heartcard"><svg width="48" height="48" viewBox="0 0 200 200"><use href="#a-land"/></svg><div class="hl">Land</div></div>
+      <div class="heartcard"><svg width="48" height="48" viewBox="0 0 200 200"><use href="#a-art"/></svg><div class="hl">Art</div></div>
+    </div>
+  </div>
+</section>
+
+
+<!-- 06 MARKS -->
+<section class="wrap" id="marks">
+  <div class="numlbl">06</div><div class="eyebrow">The marks</div>
+  <h2>The full set</h2>
+  <h3 style="margin-top:20px">Primitives</h3>
+  <div class="grid g3">
+    <div class="markcard"><svg width="90" height="90" viewBox="0 0 200 200"><use href="#m-identity"/></svg><div class="name">Numira</div><div class="sub">identity — who you are</div></div>
+    <div class="markcard"><svg width="90" height="90" viewBox="0 0 200 200"><use href="#m-record"/></svg><div class="name">Registry</div><div class="sub">record — the trusted ledger</div></div>
+    <div class="markcard"><svg width="90" height="90" viewBox="0 0 200 200"><use href="#m-exchange"/></svg><div class="name">Exchange</div><div class="sub">flow — data under consent</div></div>
+  </div>
+  <h3 style="margin-top:24px">Atlas — the hearts</h3>
+  <div class="grid g6">
+    <div class="heartcard"><svg width="60" height="60" viewBox="0 0 200 200"><use href="#a-locate"/></svg><div class="hl">Locate</div><div class="hs">the pin</div></div>
+    <div class="heartcard"><svg width="60" height="60" viewBox="0 0 200 200"><use href="#a-certify"/></svg><div class="hl">Certify</div><div class="hs">the check</div></div>
+    <div class="heartcard"><svg width="60" height="60" viewBox="0 0 200 200"><use href="#a-trace"/></svg><div class="hl">Trace</div><div class="hs">the trail</div></div>
+    <div class="heartcard"><svg width="60" height="60" viewBox="0 0 200 200"><use href="#a-halal"/></svg><div class="hl">Halal</div><div class="hs">the crescent</div></div>
+    <div class="heartcard"><svg width="60" height="60" viewBox="0 0 200 200"><use href="#a-token"/></svg><div class="hl">Token</div><div class="hs">the bezel</div></div>
+    <div class="heartcard"><svg width="60" height="60" viewBox="0 0 200 200"><use href="#a-land"/></svg><div class="hl">Land</div><div class="hs">the parcel</div></div>
+    <div class="heartcard"><svg width="60" height="60" viewBox="0 0 200 200"><use href="#a-art"/></svg><div class="hl">Art</div><div class="hs">the gem</div></div>
+  </div>
+</section>
+
+
+<!-- 07 CONSTRUCTION -->
+<section class="wrap" id="construct">
+  <div class="numlbl">07</div><div class="eyebrow">Construction</div>
+  <h2>Clear space &amp; minimum size · products</h2>
+  <p>Product marks are built on a 200×200 grid, core dead-centre. Proportions are fixed.</p>
+  <div class="grid g2">
+    <div class="card">
+      <div class="vlabel"><span class="t">Clear space</span><span class="h">min = X (the core)</span></div>
+      <div class="sample t-dark bord" style="background:#0B1020">
+        <svg width="220" height="220" viewBox="0 0 300 300">
+          <rect x="56" y="56" width="188" height="188" rx="14" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.4" stroke-dasharray="5 7"/>
+          <use href="#a-atlas" x="50" y="50" width="200" height="200"/>
+          <line x1="150" y1="56" x2="150" y2="86" stroke="var(--accent)" stroke-width="1.4"/>
+          <text x="156" y="74" fill="var(--accent)" font-family="Outfit" font-size="13">X</text>
+        </svg>
+      </div>
+    </div>
+    <div class="card">
+      <div class="vlabel"><span class="t">Minimum size</span><span class="h">symbol</span></div>
+      <div class="sample t-dark bord" style="background:#0B1020;flex-direction:row;gap:26px;align-items:flex-end;justify-content:center">
+        <div style="text-align:center"><svg width="92" height="92" viewBox="0 0 200 200"><use href="#m-identity"/></svg><div class="cap">96 px</div></div>
+        <div style="text-align:center"><svg width="48" height="48" viewBox="0 0 200 200"><use href="#m-identity"/></svg><div class="cap">48 px</div></div>
+        <div style="text-align:center"><svg width="24" height="24" viewBox="0 0 200 200"><use href="#m-identity"/></svg><div class="cap">24 px</div></div>
+      </div>
+      <p style="font-size:13.5px;margin-top:10px">Symbol: <strong>24 px / 8 mm</strong> min. Below that, the green-circle icon.</p>
+    </div>
+  </div>
+</section>
+
+
+<!-- 08 BACKGROUNDS -->
+<section class="wrap" id="variants">
+  <div class="numlbl">08</div><div class="eyebrow">Backgrounds &amp; variants</div>
+  <h2>Four treatments, one system</h2>
+  <p>The same paint tokens re-theme every mark — primitives and Atlas alike.</p>
+  <div class="grid g2">
+    <div><div class="vlabel"><span class="t">Full colour · dark</span><span class="h">primary</span></div><div class="sample t-dark"><div class="row"><svg width="56" height="56" viewBox="0 0 200 200"><use href="#m-identity"/></svg><svg width="56" height="56" viewBox="0 0 200 200"><use href="#m-exchange"/></svg><svg width="56" height="56" viewBox="0 0 200 200"><use href="#a-atlas"/></svg></div></div></div>
+    <div><div class="vlabel"><span class="t">Full colour · light</span><span class="h">paper &amp; UI</span></div><div class="sample t-light bord"><div class="row"><svg width="56" height="56" viewBox="0 0 200 200"><use href="#m-identity"/></svg><svg width="56" height="56" viewBox="0 0 200 200"><use href="#m-exchange"/></svg><svg width="56" height="56" viewBox="0 0 200 200"><use href="#a-atlas"/></svg></div></div></div>
+    <div><div class="vlabel"><span class="t">Monochrome · ink</span><span class="h">one-colour print</span></div><div class="sample t-mono bord"><div class="row"><svg width="56" height="56" viewBox="0 0 200 200"><use href="#m-identity"/></svg><svg width="56" height="56" viewBox="0 0 200 200"><use href="#m-exchange"/></svg><svg width="56" height="56" viewBox="0 0 200 200"><use href="#a-atlas"/></svg></div></div></div>
+    <div><div class="vlabel"><span class="t">Monochrome · reversed</span><span class="h">over photos</span></div><div class="sample t-monorev"><div class="row"><svg width="56" height="56" viewBox="0 0 200 200"><use href="#m-identity"/></svg><svg width="56" height="56" viewBox="0 0 200 200"><use href="#m-exchange"/></svg><svg width="56" height="56" viewBox="0 0 200 200"><use href="#a-atlas"/></svg></div></div></div>
+  </div>
+</section>
+
+
+<!-- 09 MOTION -->
+<section class="wrap" id="motion">
+  <div class="numlbl">09</div><div class="eyebrow">Motion</div>
+  <h2>Animated &amp; static</h2>
+  <p>The master logogram stays still — a logo shouldn't fidget. Product forms carry quiet motion for moments like splash, loading, and hero; everything else uses static export.</p>
+  <div class="grid g2">
+    <div class="card center" style="justify-content:center;min-height:200px"><div class="row"><svg width="74" height="74" viewBox="0 0 200 200"><use href="#m-record"/></svg><svg width="74" height="74" viewBox="0 0 200 200"><use href="#a-atlas"/></svg></div><div class="cap">Animated · live</div></div>
+    <div class="card center static" style="justify-content:center;min-height:200px"><div class="row"><svg width="74" height="74" viewBox="0 0 200 200"><use href="#m-record"/></svg><svg width="74" height="74" viewBox="0 0 200 200"><use href="#a-atlas"/></svg></div><div class="cap">Static · export</div></div>
+  </div>
+  <table>
+    <thead><tr><th>Element</th><th>Motion</th><th>Timing</th><th>Easing</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Master Helix</strong></td><td>None (optional node-pulse for splash only)</td><td>—</td><td>—</td></tr>
+      <tr><td><strong>Numira / Registry</strong></td><td>Rotate, full turn</td><td>44 s</td><td>linear</td></tr>
+      <tr><td><strong>Exchange</strong></td><td>Rotate, full turn</td><td>20 s</td><td>linear</td></tr>
+      <tr><td><strong>Atlas sphere</strong></td><td>Rotate, full turn</td><td>60 s</td><td>linear</td></tr>
+      <tr><td><strong>Core / heart</strong></td><td>Breathe · scale 1→1.07</td><td>5.4 s</td><td>ease-in-out</td></tr>
+      <tr><td><strong>Atlas nodes</strong></td><td>Twinkle · opacity 1→.32</td><td>3.2 s, staggered .5 s</td><td>ease-in-out</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Always honour <em>prefers-reduced-motion</em> — fall back to static. The core breathes; only the green shells turn — never spin or bounce the core.</p>
+</section>
+
+
+<!-- 10 COLOUR -->
+<section class="wrap" id="color">
+  <div class="numlbl">10</div><div class="eyebrow">Colour</div>
+  <h2>The palette</h2>
+  <p>Hara-green carries the brand and all structure; orange is reserved for the core and value accents; ink and paper are the grounds.</p>
+  <h3 style="margin-top:20px">Master green — the logo only</h3>
+  <div class="grid g4">
+    <div class="swatch"><div class="chip" style="background:#00843D"></div><div class="meta"><div class="nm2">Hara Forest</div><div class="hex">#00843D</div><div class="use">Wordmark · helix on light</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#22B24C"></div><div class="meta"><div class="nm2">Hara Leaf</div><div class="hex">#22B24C</div><div class="use">The circle · helix on dark</div></div></div>
+  </div>
+  <h3 style="margin-top:22px">Product spectrum</h3>
+  <div class="grid g4">
+    <div class="swatch"><div class="chip" style="background:#2BD4C0"></div><div class="meta"><div class="nm2">Teal</div><div class="hex">#2BD4C0</div><div class="use">Shell start · UI accent</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#3B6BFF"></div><div class="meta"><div class="nm2">Blue</div><div class="hex">#3B6BFF</div><div class="use">Shell mid</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#5A45E0"></div><div class="meta"><div class="nm2">Indigo</div><div class="hex">#5A45E0</div><div class="use">Shell end</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#FFC56E"></div><div class="meta"><div class="nm2">Core Gold</div><div class="hex">#FFC56E</div><div class="use">The core / value only</div></div></div>
+  </div>
+  <h3 style="margin-top:22px">Ink &amp; neutrals</h3>
+  <div class="grid g4">
+    <div class="swatch"><div class="chip" style="background:#070B18"></div><div class="meta"><div class="nm2">Ink</div><div class="hex">#070B18</div><div class="use">Primary dark ground</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#0B1020"></div><div class="meta"><div class="nm2">Panel</div><div class="hex">#0B1020</div><div class="use">Cards · tiles</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#F4F1EA"></div><div class="meta"><div class="nm2">Paper</div><div class="hex">#F4F1EA</div><div class="use">Light / mono ground</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#8A93AD"></div><div class="meta"><div class="nm2">Muted</div><div class="hex">#8A93AD</div><div class="use">Secondary text</div></div></div>
+  </div>
+  <h3 style="margin-top:22px">Gradients</h3>
+  <div class="grid g3">
+    <div class="card sm"><h4>Shell · linear</h4><div class="grad" style="background:linear-gradient(135deg,#2BD4C0,#3B6BFF 50%,#5A45E0)"></div><p style="font-size:12.5px;margin-top:8px">All product structure &amp; the Atlas graticule.</p></div>
+    <div class="card sm"><h4>Core · radial</h4><div class="grad" style="background:radial-gradient(circle at 40% 34%,#FFE6B8,#FFC56E 45%,#F39B24)"></div><p style="font-size:12.5px;margin-top:8px">The core, the heart, the object-nodes.</p></div>
+    <div class="card sm"><h4>Warm accent · linear</h4><div class="grad" style="background:linear-gradient(135deg,#FFC56E,#FF9D5C)"></div><p style="font-size:12.5px;margin-top:8px">The Exchange return-arc &amp; value highlights.</p></div>
+  </div>
+</section>
+
+
+<!-- 11 TYPE -->
+<section class="wrap" id="type">
+  <div class="numlbl">11</div><div class="eyebrow">Typography</div>
+  <h2>Two voices</h2>
+  <p>A clean geometric for the brand and headlines; a humanist grotesk for reading. The wordmark is geometric, all-caps, evenly weighted — shown here in Outfit as a close stand-in for the official lettering.</p>
+  <div style="margin-top:16px">
+    <div class="type-row"><div class="k">Outfit</div><div style="flex:1"><div style="font-family:'Outfit';font-weight:600;font-size:34px;letter-spacing:.12em;color:var(--txt)">HARA</div><p style="font-size:13px;margin-top:4px">Logotype, headlines, nameplates, labels, UI metadata. Geometric, confident, structural.</p></div></div>
+    <div class="type-row"><div class="k">Hanken Grotesk</div><div style="flex:1"><div style="font-family:'Hanken Grotesk';font-weight:400;font-size:19px;color:var(--soft)">Body copy, paragraphs, captions, product UI — comfortable at every size.</div><p style="font-size:13px;margin-top:4px">The workhorse, weights 300–600. The default for everything you read.</p></div></div>
+  </div>
+</section>
+
+
+<!-- 12 APP ICONS -->
+<section class="wrap" id="icons">
+  <div class="numlbl">12</div><div class="eyebrow">App icons</div>
+  <h2>The green-circle family</h2>
+  <p>The master device — a white mark inside the Hara-green circle — extends to every product for one unmistakable home-screen family. Use full-colour marks (cool shell, gold core) inside product UI and documents.</p>
+  <div class="band">Platform</div>
+  <div class="grid g5" style="margin-top:8px">
+    <div class="card center sm"><svg width="84" height="84" viewBox="0 0 200 200"><use href="#m-hara-icon"/></svg><div class="cap">HARA</div></div>
+    <div class="card center sm"><div class="iconcircle t-onleaf"><svg width="54" height="54" viewBox="0 0 200 200"><use href="#m-identity"/></svg></div><div class="cap">Numira</div></div>
+    <div class="card center sm"><div class="iconcircle t-onleaf"><svg width="54" height="54" viewBox="0 0 200 200"><use href="#m-record"/></svg></div><div class="cap">Registry</div></div>
+    <div class="card center sm"><div class="iconcircle t-onleaf"><svg width="54" height="54" viewBox="0 0 200 200"><use href="#m-exchange"/></svg></div><div class="cap">Exchange</div></div>
+    <div class="card center sm"><div class="iconcircle t-onleaf"><svg width="54" height="54" viewBox="0 0 200 200"><use href="#a-atlas"/></svg></div><div class="cap">Atlas</div></div>
+  </div>
+  <div class="band">Inside Atlas</div>
+  <div class="grid g6" style="margin-top:8px">
+    <div class="card center sm"><div class="iconcircle t-onleaf"><svg width="50" height="50" viewBox="0 0 200 200"><use href="#a-locate"/></svg></div><div class="cap">Locate</div></div>
+    <div class="card center sm"><div class="iconcircle t-onleaf"><svg width="50" height="50" viewBox="0 0 200 200"><use href="#a-certify"/></svg></div><div class="cap">Certify</div></div>
+    <div class="card center sm"><div class="iconcircle t-onleaf"><svg width="50" height="50" viewBox="0 0 200 200"><use href="#a-trace"/></svg></div><div class="cap">Trace</div></div>
+    <div class="card center sm"><div class="iconcircle t-onleaf"><svg width="50" height="50" viewBox="0 0 200 200"><use href="#a-halal"/></svg></div><div class="cap">Halal</div></div>
+    <div class="card center sm"><div class="iconcircle t-onleaf"><svg width="50" height="50" viewBox="0 0 200 200"><use href="#a-token"/></svg></div><div class="cap">Token</div></div>
+    <div class="card center sm"><div class="iconcircle t-onleaf"><svg width="50" height="50" viewBox="0 0 200 200"><use href="#a-land"/></svg></div><div class="cap">Land</div></div>
+    <div class="card center sm"><div class="iconcircle t-onleaf"><svg width="50" height="50" viewBox="0 0 200 200"><use href="#a-art"/></svg></div><div class="cap">Art</div></div>
+  </div>
+  <div class="band">Full-colour marks (in-product)</div>
+  <div class="grid g6" style="margin-top:8px">
+    <div class="card center sm"><div class="iconcircle" style="background:linear-gradient(160deg,#101A38,#070B18)"><svg width="50" height="50" viewBox="0 0 200 200"><use href="#a-locate"/></svg></div><div class="cap">Locate</div></div>
+    <div class="card center sm"><div class="iconcircle" style="background:linear-gradient(160deg,#101A38,#070B18)"><svg width="50" height="50" viewBox="0 0 200 200"><use href="#a-halal"/></svg></div><div class="cap">Halal</div></div>
+    <div class="card center sm"><div class="iconcircle" style="background:linear-gradient(160deg,#101A38,#070B18)"><svg width="50" height="50" viewBox="0 0 200 200"><use href="#a-token"/></svg></div><div class="cap">Token</div></div>
+    <div class="card center sm"><div class="iconcircle" style="background:linear-gradient(160deg,#101A38,#070B18)"><svg width="50" height="50" viewBox="0 0 200 200"><use href="#a-land"/></svg></div><div class="cap">Land</div></div>
+    <div class="card center sm"><div class="iconcircle" style="background:linear-gradient(160deg,#101A38,#070B18)"><svg width="50" height="50" viewBox="0 0 200 200"><use href="#a-art"/></svg></div><div class="cap">Art</div></div>
+    <div class="card center sm"><div class="iconcircle" style="background:linear-gradient(160deg,#101A38,#070B18)"><svg width="50" height="50" viewBox="0 0 200 200"><use href="#m-identity"/></svg></div><div class="cap">Numira</div></div>
+    <div class="card center sm"><div class="iconcircle" style="background:linear-gradient(160deg,#101A38,#070B18)"><svg width="50" height="50" viewBox="0 0 200 200"><use href="#a-atlas"/></svg></div><div class="cap">Atlas</div></div>
+  </div>
+</section>
+
+
+<!-- 13 NAMING -->
+<section class="wrap" id="naming">
+  <div class="numlbl">13</div><div class="eyebrow">Naming</div>
+  <h2>Poetry for heroes, clarity for infrastructure</h2>
+  <p>Consumer heroes earn a coined name; infrastructure stays descriptive. In trust systems, comprehension is credibility.</p>
+  <table>
+    <thead><tr><th>Tier</th><th>Reads as</th><th>Naming</th></tr></thead>
+    <tbody>
+      <tr><td>Master</td><td>HARA</td><td><span class="pill" style="transform:scale(.85)">coined</span></td></tr>
+      <tr><td>Hero primitive</td><td>Hara Numira</td><td><span class="pill" style="transform:scale(.85)">coined</span></td></tr>
+      <tr><td>Infra primitive</td><td>HaraLedger · Hara Exchange</td><td><span class="pill ghost" style="transform:scale(.85)">descriptive</span></td></tr>
+      <tr><td>House</td><td>Hara Atlas</td><td><span class="pill" style="transform:scale(.85)">coined</span></td></tr>
+      <tr><td>Solution</td><td>Atlas · Halal Passport · Token · Land · Art</td><td><span class="pill ghost" style="transform:scale(.85)">descriptive</span></td></tr>
+    </tbody>
+  </table>
+</section>
+
+
+<!-- 14 MISUSE -->
+<section class="wrap" id="misuse">
+  <div class="numlbl">14</div><div class="eyebrow">Misuse</div>
+  <h2>What never to do</h2>
+  <div class="grid g4">
+    <div><div class="dd t-dark"><span class="badge no">✕</span><svg width="88" height="88" viewBox="0 0 200 200" style="filter:hue-rotate(180deg) saturate(1.4)"><use href="#a-atlas"/></svg></div><p class="ddcap">Don't recolour the shell or the gold core.</p></div>
+    <div><div class="dd t-light bord" style="background:#fff"><span class="badge no">✕</span><svg width="118" height="80" viewBox="0 0 200 320" preserveAspectRatio="none"><use href="#m-helix"/></svg></div><p class="ddcap">Don't stretch or squash the helix.</p></div>
+    <div><div class="dd t-dark"><span class="badge no">✕</span><svg width="88" height="88" viewBox="0 0 200 200" style="transform:rotate(20deg)"><use href="#a-atlas"/></svg></div><p class="ddcap">Don't rotate the mark or the core.</p></div>
+    <div><div class="dd" style="background:#3B6BFF"><span class="badge no">✕</span><svg width="88" height="88" viewBox="0 0 200 200"><use href="#m-record"/></svg></div><p class="ddcap">Don't put green marks on competing colour.</p></div>
+    <div><div class="dd t-dark"><span class="badge no">✕</span><svg width="88" height="88" viewBox="0 0 200 200" style="filter:drop-shadow(0 0 12px #2BD4C0) drop-shadow(0 0 18px #2BD4C0)"><use href="#a-atlas"/></svg></div><p class="ddcap">Don't add glows, bevels or effects.</p></div>
+    <div><div class="dd t-light bord" style="background:#fff"><span class="badge no">✕</span><div class="lock"><svg width="40" height="64" viewBox="0 0 200 320"><use href="#m-helix"/></svg><span style="font-family:Georgia,serif;font-size:22px;color:#00843D">Hara</span></div></div><p class="ddcap">Don't set the wordmark in another font.</p></div>
+    <div><div class="dd" style="background:#9AD37F"><span class="badge no">✕</span><svg width="64" height="102" viewBox="0 0 200 320" class="t-light"><use href="#m-helix"/></svg></div><p class="ddcap">Don't use low-contrast green-on-green.</p></div>
+    <div><div class="dd" style="background:#0B1020"><span class="badge ok">✓</span><svg width="80" height="80" viewBox="0 0 200 200"><use href="#m-hara-icon"/></svg></div><p class="ddcap">Do use the approved marks, with room to breathe.</p></div>
+  </div>
+</section>
+
+<div class="footer">HARA — integrated brand guidelines v2.0 · the living strand · 2026</div>
+</body>
+</html>
