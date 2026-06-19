@@ -4,6 +4,15 @@ A self-contained, dependency-free interactive API console for Hara Registry
 (permissioned Hyperledger Besu / QBFT chain, ID **131216**, palm-oil
 supply-chain traceability with post-quantum anchoring).
 
+> **🟢 Live:** https://explorer.ledger.haratrust.io/api-console/
+>
+> Hosted same-origin behind Caddy: the console's browser calls hit
+> `/capi/read`, `/capi/write`, and `/capi/trace` (reverse-proxied to the
+> rpc-cache, the write LB, and the indexer trace API) — so there are **no CORS
+> problems**, and the gated trace API works with the Basic-auth credentials you
+> enter. (`app.js` auto-detects: served over http(s) → same-origin `/capi/*`;
+> opened as a local `file://` → the absolute public endpoints, chain-RPC only.)
+
 Open `index.html` and you can hit the **live production** API from your browser:
 chain JSON-RPC, contract reads, and the Traceability REST API. Every operation
 has a request form, a live **Send** button (status + timing + pretty JSON), and

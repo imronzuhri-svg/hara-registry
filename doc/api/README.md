@@ -15,7 +15,7 @@ contract addresses, conventions). If a fact is wrong, fix it there first.
 | A partner / regulator / user evaluating the platform | **[Product & Users Manual](../product/hara-registry-product-manual.md)** — plain-language, what it is, who uses it, how to verify a QR |
 | An engineer / auditor needing the full picture | **[Technical Manual](../technical/hara-registry-technical-manual.md)** — architecture, all contracts (verified signatures), APIs, security |
 | A developer writing integration code | **[Developer & Integration Manual](../guides/hara-registry-developer-integration-manual.md)** — quickstart + tasks with TS/Python/curl, deploy, mint, relay, anchor, index |
-| Anyone who wants to *try* the API live | **[Interactive API Console](../../api-console/index.html)** — fill params, hit the live endpoints, copy code in curl/TS/Python/Go |
+| Anyone who wants to *try* the API live | **[Interactive API Console](https://explorer.ledger.haratrust.io/api-console/)** (live) — fill params, hit the live endpoints, copy code in curl/TS/Python/Go. Source: [`api-console/`](../../api-console/) |
 | A developer who wants a library | **SDKs:** [TypeScript](../../sdk/typescript) · [Python](../../sdk/python) · [Go](../../sdk/go) |
 
 ### Reference specs

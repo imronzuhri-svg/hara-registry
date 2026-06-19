@@ -141,3 +141,12 @@ MINTER_KEY=.. HOLDER0_KEY=.. HOLDER1_KEY=.. go run ./examples/execute_chain
 ## License
 
 Apache-2.0. See [LICENSE](./LICENSE).
+
+## Build verification
+The SDK source passes `gofmt -e` (parses cleanly). A full `go build ./...` requires
+fetching `github.com/ethereum/go-ethereum` and its transitive deps — run it in any
+environment with open internet (or CI):
+
+```bash
+cd sdk/go && go mod tidy && go build ./... && go vet ./...
+```

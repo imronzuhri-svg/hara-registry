@@ -70,6 +70,34 @@ explorer.ledger.haratrust.io {
         reverse_proxy http://hara-blockscout:4000
     }
 
+    # ── Developer API Console (static SPA) ───────────────────────────────────
+    # The interactive console (repo: api-console/) deployed into the existing
+    # trace-site mount at /srv/trace/api-console. Served SAME-ORIGIN here so its
+    # browser fetches hit the /capi/* proxies below with zero CORS.
+    handle_path /api-console/* {
+        root * /srv/trace/api-console
+        file_server
+    }
+    redir /api-console /api-console/ 308
+
+    # Same-origin proxies the console calls (no CORS, no preflight headaches):
+    handle /capi/read/* {
+        uri strip_prefix /capi/read
+        reverse_proxy http://hara-rpc-cache:8080
+    }
+    handle /capi/write/* {
+        uri strip_prefix /capi/write
+        reverse_proxy http://10.43.0.21:8545
+    }
+    # Trace API kept behind Basic auth (same gate as trace.ledger.haratrust.io).
+    handle /capi/trace/* {
+        basic_auth {
+            hara REPLACE_WITH_TRACE_BCRYPT_HASH
+        }
+        uri strip_prefix /capi/trace
+        reverse_proxy http://hara-indexer:9100
+    }
+
     # Everything else → frontend
     handle {
         reverse_proxy http://hara-blockscout-fe:3000
