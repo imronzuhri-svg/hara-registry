@@ -8,10 +8,17 @@
 /* ------------------------------------------------------------------ *
  * Constants (canonical — see doc/api/hara-registry-facts.md)
  * ------------------------------------------------------------------ */
-const RPC = "https://rpc.ledger.haratrust.io";
-const RPC_READ = RPC + "/read/";
-const RPC_WRITE = RPC + "/write/";
-const TRACE = "https://trace.ledger.haratrust.io";
+// Endpoint resolution. When this console is SERVED over http(s) (e.g. hosted at
+// explorer.ledger.haratrust.io/api-console/), it calls SAME-ORIGIN `/capi/*`
+// paths that Caddy reverse-proxies to the read/write RPC and the trace API — so
+// there are zero CORS/preflight problems and the gated trace API works with the
+// credentials you enter. When opened as a local file:// it falls back to the
+// absolute public endpoints (chain RPC allows CORS; the trace API will be
+// CORS-limited in that mode).
+const SAME_ORIGIN = location.protocol === "http:" || location.protocol === "https:";
+const RPC_READ  = SAME_ORIGIN ? "/capi/read/"  : "https://rpc.ledger.haratrust.io/read/";
+const RPC_WRITE = SAME_ORIGIN ? "/capi/write/" : "https://rpc.ledger.haratrust.io/write/";
+const TRACE     = SAME_ORIGIN ? "/capi/trace"  : "https://trace.ledger.haratrust.io";
 const CHAIN_ID = 131216; // 0x20070
 
 const CONTRACTS = {
