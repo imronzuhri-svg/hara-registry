@@ -1,0 +1,28 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+dist/
+
+# Test / coverage
+*.test
+*.out
+coverage.*
+
+# Go workspace
+go.work
+go.work.sum
+
+# Local secrets — NEVER commit private keys
+*.key
+*.pem
+.env
+.env.*
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store

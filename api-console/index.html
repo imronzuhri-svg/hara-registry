@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hara Registry — API Console</title>
+<meta name="description" content="Interactive console for the Hara Registry chain JSON-RPC, contract reads, and Traceability REST API. Calls live production endpoints.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <header>
+    <span class="logo" aria-hidden="true"></span>
+    <div>
+      <h1>Hara Registry — API Console</h1>
+      <div class="sub">Chain ID 131216 · Hyperledger Besu (QBFT) · palm-oil traceability</div>
+    </div>
+    <span class="live" title="This console calls live production endpoints">● LIVE production endpoints</span>
+  </header>
+
+  <aside id="catalog"><!-- catalog rendered by app.js --></aside>
+
+  <main id="main">
+    <div class="opcard">
+      <div class="note">
+        This console sends requests directly from your browser to the
+        <strong>live production</strong> Hara Registry endpoints
+        (<code>rpc.ledger.haratrust.io</code>, <code>trace.ledger.haratrust.io</code>).
+        Reads are safe; writes submit real signed transactions. If a call shows a
+        fetch/CORS error, copy the generated <em>Code</em> snippet and run it from a terminal.
+      </div>
+    </div>
+  </main>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

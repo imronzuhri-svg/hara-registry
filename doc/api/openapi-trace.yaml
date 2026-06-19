@@ -1,0 +1,468 @@
+openapi: 3.1.0
+info:
+  title: Hara Registry — Traceability REST API
+  version: "1.0.0"
+  description: >
+    REST traceability API for the Hara Registry palm-oil supply-chain blockchain
+    (Hyperledger Besu QBFT, chain ID 131216). Exposes minted batches, custody hops,
+    and the custody DAG, all derived from on-chain `TransferSingle` events on the
+    HaraPalmOil ERC-1155 contract (`0xa513E6E4b8f2a923D98304ec87F64353C4D5C853`).
+
+
+    All amounts are in **litres** (1 ERC-1155 token = 1 litre). Addresses are
+    returned checksummed (mixed-case); the holder lookup matches case-sensitively.
+    Timestamps are ISO-8601 UTC.
+
+
+    The service is gated with **HTTP Basic auth** — request credentials from Hara
+    operations (`ops@haratrust.io`).
+  contact:
+    name: Hara Registry operations
+    email: ops@haratrust.io
+    url: https://github.com/imronzuhri-svg/hara-registry
+  license:
+    name: Proprietary
+
+servers:
+  - url: https://trace.ledger.haratrust.io
+    description: Production traceability API
+
+security:
+  - basicAuth: []
+
+tags:
+  - name: Batches
+    description: Minted palm-oil batches and their custody history
+  - name: Holders
+    description: Lookup of batches held by an address
+  - name: Operations
+    description: Health and metrics endpoints (unauthenticated)
+
+paths:
+  /v1/batches:
+    get:
+      tags: [Batches]
+      summary: List batches
+      description: Returns batches ordered by `minted_at` descending.
+      operationId: listBatches
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of batches to return.
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 50
+        - name: offset
+          in: query
+          description: Number of batches to skip (pagination).
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: A page of batch summaries.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BatchSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/batches/{batchId}:
+    get:
+      tags: [Batches]
+      summary: Get one batch
+      operationId: getBatch
+      parameters:
+        - $ref: "#/components/parameters/BatchId"
+      responses:
+        "200":
+          description: A single batch summary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BatchSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Batch not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: batch not found
+
+  /v1/batches/{batchId}/hops:
+    get:
+      tags: [Batches]
+      summary: List custody hops for a batch
+      description: Hops in custody order (block number, then log index).
+      operationId: getBatchHops
+      parameters:
+        - $ref: "#/components/parameters/BatchId"
+      responses:
+        "200":
+          description: Custody hops for the batch.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [hops]
+                properties:
+                  hops:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Hop"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Batch not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/batches/{batchId}/graph:
+    get:
+      tags: [Batches]
+      summary: Get the custody DAG for a batch
+      description: >
+        Returns a Cytoscape/React-Flow-ready graph of the batch custody DAG.
+        With `aggregate=true`, parallel A→B transfers collapse into one weighted
+        edge (best for DAG view); omit it for one edge per transfer (linear
+        traceability).
+      operationId: getBatchGraph
+      parameters:
+        - $ref: "#/components/parameters/BatchId"
+        - name: aggregate
+          in: query
+          description: Collapse parallel A→B transfers into a single weighted edge.
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: The custody graph.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Graph"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Batch not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/holders/{address}/batches:
+    get:
+      tags: [Holders]
+      summary: List batches held by an address
+      description: >
+        Returns the batch ids currently or historically held by the address.
+        The lookup matches the checksummed (mixed-case) address case-sensitively.
+      operationId: getHolderBatches
+      parameters:
+        - name: address
+          in: path
+          required: true
+          description: Checksummed (mixed-case) 20-byte EVM address.
+          schema:
+            $ref: "#/components/schemas/Address"
+      responses:
+        "200":
+          description: Batches held by the address.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [address, batches]
+                properties:
+                  address:
+                    $ref: "#/components/schemas/Address"
+                  batches:
+                    type: array
+                    items:
+                      type: string
+                      description: ERC-1155 token id (batch id) as a decimal string.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /healthz:
+    get:
+      tags: [Operations]
+      summary: Liveness probe
+      description: Returns 200 when the indexer is up. No authentication required.
+      operationId: healthz
+      security: []
+      responses:
+        "200":
+          description: Indexer is healthy.
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: ok
+
+  /metrics:
+    get:
+      tags: [Operations]
+      summary: Prometheus metrics
+      description: Prometheus exposition format (`hara_indexer_*`). No authentication required.
+      operationId: metrics
+      security: []
+      responses:
+        "200":
+          description: Prometheus exposition.
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: |
+                # HELP hara_indexer_batches_total Total batches indexed
+                # TYPE hara_indexer_batches_total counter
+                hara_indexer_batches_total 1284
+
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      description: HTTP Basic auth. Request credentials from Hara operations.
+
+  parameters:
+    BatchId:
+      name: batchId
+      in: path
+      required: true
+      description: ERC-1155 token id of the batch (decimal string).
+      schema:
+        type: string
+        example: "1001"
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid HTTP Basic credentials.
+      headers:
+        WWW-Authenticate:
+          schema:
+            type: string
+          example: Basic realm="Hara Registry"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: unauthorized
+
+  schemas:
+    Address:
+      type: string
+      description: Checksummed (mixed-case) 20-byte EVM address.
+      pattern: "^0x[0-9a-fA-F]{40}$"
+      example: "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853"
+
+    Bytes32:
+      type: string
+      description: 32-byte value, 0x-prefixed hex.
+      pattern: "^0x[0-9a-fA-F]{64}$"
+      example: "0x0000000000000000000000000000000000000000000000000000000000000000"
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Human-readable error message.
+          example: batch not found
+
+    BatchSummary:
+      type: object
+      description: Summary of a minted palm-oil batch. All litre fields are decimal strings.
+      required:
+        - batch_id
+        - initial_liters
+        - first_owner
+        - current_holder
+        - hop_count
+      properties:
+        batch_id:
+          type: string
+          description: ERC-1155 token id.
+          example: "1001"
+        initial_liters:
+          type: string
+          description: Litres minted for this batch.
+          example: "5000"
+        first_owner:
+          allOf: [{ $ref: "#/components/schemas/Address" }]
+          description: Plantation / origin address.
+        current_holder:
+          allOf: [{ $ref: "#/components/schemas/Address" }]
+          description: Current custodian address.
+        hop_count:
+          type: string
+          description: Number of custody hops so far (decimal string).
+          example: "3"
+        rspo_hash:
+          allOf: [{ $ref: "#/components/schemas/Bytes32" }]
+          description: RSPO certificate hash.
+        plantation_id:
+          allOf: [{ $ref: "#/components/schemas/Bytes32" }]
+          description: Plantation identifier.
+        production_date:
+          type: string
+          description: Production date (ISO-8601 UTC).
+          example: "2026-03-01T00:00:00Z"
+        minted_at:
+          type: string
+          format: date-time
+          description: Mint timestamp (ISO-8601 UTC).
+          example: "2026-03-02T08:14:05Z"
+        last_hop_at:
+          type: string
+          format: date-time
+          description: Timestamp of most recent custody hop (ISO-8601 UTC).
+          example: "2026-04-10T11:02:41Z"
+
+    Hop:
+      type: object
+      description: A single custody transfer (one `TransferSingle` event).
+      required:
+        - batch_id
+        - liters
+        - from_addr
+        - to_addr
+        - tx_hash
+        - block_number
+        - log_index
+      properties:
+        batch_id:
+          type: string
+          example: "1001"
+        liters:
+          type: string
+          description: Litres moved in this hop (decimal string).
+          example: "2500"
+        from_addr:
+          $ref: "#/components/schemas/Address"
+        to_addr:
+          $ref: "#/components/schemas/Address"
+        operator_addr:
+          allOf: [{ $ref: "#/components/schemas/Address" }]
+          description: The relay/operator that executed the transfer.
+        tx_hash:
+          type: string
+          pattern: "^0x[0-9a-fA-F]{64}$"
+          example: "0xabc123..."
+        block_number:
+          type: string
+          description: Block number (decimal string).
+          example: "192111"
+        log_index:
+          type: integer
+          example: 0
+        occurred_at:
+          type: string
+          format: date-time
+          description: Hop timestamp (ISO-8601 UTC).
+          example: "2026-04-10T11:02:41Z"
+
+    GraphNode:
+      type: object
+      description: A holder node in the custody DAG.
+      required: [id, label, hopIndex]
+      properties:
+        id:
+          allOf: [{ $ref: "#/components/schemas/Address" }]
+          description: Holder address (node id).
+        label:
+          type: string
+          description: Display label for the node.
+        hopIndex:
+          type: integer
+          description: Position of this holder in custody order.
+        receivedLiters:
+          type: string
+          description: Total litres received by this holder (decimal string).
+        sentLiters:
+          type: string
+          description: Total litres sent on by this holder (decimal string).
+        currentLiters:
+          type: string
+          description: Litres currently held (decimal string).
+        isFirstOwner:
+          type: boolean
+        isCurrentHolder:
+          type: boolean
+        isPassThrough:
+          type: boolean
+          description: True if the holder received and forwarded without retaining litres.
+
+    GraphEdge:
+      type: object
+      description: A custody transfer edge in the DAG.
+      required: [id, source, target]
+      properties:
+        id:
+          type: string
+          description: Edge id.
+        source:
+          allOf: [{ $ref: "#/components/schemas/Address" }]
+          description: Source holder address.
+        target:
+          allOf: [{ $ref: "#/components/schemas/Address" }]
+          description: Target holder address.
+        label:
+          type: string
+        liters:
+          type: string
+          description: Litres moved across this edge (decimal string).
+        txCount:
+          type: integer
+          description: Number of transfers aggregated into this edge.
+        firstAt:
+          type: string
+          format: date-time
+        lastAt:
+          type: string
+          format: date-time
+        sampleTxHash:
+          type: string
+          pattern: "^0x[0-9a-fA-F]{64}$"
+          description: Representative tx hash for the edge.
+
+    Graph:
+      type: object
+      description: Custody DAG for a batch (Cytoscape/React-Flow ready).
+      required: [batch, nodes, edges]
+      properties:
+        batch:
+          $ref: "#/components/schemas/BatchSummary"
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/GraphNode"
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/GraphEdge"
+        aggregated:
+          type: boolean
+          description: True when `aggregate=true` was applied (parallel edges collapsed).
