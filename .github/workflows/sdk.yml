@@ -1,0 +1,108 @@
+name: sdk
+
+# Builds the official SDKs (Go / TypeScript / Python) on every change. GitHub
+# runners have open internet, so this is where the Go SDK actually compiles
+# against go-ethereum (the prod fleet's egress can't fetch Go module deps).
+# `sdk-gate` always reports so it's safe as a required check.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.f.outputs.go }}
+      typescript: ${{ steps.f.outputs.typescript }}
+      python: ${{ steps.f.outputs.python }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: f
+        with:
+          filters: |
+            go:
+              - "sdk/go/**"
+              - ".github/workflows/sdk.yml"
+            typescript:
+              - "sdk/typescript/**"
+              - ".github/workflows/sdk.yml"
+            python:
+              - "sdk/python/**"
+              - ".github/workflows/sdk.yml"
+
+  go:
+    name: go build + vet
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk/go
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - run: go mod tidy
+      - run: go build ./...
+      - run: go vet ./...
+
+  typescript:
+    name: ts typecheck + build
+    needs: changes
+    if: needs.changes.outputs.typescript == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk/typescript
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm run typecheck
+      - run: pnpm run build
+
+  python:
+    name: python import + compile
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk/python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e .
+      - run: python -c "import hara_registry; from hara_registry import HaraRegistry; print('import ok')"
+      - run: python -m compileall -q src examples
+
+  sdk-gate:
+    name: sdk-gate
+    needs: [changes, go, typescript, python]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: fail if any SDK build failed
+        run: |
+          for r in "${{ needs.go.result }}" "${{ needs.typescript.result }}" "${{ needs.python.result }}"; do
+            if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then
+              echo "an SDK job failed: go=${{ needs.go.result }} ts=${{ needs.typescript.result }} py=${{ needs.python.result }}"
+              exit 1
+            fi
+          done
+          echo "ok: go=${{ needs.go.result }} ts=${{ needs.typescript.result }} py=${{ needs.python.result }}"
