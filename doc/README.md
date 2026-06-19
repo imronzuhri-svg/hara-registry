@@ -15,6 +15,7 @@ moved here on purpose; they stay coupled to what they operate.
 | [`product/`](product/) | **Product** docs — what the system is, for whom, features, phases, cost. |
 | [`technical/`](technical/) | **Technical** reference — architecture, contracts, services, APIs, security/PQ. |
 | [`guides/`](guides/) | **Developer / integration guides** — how partners build against the chain. |
+| [`api/`](api/README.md) | **Developer platform hub** — canonical facts, OpenAPI spec, JSON-RPC reference, and links to the API console + SDKs. |
 | [`console/`](console/) | Strata Console plan + intelligence roadmap. |
 | [`roadmap/`](roadmap/) | Long-horizon infrastructure & deployment roadmap. |
 | [`state/`](state/) | Chronological **session state handoffs** (state-02 → state-07). |
@@ -25,11 +26,13 @@ moved here on purpose; they stay coupled to what they operate.
 
 ## Key documents (start here)
 
-- **Product:** [`product/PRODUCT.md`](product/PRODUCT.md)
-- **Technical reference:** [`technical/TECHNICAL.md`](technical/TECHNICAL.md)
-- **Public technical manual (endpoints, contract addresses, APIs):** [`technical/hara-registry-technical-manual.md`](technical/hara-registry-technical-manual.md)
-- **Integration / developer guide:** [`guides/hara-registry-integration-manual.md`](guides/hara-registry-integration-manual.md)
-- **Security & quantum rationale:** [`technical/audit-security-quantum-performance.md`](technical/audit-security-quantum-performance.md)
+- **🧭 Developer platform hub (start here for building):** [`api/README.md`](api/README.md)
+- **Product & Users manual:** [`product/hara-registry-product-manual.md`](product/hara-registry-product-manual.md)
+- **Technical manual (public):** [`technical/hara-registry-technical-manual.md`](technical/hara-registry-technical-manual.md)
+- **Developer & Integration manual:** [`guides/hara-registry-developer-integration-manual.md`](guides/hara-registry-developer-integration-manual.md)
+- **Interactive API console:** [`../api-console/index.html`](../api-console/index.html) · **SDKs:** [`../sdk/`](../sdk/README.md) (TypeScript · Python · Go)
+- **OpenAPI (Trace REST):** [`api/openapi-trace.yaml`](api/openapi-trace.yaml) · **JSON-RPC reference:** [`api/jsonrpc-reference.md`](api/jsonrpc-reference.md)
+- **Deep technical reference:** [`technical/TECHNICAL.md`](technical/TECHNICAL.md) · **Security & quantum rationale:** [`technical/audit-security-quantum-performance.md`](technical/audit-security-quantum-performance.md)
 - **Latest system state:** [`state/hara-registry-state-07.md`](state/hara-registry-state-07.md)
 
 > The production sign-off (`PRODUCTION-READINESS.md`) and the repo entry point
