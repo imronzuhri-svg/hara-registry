@@ -27,12 +27,16 @@ WG_PORT="${WG_PORT:-51820}"
 
 # Existing hosts in the mesh — keep in sync with wg-bootstrap.sh's MESH_IP.
 # Format: "ssh-alias:mesh-ip:role-label"
+# Post-migration topology: the old single hara-stateless (10.43.0.20) was split
+# into hara-rpc-1 (RPC tier + HAProxy, .21) and hara-stateless-2 (services +
+# observability + edge, .25). A new peer MUST be added to .21 to reach the chain RPC.
 declare -a EXISTING_HOSTS=(
   "hara-v1:10.43.0.11:hara-v1 (validator)"
   "hara-v2:10.43.0.12:hara-v2 (validator)"
   "hara-v3:10.43.0.13:hara-v3 (validator)"
   "hara-v4:10.43.0.14:hara-v4 (validator)"
-  "hara-stateless:10.43.0.20:hara-stateless (chain RPC, Caddy/HAProxy)"
+  "hara-rpc-1:10.43.0.21:hara-rpc-1 (RPC tier + HAProxy)"
+  "hara-stateless-2:10.43.0.25:hara-stateless-2 (services + observability + edge)"
   "hara-stateful:10.43.0.40:hara-stateful (Vault, Postgres, Redis, MinIO)"
 )
 
@@ -140,7 +144,7 @@ sudo chmod 600 /etc/wireguard/wg0.conf
 sudo systemctl enable --now wg-quick@wg0
 
 # 5. Verify mesh connectivity:
-ping -c3 10.43.0.20   # hara-stateless (chain RPC)
+ping -c3 10.43.0.21   # hara-rpc-1 (chain RPC tier)
 ping -c3 10.43.0.40   # hara-stateful (Vault, Postgres)
 
 ────────────────────────────────────────────────────────────────
@@ -211,7 +215,7 @@ PersistentKeepalive = 25
     ok ""
     ok "Tell them they can now:"
     ok "  sudo systemctl enable --now wg-quick@wg0"
-    ok "  ping -c3 10.43.0.20  # should reply within ~1-50ms"
+    ok "  ping -c3 10.43.0.21  # should reply within ~1-50ms"
     ;;
 
   # ──────────────────────────────────────────────────────────────────────────
