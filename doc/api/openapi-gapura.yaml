@@ -1,0 +1,425 @@
+openapi: 3.1.0
+info:
+  title: HARA Gapura Gateway API
+  version: 1.0.0-draft
+  description: >
+    Contract-first API for HARA Gapura ↔ HARA Registry integration: anchoring (hashes only),
+    identity (did:hara / Numira), and geometry-blind usage metering. HARA-operated facade over
+    PQAnchorRegistry (chain 131216) — the Gateway holds the ANCHOR_ROLE + ML-DSA-65 keys; Gapura
+    sends hashes and DIDs only. Status: anchoring contract LIVE; Gateway + metering to build.
+    See gapura-integration-guide.md.
+  contact: { name: HARA Ops, email: ops@haratrust.io }
+  license: { name: Apache-2.0 }
+servers:
+  - url: https://gapura.ledger.haratrust.io/v1
+    description: Production (GA pending)
+  - url: https://gapura.sandbox.haratrust.io/v1
+    description: Sandbox / staging (to provision)
+
+security:
+  - authentik: []
+
+tags:
+  - { name: anchoring }
+  - { name: identity }
+  - { name: metering }
+
+paths:
+  /anchors:
+    post:
+      tags: [anchoring]
+      operationId: createAnchor
+      summary: Anchor a digest (hashes only; inherent dual ECDSA+ML-DSA-65 hybrid signature)
+      security: [{ authentik: [anchor:write] }]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: '#/components/schemas/AnchorRequest' } }
+      responses:
+        '201': { description: Anchored, content: { application/json: { schema: { $ref: '#/components/schemas/Anchor' } } } }
+        '200': { description: Digest already anchored (idempotent hit), content: { application/json: { schema: { $ref: '#/components/schemas/Anchor' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '502': { $ref: '#/components/responses/Problem' }
+    get:
+      tags: [anchoring]
+      operationId: verifyByDigest
+      summary: Verify — is this digest anchored, when, by whom
+      security: [{ authentik: [anchor:read] }]
+      parameters:
+        - { name: digest, in: query, required: true, schema: { $ref: '#/components/schemas/Digest' } }
+        - { name: hashAlg, in: query, required: false, schema: { $ref: '#/components/schemas/HashAlg' } }
+      responses:
+        '200': { description: Verification result, content: { application/json: { schema: { $ref: '#/components/schemas/VerifyResult' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+
+  /verify:
+    post:
+      tags: [anchoring]
+      operationId: verify
+      summary: Verify by digest (POST form for the verify portal / auditors)
+      security: [{ authentik: [anchor:read] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [digest]
+              properties:
+                digest: { $ref: '#/components/schemas/Digest' }
+                hashAlg: { $ref: '#/components/schemas/HashAlg' }
+      responses:
+        '200': { description: Verification result, content: { application/json: { schema: { $ref: '#/components/schemas/VerifyResult' } } } }
+
+  /anchors/{anchorId}:
+    get:
+      tags: [anchoring]
+      operationId: getAnchor
+      security: [{ authentik: [anchor:read] }]
+      parameters: [{ name: anchorId, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: Anchor record, content: { application/json: { schema: { $ref: '#/components/schemas/Anchor' } } } }
+        '404': { $ref: '#/components/responses/Problem' }
+
+  /anchors/{anchorId}/status:
+    get:
+      tags: [anchoring]
+      operationId: getAnchorStatus
+      summary: Anchor tx lifecycle (pending/confirmed/failed, confirmations, cost)
+      security: [{ authentik: [anchor:read] }]
+      parameters:
+        - { name: anchorId, in: path, required: true, schema: { type: string } }
+        - { name: If-None-Match, in: header, required: false, schema: { type: string } }
+      responses:
+        '200': { description: Status, content: { application/json: { schema: { $ref: '#/components/schemas/AnchorStatus' } } } }
+        '304': { description: Not modified }
+        '404': { $ref: '#/components/responses/Problem' }
+
+  /did/{did}:
+    get:
+      tags: [identity]
+      operationId: resolveDid
+      summary: Resolve a did:hara DID (W3C DID Resolution result)
+      security: [{ authentik: [identity:read] }]
+      parameters: [{ name: did, in: path, required: true, schema: { type: string, example: 'did:hara:authority:big' } }]
+      responses:
+        '200': { description: DID resolution result, content: { application/json: { schema: { $ref: '#/components/schemas/DidResolution' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '410': { $ref: '#/components/responses/Problem' }
+
+  /identities:
+    post:
+      tags: [identity]
+      operationId: registerIdentity
+      summary: Issue/register a tenant or authority DID (delegates to HaraDID/Numira)
+      security: [{ authentik: [identity:write] }]
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: '#/components/schemas/IdentityRequest' } }
+      responses:
+        '201': { description: Registered, content: { application/json: { schema: { $ref: '#/components/schemas/IdentityRegistration' } } } }
+        '202': { description: Batching (Sidetree), content: { application/json: { schema: { $ref: '#/components/schemas/Operation' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+
+  /identities/operations/{operationId}:
+    get:
+      tags: [identity]
+      operationId: getIdentityOperation
+      security: [{ authentik: [identity:read] }]
+      parameters: [{ name: operationId, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: Operation state, content: { application/json: { schema: { $ref: '#/components/schemas/Operation' } } } }
+
+  /identities/by-subject/{authentikSub}:
+    get:
+      tags: [identity]
+      operationId: getBindingBySubject
+      summary: DID bound to an Authentik subject (DID↔Authentik map)
+      security: [{ authentik: [identity:read] }]
+      parameters: [{ name: authentikSub, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: Binding, content: { application/json: { schema: { $ref: '#/components/schemas/Binding' } } } }
+        '404': { $ref: '#/components/responses/Problem' }
+
+  /identities/{did}/bindings:
+    post:
+      tags: [identity]
+      operationId: createBinding
+      summary: Bind a DID to an Authentik subject (until Numira DID-SSO ships)
+      security: [{ authentik: [identity:write] }]
+      parameters: [{ name: did, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [authentikSub, tenant]
+              properties:
+                authentikSub: { type: string }
+                tenant: { type: string }
+      responses:
+        '201': { description: Bound, content: { application/json: { schema: { $ref: '#/components/schemas/Binding' } } } }
+
+  /metering/usage:
+    get:
+      tags: [metering]
+      operationId: getUsage
+      summary: Geometry-blind usage counters for a tenant/period (spec now, build later)
+      security: [{ authentik: [metering:read] }]
+      parameters:
+        - { name: tenant, in: query, required: true, schema: { type: string } }
+        - { name: from, in: query, required: true, schema: { type: string, format: date } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date } }
+        - { name: granularity, in: query, required: false, schema: { type: string, enum: [total, day, month], default: total } }
+        - { name: metric, in: query, required: false, schema: { type: string, default: all } }
+      responses:
+        '200': { description: Usage, content: { application/json: { schema: { $ref: '#/components/schemas/Usage' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+
+  /metering/quotas:
+    get:
+      tags: [metering]
+      operationId: getQuotas
+      security: [{ authentik: [metering:read] }]
+      parameters: [{ name: tenant, in: query, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: Quotas, content: { application/json: { schema: { $ref: '#/components/schemas/Quotas' } } } }
+
+components:
+  securitySchemes:
+    authentik:
+      type: oauth2
+      description: OAuth2 client-credentials via Authentik (ADR-0018). Service-to-service only.
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.haratrust.io/application/o/token/
+          scopes:
+            anchor:write: Create anchors
+            anchor:read: Read/verify anchors
+            identity:read: Resolve DIDs and bindings
+            identity:write: Register DIDs and bindings
+            metering:read: Read usage/quotas
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: UUID; response cached 24h, replayed on retry. 409 if reused with a different body.
+      schema: { type: string, format: uuid }
+
+  responses:
+    Problem:
+      description: RFC 9457 problem+json
+      content:
+        application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } }
+
+  schemas:
+    Digest:
+      type: string
+      pattern: '^0x[0-9a-fA-F]{64}$'
+      description: 32-byte hex hash (hashes only — never geometry/PII)
+      example: '0x9b2c4e6a...'
+    HashAlg:
+      type: string
+      enum: [sha256, keccak256]
+      default: sha256
+    Did:
+      type: string
+      example: 'did:hara:obj:mp:8f3a...'
+
+    AnchorRequest:
+      type: object
+      required: [digest, objectDid, purpose]
+      properties:
+        digest: { $ref: '#/components/schemas/Digest' }
+        hashAlg: { $ref: '#/components/schemas/HashAlg' }
+        objectDid: { $ref: '#/components/schemas/Did' }
+        purpose: { type: string, example: map-passport, description: 'e.g. map-passport | eudr-dds | credential' }
+        actorDid: { $ref: '#/components/schemas/Did' }
+        metadata: { type: object, additionalProperties: true, description: 'Small, no PII, no geometry' }
+
+    TxRef:
+      type: object
+      properties:
+        chainId: { type: integer, example: 131216 }
+        contract: { type: string, example: '0x8A791620dd6260079BF849Dc5567aDC3F2FdC318' }
+        txHash: { type: string }
+        onChainId: { type: string, description: PQAnchorRegistry uint256 anchor id }
+        blockNumber: { type: integer }
+        logIndex: { type: integer }
+
+    Anchor:
+      type: object
+      properties:
+        anchorId: { type: string, example: gap_anc_01HZX }
+        onChainId: { type: string }
+        digest: { $ref: '#/components/schemas/Digest' }
+        objectDid: { $ref: '#/components/schemas/Did' }
+        purpose: { type: string }
+        status: { type: string, enum: [pending, confirmed, failed] }
+        txRef: { $ref: '#/components/schemas/TxRef' }
+        pqKeyHash: { type: string }
+        signatures:
+          type: object
+          description: The dual (hybrid) signature — always both
+          properties:
+            ecdsa: { type: boolean }
+            mlDsa65: { type: boolean }
+        anchoredAt: { type: string, format: date-time }
+
+    VerifyResult:
+      type: object
+      properties:
+        digest: { $ref: '#/components/schemas/Digest' }
+        anchored: { type: boolean }
+        anchors:
+          type: array
+          items:
+            type: object
+            properties:
+              anchorId: { type: string }
+              objectDid: { $ref: '#/components/schemas/Did' }
+              purpose: { type: string }
+              anchoredBy:
+                type: object
+                properties:
+                  tenant: { type: string }
+                  actorDid: { $ref: '#/components/schemas/Did' }
+              anchoredAt: { type: string, format: date-time }
+              txRef: { $ref: '#/components/schemas/TxRef' }
+              verification:
+                type: object
+                properties:
+                  ecdsaOnChain: { type: boolean }
+                  pqVerified: { type: boolean }
+                  pqKeyHash: { type: string }
+              status: { type: string, enum: [pending, confirmed, failed] }
+        asOf: { type: string, format: date-time }
+
+    AnchorStatus:
+      type: object
+      properties:
+        anchorId: { type: string }
+        status: { type: string, enum: [pending, confirmed, failed] }
+        confirmations: { type: integer }
+        blockNumber: { type: integer, nullable: true }
+        cost:
+          type: object
+          properties:
+            gas: { type: string, example: '0' }
+            unit: { type: string, example: HARA }
+            note: { type: string }
+        signatures:
+          type: object
+          properties:
+            ecdsa: { type: boolean }
+            mlDsa65: { type: boolean }
+        failureReason: { type: string, nullable: true }
+
+    DidResolution:
+      type: object
+      properties:
+        didDocument: { type: object, additionalProperties: true }
+        didResolutionMetadata: { type: object, additionalProperties: true }
+        didDocumentMetadata:
+          type: object
+          properties:
+            anchored: { type: boolean }
+            created: { type: string, format: date-time }
+            updated: { type: string, format: date-time }
+            deactivated: { type: boolean }
+            backing: { type: string, enum: [on-chain-issuer, sidetree] }
+
+    IdentityRequest:
+      type: object
+      required: [subjectType, displayName]
+      properties:
+        subjectType: { type: string, enum: [authority, tenant-org, actor] }
+        displayName: { type: string }
+        controllerJwk: { type: object, additionalProperties: true, description: Caller public key; Gateway never sees private keys }
+        namespaceHint: { type: string, example: authority }
+
+    IdentityRegistration:
+      type: object
+      properties:
+        did: { $ref: '#/components/schemas/Did' }
+        didDocument: { type: object, additionalProperties: true }
+        registration:
+          type: object
+          properties:
+            backing: { type: string, enum: [on-chain-issuer, sidetree] }
+            txRef: { $ref: '#/components/schemas/TxRef' }
+            state: { type: string, enum: [confirmed, batching] }
+
+    Operation:
+      type: object
+      properties:
+        operationId: { type: string }
+        state: { type: string, enum: [batching, confirmed, failed] }
+        did: { $ref: '#/components/schemas/Did' }
+
+    Binding:
+      type: object
+      properties:
+        authentikSub: { type: string }
+        did: { $ref: '#/components/schemas/Did' }
+        tenant: { type: string }
+        boundAt: { type: string, format: date-time }
+
+    Usage:
+      type: object
+      properties:
+        tenant: { type: string }
+        period:
+          type: object
+          properties:
+            from: { type: string, format: date }
+            to: { type: string, format: date }
+            granularity: { type: string }
+        metrics:
+          type: object
+          properties:
+            numiraIdResolutions: { type: integer }
+            atlasDidMints: { type: integer }
+            passportVerifications: { type: integer }
+            anchorTxCount: { type: integer }
+            anchorCostUnits: { type: integer }
+        series:
+          type: array
+          items: { type: object, additionalProperties: true }
+        quotas: { type: object, additionalProperties: true }
+        generatedAt: { type: string, format: date-time }
+
+    Quotas:
+      type: object
+      properties:
+        tenant: { type: string }
+        quotas:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              limit: { type: integer }
+              used: { type: integer }
+              resetsAt: { type: string, format: date-time }
+
+    Problem:
+      type: object
+      description: RFC 9457
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        code: { type: string, description: Stable machine code }
+        detail: { type: string }
+        instance: { type: string }
+        traceId: { type: string }

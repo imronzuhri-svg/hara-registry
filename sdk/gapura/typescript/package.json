@@ -1,0 +1,29 @@
+{
+  "name": "@hara/gapura-sdk",
+  "version": "0.1.0",
+  "description": "TypeScript client SDK for the HARA Gapura Gateway (anchoring, identity, metering). Targets the Gateway, not the chain.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5"
+  }
+}
