@@ -93,25 +93,27 @@ Two secrets, injected as env vars at deploy time (never committed):
 While either is the `__from_vault__` placeholder, `POST /v1/anchors` returns
 `502 anchor_failed`; reads still work.
 
-### ⚠️ Open decision — shared vs Gapura-scoped PQ identity
+### ✅ Resolved — Gapura runs its own PQAnchorRegistry instance
 
-`PQAnchorRegistry.currentPQKeyHash` is a **single contract-wide value**, and it is
-set/rotated by the **platform `anchor-worker`** (it calls `rotatePQKey` on cold
-start to match its own seed). Every anchor is frozen against whatever
-`currentPQKeyHash` is live at submit time. So the Gapura Gateway has two options:
+`PQAnchorRegistry.currentPQKeyHash` is a **single contract-wide value** set/rotated by the
+platform `anchor-worker`. To keep Gapura's PQ identity, anchor id-space, and rotation
+**independent** of the platform — the same model chosen for Atlas — Gapura uses a
+**Gapura-scoped `PQAnchorRegistry` instance**:
 
-1. **Reuse the platform PQ identity** — set `PQ_MLDSA_SEED` to the *same* seed the
-   anchor-worker uses, so `currentPQKeyHash` matches and Gapura anchors verify
-   against the shared key. Couples Gapura to the platform's PQ key rotation.
-2. **Gapura-scoped `PQAnchorRegistry` instance** — deploy a separate registry
-   whose `currentPQKeyHash` the Gateway controls (its own seed / rotation). Keeps
-   Gapura's PQ identity independent and its anchors in a separate id space.
+- **Deploy:** `contracts/script/DeployGapuraPQAnchor.s.sol` — deploys the instance and
+  registers it as `GapuraPQAnchorRegistry` v1 in the shared ContractRegistry
+  (`0xe7f1…0512`).
+- **Point the Gateway at it:** set `PQ_ANCHOR_REGISTRY` to that instance address — **not**
+  the shared `0x8A79…C318`.
+- **PQ key:** `PQ_MLDSA_SEED` is Gapura's own seed; its `keccak256(pubkey)` is the
+  instance's `currentPQKeyHash`, set at construction (derive it with
+  `scripts/derive-pq-key.mjs`). The Gateway's ECDSA key holds `ANCHOR_ROLE` +
+  `KEY_ROTATOR_ROLE` on that instance, so Gapura self-administers its own rotation.
 
-This must be decided before GA. If the Gateway uses a seed whose pubkey hash does
-**not** match the live `currentPQKeyHash`, anchors still record, but they will be
-tagged with the platform's key hash — not Gapura's — which breaks off-chain PQ
-verification against the Gapura pubkey. (The Gateway does **not** call `rotatePQKey`;
-that is intentionally left to whoever owns the registry.)
+Because the instance's `currentPQKeyHash` is derived from Gapura's own seed, anchors are
+tagged with Gapura's key and verify off-chain against the Gapura pubkey. Rotation stays an
+explicit operator action on Gapura's instance — the Gateway never calls `rotatePQKey`
+implicitly. Full operator runbook: **`doc/api/gapura-pq-registry-deploy.md`**.
 
 ---
 
