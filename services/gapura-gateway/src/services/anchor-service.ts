@@ -28,7 +28,7 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import pino from "pino";
 
-import { config, isRealPrivateKey, isRealSeed } from "../config.js";
+import { config, isGapuraScopedRegistry, isRealPrivateKey, isRealSeed } from "../config.js";
 import { ProblemError } from "../errors.js";
 import type { Store, AnchorRecord } from "../store/index.js";
 import {
@@ -160,7 +160,14 @@ export class AnchorService {
 
   /** True when both the ECDSA key and PQ seed are real (anchor writes enabled). */
   get writesEnabled(): boolean {
-    return !!this.account && !!this.writeClient && !!this.pqKeypair;
+    return (
+      !!this.account &&
+      !!this.writeClient &&
+      !!this.pqKeypair &&
+      // Refuse to anchor into the shared platform registry (or an unset one) — Gapura
+      // must use its own scoped instance, keeping it separate from the platform / Atlas.
+      isGapuraScopedRegistry(config.pqAnchorRegistry)
+    );
   }
 
   private toDto(r: AnchorRecord): Anchor {
@@ -209,7 +216,8 @@ export class AnchorService {
     if (!this.writesEnabled || !this.pqKeypair || !this.writeClient || !this.account) {
       throw new ProblemError(
         "anchor_failed",
-        "anchor writes disabled: ANCHOR_ECDSA_KEY / PQ_MLDSA_SEED not Vault-wired",
+        "anchor writes disabled: set ANCHOR_ECDSA_KEY + PQ_MLDSA_SEED (Vault) and " +
+          "PQ_ANCHOR_REGISTRY to the Gapura-scoped instance (never the shared platform registry)",
       );
     }
 

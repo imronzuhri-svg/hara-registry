@@ -251,7 +251,7 @@ components:
       type: object
       properties:
         chainId: { type: integer, example: 131216 }
-        contract: { type: string, example: '0x8A791620dd6260079BF849Dc5567aDC3F2FdC318' }
+        contract: { type: string, description: "Gapura's own PQAnchorRegistry instance (not the shared platform registry)", example: '0x00000000000000000000000000000000GapuraInst' }
         txHash: { type: string }
         onChainId: { type: string, description: PQAnchorRegistry uint256 anchor id }
         blockNumber: { type: integer }

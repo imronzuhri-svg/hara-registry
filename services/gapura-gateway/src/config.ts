@@ -31,6 +31,22 @@ export function isRealSeed(v: string | undefined): v is Hex {
   return !!v && /^0x[0-9a-fA-F]{64}$/.test(v);
 }
 
+/** The platform anchor-worker's SHARED PQAnchorRegistry — Gapura must NOT anchor here.
+ *  Gapura runs its own instance (contracts/script/DeployGapuraPQAnchor); see
+ *  doc/api/gapura-pq-registry-deploy.md. */
+export const SHARED_PLATFORM_PQ_ANCHOR_REGISTRY =
+  "0x8A791620dd6260079BF849Dc5567aDC3F2FdC318" as Hex;
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Hex;
+
+/** True only for a real, Gapura-scoped registry (not unset/zero, not the shared platform one). */
+export function isGapuraScopedRegistry(v: string): boolean {
+  return (
+    /^0x[0-9a-fA-F]{40}$/.test(v) &&
+    v.toLowerCase() !== ZERO_ADDRESS.toLowerCase() &&
+    v.toLowerCase() !== SHARED_PLATFORM_PQ_ANCHOR_REGISTRY.toLowerCase()
+  );
+}
+
 export const config = {
   port: Number(str("GATEWAY_PORT", "8930")),
 
@@ -45,10 +61,9 @@ export const config = {
   rpcWriteUrl: str("RPC_WRITE_URL", "https://rpc.ledger.haratrust.io/write/"),
   rpcReadUrl: str("RPC_READ_URL", "https://rpc.ledger.haratrust.io/read/"),
   chainId: Number(str("CHAIN_ID", "131216")),
-  pqAnchorRegistry: str(
-    "PQ_ANCHOR_REGISTRY",
-    "0x8A791620dd6260079BF849Dc5567aDC3F2FdC318",
-  ) as Hex,
+  // Gapura-scoped instance (DeployGapuraPQAnchor) — NOT the shared platform registry.
+  // Defaults to the zero address = unconfigured; anchor writes stay disabled until set.
+  pqAnchorRegistry: str("PQ_ANCHOR_REGISTRY", ZERO_ADDRESS) as Hex,
   anchorGasLimit: BigInt(str("ANCHOR_GAS_LIMIT", "500000")),
   pqAlgorithm: str("PQ_ALGORITHM", "ML-DSA-65"),
 
