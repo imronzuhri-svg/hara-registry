@@ -19,9 +19,10 @@
 # ──────────────────────────────────────────────────────────────────────────
 # libssl3 in the distroless base image (debian 12.13)
 # ──────────────────────────────────────────────────────────────────────────
-# 5 CVEs (1 CRITICAL + 4 HIGH) in libssl3@3.0.18-1~deb12u2 — Google's
-# distroless/nodejs22-debian12 base image. All 5 relate to OpenSSL's
-# DTLS handling or TLS 1.3 corner cases.
+# 6 CVEs (1 CRITICAL + 5 HIGH) in libssl3@3.0.18-1~deb12u2 — Google's
+# distroless/nodejs22-debian12 base image. Five relate to OpenSSL's
+# DTLS handling or TLS 1.3 corner cases; CVE-2026-45447 (added 2026-07-29)
+# is a heap use-after-free in PKCS7_verify() (fixed in 3.0.20-1~deb12u2).
 #
 # Why we're not exposed:
 #   1. Internal: services talk to each other over the WireGuard mesh
@@ -40,6 +41,7 @@ CVE-2026-28387
 CVE-2026-28388
 CVE-2026-28389
 CVE-2026-28390
+CVE-2026-45447
 
 # ──────────────────────────────────────────────────────────────────────────
 # @opentelemetry/exporter-prometheus (transitively pulled by sdk-node)
