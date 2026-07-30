@@ -19,7 +19,10 @@
       "cross-spawn": ">=7.0.5",
       "glob": ">=10.5.0",
       "picomatch": ">=4.0.4",
-      "protobufjs": ">=8.0.2"
+      "protobufjs": ">=8.0.2",
+      "@grpc/grpc-js": ">=1.14.4",
+      "ws": ">=8.21.0",
+      "@opentelemetry/propagator-jaeger": ">=2.9.0"
     }
   }
 }
