@@ -122,12 +122,12 @@ and no flag to set.
   "status":   "confirmed",            // QBFT instant finality — usually confirmed within ~1 block
   "txRef": {
     "chainId": 131216,
-    "contract": "0x8A791620dd6260079BF849Dc5567aDC3F2FdC318",
+    "contract": "0x…GapuraInstance",   // Gapura's OWN PQAnchorRegistry instance (from DeployGapuraPQAnchor) — NOT the shared platform 0x8A79…C318
     "txHash":  "0x…",
     "blockNumber": 1016811,
     "logIndex": 0
   },
-  "pqKeyHash": "0xa7dca428…",         // ML-DSA-65 pubkey hash this anchor is frozen against
+  "pqKeyHash": "0x…",                 // Gapura's own ML-DSA-65 pubkey hash (your instance's currentPQKeyHash) — not the platform's
   "signatures": { "ecdsa": true, "mlDsa65": true }, // the dual (hybrid) signature — always both
   "anchoredAt": "2026-06-23T09:14:02Z"
 }
@@ -174,7 +174,7 @@ portal and auditors.
       "verification": {
         "ecdsaOnChain": true,        // recordAnchor tx is on-chain (existence + timestamp)
         "pqVerified": true,          // Gateway re-checked ML-DSA-65 sig off-chain against pqKeyHash
-        "pqKeyHash": "0xa7dca428…"   // ECDSA-on-chain + PQ-verified together = the dual/hybrid proof
+        "pqKeyHash": "0x…"           // Gapura's own ML-DSA-65 key hash; ECDSA-on-chain + PQ-verified = the dual/hybrid proof
       },
       "status": "confirmed"
     }
@@ -453,5 +453,7 @@ id/secret, a webhook secret, and seed test DIDs.
 
 ---
 *Canonical chain facts: [`hara-registry-facts.md`](hara-registry-facts.md). DID method:
-[`../guides/haradid-pathway.md`](../guides/haradid-pathway.md). Contract:
-`PQAnchorRegistry 0x8A791620dd6260079BF849Dc5567aDC3F2FdC318`, chain 131216.*
+[`../guides/haradid-pathway.md`](../guides/haradid-pathway.md). Chain 131216. Gapura anchors
+to its **own** `PQAnchorRegistry` instance (registered as `GapuraPQAnchorRegistry` in
+ContractRegistry) — separate from the platform's shared registry `0x8A79…C318` and from any
+other tenant (e.g. Atlas's `AtlasPQAnchorRegistry`).*
