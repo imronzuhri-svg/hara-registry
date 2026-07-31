@@ -1,0 +1,34 @@
+{
+  "name": "@hara/registry-ledger",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "HARA-operated Registry Ledger — the facade behind the HARA Aurum integration. Per-tenant RFC 6962 SHA-256 Merkle transparency log; anchors Signed Tree Heads on-chain via a Ledger-scoped PQAnchorRegistry (chain 131216, hybrid ECDSA + ML-DSA-65). Serves offline-verifiable inclusion + consistency proofs, status-of-record, retention-of-record, and a public verify bundle.",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "src/server.ts",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "selftest": "tsx src/transparency-log.ts --selftest"
+  },
+  "dependencies": {
+    "@noble/hashes": "^1.5.0",
+    "@noble/post-quantum": "^0.2.1",
+    "fastify": "^4.28.1",
+    "jose": "^5.9.6",
+    "pg": "^8.13.0",
+    "pino": "^9.5.0",
+    "viem": "^2.21.40"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.5",
+    "@types/pg": "^8.11.10",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
+  }
+}

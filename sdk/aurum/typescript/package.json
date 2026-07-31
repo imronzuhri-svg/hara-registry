@@ -1,0 +1,30 @@
+{
+  "name": "@hara/registry-ledger-sdk",
+  "version": "0.1.0",
+  "description": "TypeScript client SDK + standalone RFC 6962 Merkle verifier for the HARA Registry Ledger (Aurum). Anchor attestations, resolve proofs/status, and verify inclusion/consistency offline.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "tsc && node scripts/selftest.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^5"
+  }
+}
