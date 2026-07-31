@@ -1,0 +1,407 @@
+openapi: 3.1.0
+info:
+  title: HARA Registry Ledger API
+  version: 1.0.0-draft
+  description: >
+    Tamper-evident, publicly-verifiable credential ledger for HARA Aurum. Anchors attestations
+    (VC/record hashes) and event-chain checkpoints into a per-tenant RFC 6962/9162 Merkle
+    transparency log whose tree heads are committed on-chain via PQAnchorRegistry (chain 131216,
+    hybrid ECDSA + ML-DSA-65). Serves offline-verifiable inclusion + consistency proofs,
+    status-of-record (active/superseded/revoked), and retention-of-record (no-delete-before-expiry).
+    Writes are tenant-scoped from a Numira token; proofs and status are public. Hashes + DIDs only —
+    never tenant payloads. See aurum-ledger-integration-guide.md.
+  contact: { name: HARA Ops, email: ops@haratrust.io }
+  license: { name: Apache-2.0 }
+servers:
+  - url: https://attest.ledger.haratrust.io/v1
+    description: Production (GA pending)
+  - url: https://attest.sandbox.haratrust.io/v1
+    description: Sandbox (Aurum fixtures; to provision)
+
+tags:
+  - { name: attestations }
+  - { name: checkpoints }
+  - { name: evidence }
+  - { name: verify }
+
+paths:
+  /attestations:
+    post:
+      tags: [attestations]
+      operationId: anchorAttestation
+      summary: Anchor a signed VC/record hash → registry_id + inclusion proof
+      security: [{ numira: [] }]
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/AttestationRequest' } } }
+      responses:
+        '201': { description: Anchored, content: { application/json: { schema: { $ref: '#/components/schemas/Attestation' } } } }
+        '200': { description: Already anchored (idempotent on contentHash), content: { application/json: { schema: { $ref: '#/components/schemas/Attestation' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+
+  /attestations/{registryId}:
+    get:
+      tags: [attestations]
+      operationId: getAttestation
+      summary: Resolve anchored record metadata (public; never the tenant payload)
+      security: []
+      parameters: [{ $ref: '#/components/parameters/RegistryId' }]
+      responses:
+        '200': { description: Attestation, content: { application/json: { schema: { $ref: '#/components/schemas/Attestation' } } } }
+        '404': { $ref: '#/components/responses/Problem' }
+
+  /attestations/{registryId}/proof:
+    get:
+      tags: [attestations]
+      operationId: getInclusionProof
+      summary: Inclusion proof for the attestation leaf (public, offline-verifiable)
+      security: []
+      parameters:
+        - { $ref: '#/components/parameters/RegistryId' }
+        - { name: tree_size, in: query, required: false, schema: { type: integer }, description: STH size to prove against; latest if omitted }
+      responses:
+        '200': { description: Inclusion proof + STH, content: { application/json: { schema: { $ref: '#/components/schemas/InclusionResponse' } } } }
+        '404': { $ref: '#/components/responses/Problem' }
+
+  /attestations/{registryId}/status:
+    get:
+      tags: [attestations]
+      operationId: getStatus
+      summary: Status of record (public)
+      security: []
+      parameters: [{ $ref: '#/components/parameters/RegistryId' }]
+      responses:
+        '200': { description: Status, content: { application/json: { schema: { $ref: '#/components/schemas/StatusRecord' } } } }
+        '404': { $ref: '#/components/responses/Problem' }
+
+  /attestations/{registryId}/revoke:
+    post:
+      tags: [attestations]
+      operationId: setStatus
+      summary: Revoke or supersede (tenant-scoped, attributed, anchored)
+      security: [{ numira: [] }]
+      parameters: [{ $ref: '#/components/parameters/RegistryId' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/RevokeRequest' } } }
+      responses:
+        '200': { description: New status record, content: { application/json: { schema: { $ref: '#/components/schemas/StatusRecord' } } } }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+
+  /anchors:
+    post:
+      tags: [checkpoints]
+      operationId: submitCheckpoint
+      summary: Submit an event-chain checkpoint (root + tree_size) → anchored STH
+      security: [{ numira: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CheckpointRequest' } } }
+      responses:
+        '201': { description: Checkpoint anchored, content: { application/json: { schema: { $ref: '#/components/schemas/Checkpoint' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+
+  /anchors/consistency:
+    get:
+      tags: [checkpoints]
+      operationId: getConsistencyProof
+      summary: Consistency proof that tree `to` extends tree `from` (public, offline-verifiable)
+      security: []
+      parameters:
+        - { name: log_id, in: query, required: true, schema: { type: string } }
+        - { name: from, in: query, required: true, schema: { type: integer }, description: earlier tree_size }
+        - { name: to, in: query, required: true, schema: { type: integer }, description: later tree_size }
+      responses:
+        '200': { description: Consistency proof, content: { application/json: { schema: { $ref: '#/components/schemas/ConsistencyResponse' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+
+  /evidence:
+    post:
+      tags: [evidence]
+      operationId: registerEvidence
+      summary: Register a content hash under retention / legal hold (tenant-scoped)
+      security: [{ numira: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/EvidenceRequest' } } }
+      responses:
+        '201': { description: Registered, content: { application/json: { schema: { $ref: '#/components/schemas/Evidence' } } } }
+        '200': { description: Already registered (idempotent on contentHash), content: { application/json: { schema: { $ref: '#/components/schemas/Evidence' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+
+  /evidence/{evidenceId}:
+    get:
+      tags: [evidence]
+      operationId: getEvidence
+      summary: Retention state (public)
+      security: []
+      parameters: [{ $ref: '#/components/parameters/EvidenceId' }]
+      responses:
+        '200': { description: Evidence, content: { application/json: { schema: { $ref: '#/components/schemas/Evidence' } } } }
+        '404': { $ref: '#/components/responses/Problem' }
+    patch:
+      tags: [evidence]
+      operationId: updateRetention
+      summary: Set/lift legal hold or extend retention (never shorten) (tenant-scoped)
+      security: [{ numira: [] }]
+      parameters: [{ $ref: '#/components/parameters/EvidenceId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                legalHold: { type: boolean }
+                extendUntil: { type: string, format: date }
+      responses:
+        '200': { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/Evidence' } } } }
+        '409': { $ref: '#/components/responses/Problem' }
+    delete:
+      tags: [evidence]
+      operationId: deleteEvidence
+      summary: Attempt hard-delete — refused while under retention/hold (attempt is anchored)
+      security: [{ numira: [] }]
+      parameters: [{ $ref: '#/components/parameters/EvidenceId' }]
+      responses:
+        '204': { description: Deleted (retention expired, no hold) }
+        '409': { $ref: '#/components/responses/Problem', description: 'retention_locked — refused + logged/anchored' }
+
+  /verify:
+    get:
+      tags: [verify]
+      operationId: verifyBundle
+      summary: Backing-attestation verification bundle for a passport (public, offline-verifiable)
+      security: []
+      parameters:
+        - { name: subject, in: query, required: true, schema: { type: string, example: 'did:hara:passport:…' } }
+      responses:
+        '200': { description: Verification bundle, content: { application/json: { schema: { $ref: '#/components/schemas/VerifyBundle' } } } }
+        '404': { $ref: '#/components/responses/Problem' }
+
+components:
+  securitySchemes:
+    numira:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Numira-issued JWT carrying the tenant DID (did:hara:tenant:*). Writes are tenant-scoped; proof/status reads are public.
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema: { type: string, format: uuid }
+    RegistryId:
+      name: registryId
+      in: path
+      required: true
+      schema: { type: string, example: 'reg:att:7f3a' }
+    EvidenceId:
+      name: evidenceId
+      in: path
+      required: true
+      schema: { type: string, example: 'ev:9c21' }
+
+  responses:
+    Problem:
+      description: RFC 9457 problem+json
+      content:
+        application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } }
+
+  schemas:
+    Hash:
+      type: string
+      pattern: '^0x[0-9a-fA-F]{64}$'
+      description: 32-byte hex hash (hashes only — never tenant payload)
+    Did: { type: string, example: 'did:hara:report:7f3a9c21-4e88' }
+
+    AttestationRequest:
+      type: object
+      required: [subject, issuer, recordType, contentHash]
+      properties:
+        subject: { $ref: '#/components/schemas/Did' }
+        issuer: { $ref: '#/components/schemas/Did' }
+        recordType: { type: string, enum: [surveyor-report, assay, gate-decision, custody-event, other] }
+        contentHash: { $ref: '#/components/schemas/Hash' }
+        hashAlg: { type: string, enum: [sha256], default: sha256 }
+        issuedAt: { type: string, format: date-time }
+        vcProof: { type: object, additionalProperties: true, description: the VC's own signature (verifiable offline) }
+        links: { type: object, additionalProperties: true, description: 'e.g. { passport: did:hara:passport:… }' }
+
+    Anchor:
+      type: object
+      description: on-chain commitment of the STH root+size
+      properties:
+        chainId: { type: integer, example: 131216 }
+        txHash: { type: string }
+        onChainId: { type: string, description: PQAnchorRegistry anchor id }
+        contract: { type: string, description: Ledger-scoped PQAnchorRegistry instance }
+
+    STH:
+      type: object
+      description: Signed Tree Head — the anchored root a proof resolves against
+      properties:
+        log_id: { type: string }
+        tree_size: { type: integer }
+        root_hash: { $ref: '#/components/schemas/Hash' }
+        timestamp: { type: string, format: date-time }
+        anchor: { $ref: '#/components/schemas/Anchor' }
+
+    InclusionProof:
+      type: object
+      properties:
+        leaf_index: { type: integer }
+        tree_size: { type: integer }
+        audit_path: { type: array, items: { $ref: '#/components/schemas/Hash' } }
+
+    ConsistencyProof:
+      type: object
+      properties:
+        first_size: { type: integer }
+        second_size: { type: integer }
+        consistency_path: { type: array, items: { $ref: '#/components/schemas/Hash' } }
+
+    Attestation:
+      type: object
+      properties:
+        registry_id: { type: string, example: 'reg:att:7f3a' }
+        subject: { $ref: '#/components/schemas/Did' }
+        issuer: { $ref: '#/components/schemas/Did' }
+        recordType: { type: string }
+        status: { type: string, enum: [active, superseded, revoked] }
+        anchored_at: { type: string, format: date-time }
+        log:
+          type: object
+          properties:
+            log_id: { type: string }
+            leaf_index: { type: integer }
+            leaf_hash: { $ref: '#/components/schemas/Hash' }
+        inclusion_proof: { $ref: '#/components/schemas/InclusionProof' }
+        sth: { $ref: '#/components/schemas/STH' }
+
+    InclusionResponse:
+      type: object
+      properties:
+        registry_id: { type: string }
+        inclusion_proof: { $ref: '#/components/schemas/InclusionProof' }
+        sth: { $ref: '#/components/schemas/STH' }
+
+    StatusRecord:
+      type: object
+      properties:
+        registry_id: { type: string }
+        status: { type: string, enum: [active, superseded, revoked] }
+        since: { type: string, format: date-time }
+        reason: { type: string, nullable: true }
+        supersededBy: { type: string, nullable: true }
+        actor: { $ref: '#/components/schemas/Did' }
+        proof: { $ref: '#/components/schemas/InclusionProof' }
+        sth: { $ref: '#/components/schemas/STH' }
+
+    RevokeRequest:
+      type: object
+      required: [action, reason]
+      properties:
+        action: { type: string, enum: [revoke, supersede] }
+        reason: { type: string }
+        supersededBy: { type: string, nullable: true }
+
+    CheckpointRequest:
+      type: object
+      required: [log_id, tree_size, root_hash]
+      properties:
+        log_id: { type: string, example: 'tenant:surveyor-psi:events' }
+        tree_size: { type: integer }
+        root_hash: { $ref: '#/components/schemas/Hash' }
+
+    Checkpoint:
+      type: object
+      properties:
+        checkpoint_id: { type: string }
+        sth: { $ref: '#/components/schemas/STH' }
+
+    ConsistencyResponse:
+      type: object
+      properties:
+        log_id: { type: string }
+        first: { $ref: '#/components/schemas/STH' }
+        second: { $ref: '#/components/schemas/STH' }
+        consistency_path: { type: array, items: { $ref: '#/components/schemas/Hash' } }
+
+    Retention:
+      type: object
+      properties:
+        until: { type: string, format: date }
+        basis: { type: string, example: EUDR-Art38-5yr }
+        legalHold: { type: boolean }
+        deletable: { type: boolean, description: false while under retention/hold }
+
+    EvidenceRequest:
+      type: object
+      required: [contentHash, retention]
+      properties:
+        contentHash: { $ref: '#/components/schemas/Hash' }
+        hashAlg: { type: string, enum: [sha256], default: sha256 }
+        retention:
+          type: object
+          required: [until, basis]
+          properties:
+            until: { type: string, format: date }
+            basis: { type: string }
+            legalHold: { type: boolean, default: false }
+        links: { type: object, additionalProperties: true }
+
+    Evidence:
+      type: object
+      properties:
+        evidence_id: { type: string, example: 'ev:9c21' }
+        contentHash: { $ref: '#/components/schemas/Hash' }
+        anchored: { type: boolean }
+        retention: { $ref: '#/components/schemas/Retention' }
+        sth: { $ref: '#/components/schemas/STH' }
+
+    VerifyBundle:
+      type: object
+      properties:
+        subject: { $ref: '#/components/schemas/Did' }
+        generated_at: { type: string, format: date-time }
+        attestations:
+          type: array
+          items:
+            type: object
+            properties:
+              registry_id: { type: string }
+              recordType: { type: string }
+              status: { type: string, enum: [active, superseded, revoked] }
+              subject: { $ref: '#/components/schemas/Did' }
+              issuer: { $ref: '#/components/schemas/Did' }
+              inclusion_proof: { $ref: '#/components/schemas/InclusionProof' }
+              sth: { $ref: '#/components/schemas/STH' }
+        checkpoints:
+          type: array
+          items:
+            type: object
+            properties:
+              log_id: { type: string }
+              sth: { $ref: '#/components/schemas/STH' }
+        evidence:
+          type: array
+          items: { $ref: '#/components/schemas/Evidence' }
+
+    Problem:
+      type: object
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        code: { type: string }
+        detail: { type: string }
+        instance: { type: string }
+        traceId: { type: string }
